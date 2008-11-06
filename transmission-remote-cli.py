@@ -23,7 +23,6 @@ DEBUG=True
 HOST = 'localhost'
 PORT = 9091
 
-
 from optparse import OptionParser
 parser = OptionParser(usage="Usage: %prog [HOST[:PORT]]")
 (options, args) = parser.parse_args()
@@ -36,111 +35,97 @@ if args:
         HOST = args[0]
 
 
+# error codes
+CONNECTION_ERROR = 1
+JSON_ERROR       = 2
+
 
 # Handle communication with Transmission server.
 import simplejson as json
 import socket
+import httplib
 import time
 
 class TransmissionRequest:
-    def __init__(self, host, port, method=None, tag=None, arguments=None):
-        self.host   = host
-        self.port   = port
-        self.socket = None
+    def __init__(self, host, port, method, tag, arguments=None):
+        self.http_request  = httplib.HTTPConnection(host, port, strict=True)
         self.response_data = ''
+        self.request_data  = ''
         self.last_update   = 0
-        if method and tag:
-            self.set_request_data(method, tag, arguments)
 
-
-    def set_request_data(self, method, tag, arguments=None):
-        # put request data together
         request_data = {'method':method, 'tag':tag}
         if arguments: request_data['arguments'] = arguments
-
-        # convert request data into json format
-        json_request = json.dumps(request_data)
-
-        # create HTTP POST request
-        self.http_request  = "POST /transmission/rpc HTTP/1.0\n"
-        self.http_request += "Content-Length: %d\n\n" % len(json_request)
-        self.http_request += json_request
+        self.request_data = json.dumps(request_data)
 
 
     def send_request(self):
         """Ask for information from server OR submit command."""
 
         try:
-            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.connect((self.host, self.port))
-            self.socket.send(self.http_request)
-            self.socket.setblocking(0)
+            self.http_request.request('POST', '/transmission/rpc', self.request_data)
         except socket.error, msg:
-            self.error = msg[1]
+            quit("Cannot connect: %s" % msg[1], CONNECTION_ERROR)
 
 
     def get_response(self):
         """Get response to previously sent request."""
 
-        if self.socket == None:
+        try:
+            http_response = self.http_request.getresponse()
+        except httplib.ResponseNotReady:
             return {'result': 'no open request'}
 
-        buffer = ''
-        while True:
-            try:
-                buffer = self.socket.recv(8192)
-            except socket.error, msg:
-                return {'result': msg}
+        if http_response.status != 200:
+            quit("HTTP error: %d %s" % (http_response.status, http_response.reason), CONNECTION_ERROR)
 
-            if len(buffer) > 0:
-                self.response_data += buffer
-            else:
-                data = json.loads(self.response_data.split("\r\n\r\n")[1])
-                self.socket = None
-                self.response_data = ''
-                return data
+        data = http_response.read()
+
+        try:
+            data = json.loads(data)
+        except ValueError:
+            quit("Cannot not parse response: %s" % self.response_data, JSON_ERROR)
+
+        self.response_data = ''
+        return data
+
+# End of Class TransmissionRequest
 
 
+# Higher level of data exchange
 class Transmission:
-    STATUS_CHECK_WAIT = 1 << 0 # Waiting in queue to check files
-    STATUS_CHECK      = 1 << 1 # Checking files
-    STATUS_DOWNLOAD   = 1 << 2 # Downloading
-    STATUS_SEED       = 1 << 3 # Seeding
-    STATUS_STOPPED    = 1 << 4 # Torrent is stopped
+    STATUS_CHECK_WAIT = 1 << 0
+    STATUS_CHECK      = 1 << 1
+    STATUS_DOWNLOAD   = 1 << 2
+    STATUS_SEED       = 1 << 3
+    STATUS_STOPPED    = 1 << 4
 
     LIST_FIELDS = [ 'id', 'name', 'status', 'seeders', 'leechers',
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
                     'sizeWhenDone', 'leftUntilDone', 'addedDate',
-                    'announceResponse', 'error', 'errorString' ]
+                    'errorString' ]
 
     def __init__(self, host, port):
-        self.host   = host
-        self.port   = port
-        self.error = None
+        self.host  = host
+        self.port  = port
 
         self.requests = [TransmissionRequest(host, port, 'torrent-get', 7, {'fields': self.LIST_FIELDS}),
                          TransmissionRequest(host, port, 'session-stats', 21),
                          TransmissionRequest(host, port, 'session-get', 22)]
 
-        self.torrents = []
-        self.stats    = dict()
+        self.torrent_cache = []
+        self.status_cache  = dict()
 
-
-        # initial initialization
-        while True:
-            self.update(0)
-            if self.get_error():
-                print self.get_error()
-                exit(1)
-            if len(self.stats) >= 15 and self.torrents:
-                break
+        # make sure there are no undefined values
+        self.update(0) # send request
+        self.update(0) # get response
 
 
 
-    def update(self, delay):
+    def update(self, delay, tag_waiting_for=0):
         """Maintain up-to-date data."""
 
-        torrentlist_update = False
+        tag_waiting_for_occurred = False
+
         for request in self.requests:
             if time.time() - request.last_update >= delay:
                 request.last_update = time.time()
@@ -152,18 +137,21 @@ class Transmission:
 
                 elif response['result'] == 'success':
                     tag = self.parse_response(response)
-                    if tag == 7:
-                        torrentlist_update = True
+                    if tag == tag_waiting_for:
+                        tag_waiting_for_occurred = True
 
-        return torrentlist_update
+        if tag_waiting_for:
+            return tag_waiting_for_occurred
+        else:
+            return None
 
                     
 
     def parse_response(self, response):
         # response is a reply to torrent-get
         if response['tag'] == 7:
-            self.torrents = response['arguments']['torrents']
-            for t in self.torrents:
+            self.torrent_cache = response['arguments']['torrents']
+            for t in self.torrent_cache:
                 try: t['percent_done'] = 1/(float(t['sizeWhenDone']) / float(t['sizeWhenDone']-t['leftUntilDone']))
                 except ZeroDivisionError: t['percent_done'] = 0.0
                 t['current_size'] = t['sizeWhenDone'] - t['leftUntilDone']
@@ -178,11 +166,11 @@ class Transmission:
 
         # response is a reply to session-stats
         elif response['tag'] == 21:
-            self.stats.update(response['arguments']['session-stats'])
+            self.status_cache.update(response['arguments']['session-stats'])
 
         # response is a reply to session-get
         elif response['tag'] == 22:
-            self.stats.update(response['arguments'])
+            self.status_cache.update(response['arguments'])
 
         return response['tag']
 
@@ -190,14 +178,9 @@ class Transmission:
 
 
 
-    def get_error(self):
-        return self.error
-    def get_daemon_stats(self):
-        return self.stats
-
     def get_torrentlist(self, sort_order='name', reverse=False):
-        self.torrents.sort(cmp=lambda x,y: self.my_cmp(x, y, sort_order), reverse=reverse)
-        return self.torrents
+        self.torrent_cache.sort(cmp=lambda x,y: self.my_cmp(x, y, sort_order), reverse=reverse)
+        return self.torrent_cache
 
     def my_cmp(self, x, y, sort_order):
         if isinstance(x[sort_order], int):
@@ -205,113 +188,61 @@ class Transmission:
         else:
             return cmp(x[sort_order].lower(), y[sort_order].lower())
 
+
+    def get_daemon_stats(self):
+        return self.status_cache
+
             
 
 
     def set_upload_limit(self, new_limit):
-        request = TransmissionRequest(self.host, self.port)
-        request.set_request_data('session-set', 1,
-                                 { 'speed-limit-up': int(new_limit),
-                                   'speed-limit-up-enabled': 1 })
+        request = TransmissionRequest(self.host, self.port, 'session-set', 1,
+                                      { 'speed-limit-up': int(new_limit),
+                                        'speed-limit-up-enabled': 1 })
         request.send_request()
+
     def set_download_limit(self, new_limit):
-        request = TransmissionRequest(self.host, self.port)
-        request.set_request_data('session-set', 1,
-                                 { 'speed-limit-down': int(new_limit),
-                                   'speed-limit-down-enabled': 1 })
+        request = TransmissionRequest(self.host, self.port, 'session-set', 1,
+                                      { 'speed-limit-down': int(new_limit),
+                                        'speed-limit-down-enabled': 1 })
         request.send_request()
 
 
     def stop_torrent(self, id):
-        request = TransmissionRequest(self.host, self.port)
-        request.set_request_data('torrent-stop',   1, {'ids': [id]})
+        request = TransmissionRequest(self.host, self.port, 'torrent-stop', 1, {'ids': [id]})
         request.send_request()
         self.wait_for_torrentlist_update()
 
     def start_torrent(self, id):
-        request = TransmissionRequest(self.host, self.port)
-        request.set_request_data('torrent-start',  1, {'ids': [id]})
+        request = TransmissionRequest(self.host, self.port, 'torrent-start', 1, {'ids': [id]})
         request.send_request()
         self.wait_for_torrentlist_update()
 
     def verify_torrent(self, id):
-        request = TransmissionRequest(self.host, self.port)
-        request.set_request_data('torrent-verify', 1, {'ids': [id]})
+        request = TransmissionRequest(self.host, self.port, 'torrent-verify', 1, {'ids': [id]})
         request.send_request()
         self.wait_for_torrentlist_update()
 
     def remove_torrent(self, id):
-        request = TransmissionRequest(self.host, self.port)
-        request.set_request_data('torrent-remove', 1, {'ids': [id]})
+        request = TransmissionRequest(self.host, self.port, 'torrent-remove', 1, {'ids': [id]})
         request.send_request()
         self.wait_for_torrentlist_update()
 
 
     def wait_for_torrentlist_update(self):
-        # if we don't wait twice, the update isn't always up to date
+        # for some reason we need to wait twice
         while True:
-            if self.update(0): break
-            time.sleep(0.1)
+            if self.update(0, 7): break
+            time.sleep(0.01)
         while True:
-            if self.update(0): break
-            time.sleep(0.1)
+            if self.update(0, 7): break
+            time.sleep(0.01)
 
 
-# End of Class Transmission        
+# End of Class Transmission
 
 
 
-def scale_time(seconds, type):
-    if seconds < 0:
-        return ('?', 'unknown')[type=='long']
-    elif seconds < 60:
-        if type == 'long':
-            return "%s second%s" % (seconds, ('', 's')[seconds>1])
-        else:
-            return "%ss" % seconds
-    elif seconds < 3600:
-        minutes = int(seconds / 60)
-        if type == 'long':
-            return "%d minute%s" % (minutes, ('', 's')[minutes>1])
-        else:
-            return "%dm" % minutes
-    elif seconds < 86400:
-        hours = int(seconds / 3600)
-        if type == 'long':
-            return "%d hour%s" % (hours, ('', 's')[hours>1])
-        else:
-            return "%dh" % hours
-    else:
-        days = int(seconds / 86400)
-        if type == 'long':
-            return "%d day%s" % (days, ('', 's')[days>1])
-        else:
-            return "%dd" % days
-
-
-def scale_bytes(bytes):
-    if bytes >= 1073741824:
-        scaled_bytes = round((bytes / 1073741824.0), 2)
-        unit = "G"
-    elif bytes >= 1048576:
-        scaled_bytes = round((bytes / 1048576.0), 1)
-        if scaled_bytes >= 100:
-            scaled_bytes = int(scaled_bytes)
-        unit = "M"
-    elif bytes >= 1024:
-        scaled_bytes = round((bytes / 1024.0), 1)
-        if scaled_bytes >= 10:
-            scaled_bytes = int(scaled_bytes)
-        unit = "K"
-    else:
-        return "%dB" % bytes
-
-    # convert to integer if .0
-    if int(scaled_bytes) == float(scaled_bytes):
-        return "%d%s" % (int(scaled_bytes), unit)
-    else:
-        return "%s%s" % (str(scaled_bytes).rstrip('0'), unit)
-    
     
 
 # User Interface
@@ -339,13 +270,6 @@ class Interface:
 
         os.environ['ESCDELAY'] = '0' # make escape usable
         curses.wrapper(self.run)
-
-
-    def quit(self, msg):
-        curses.nocbreak()
-        curses.endwin()
-        print msg
-        exit(0)
 
 
     def init_screen(self):
@@ -416,16 +340,15 @@ class Interface:
         self.draw_torrentlist()
 
         while True:
-            self.server.update(1)
-            if self.server.get_error():
-                self.quit(self.server.get_error())
-
-            self.torrents = self.server.get_torrentlist(self.sort_order, self.sort_reverse)
-            self.stats    = self.server.get_daemon_stats()
-
-            self.draw_torrentlist()
-            self.draw_title_bar()
-            self.draw_stats()
+            error = self.server.update(1)
+            if error:
+                self.draw_title_bar(error)
+            else:
+                self.torrents = self.server.get_torrentlist(self.sort_order, self.sort_reverse)
+                self.stats    = self.server.get_daemon_stats()
+                self.draw_torrentlist()
+                self.draw_title_bar()
+                self.draw_stats()
 
             self.handle_user_input()
 
@@ -445,7 +368,7 @@ class Interface:
 
         # quit on q or ctrl-c
         elif c == ord('q'):
-            exit(0)
+            quit()
 
 
         # show sort order menu
@@ -576,9 +499,10 @@ class Interface:
         bar_width = int(self.torrent_title_width * info['percent_done'])
         title = info['name'][0:self.torrent_title_width].ljust(self.torrent_title_width, ' ')
 
-        size = " %s" % scale_bytes(info['sizeWhenDone'])
+        size = "%s" % scale_bytes(info['sizeWhenDone'])
         if info['percent_done'] < 1:
-            size = " %s /" % scale_bytes(info['current_size']) + size
+            size = "%s / " % scale_bytes(info['current_size']) + size
+        size = '|' + size
         title = title[:-len(size)] + size
 
         if info['status'] == Transmission.STATUS_SEED:
@@ -702,10 +626,13 @@ class Interface:
 
 
 
-    def draw_title_bar(self):
+    def draw_title_bar(self, error_msg=''):
         self.screen.insstr(0, 0, ' '.center(self.width, ' '), curses.A_REVERSE)
-        self.draw_connection_status()
-        self.draw_quick_help()
+        if error_msg:
+            self.screen.addstr(0, 0, error_msg.encode('utf-8'), curses.A_REVERSE + curses.color_pair(1))
+        else:
+            self.draw_connection_status()
+            self.draw_quick_help()
         
     def draw_connection_status(self):
         status = "Transmission @ %s:%s" % (self.host, self.port)
@@ -858,6 +785,62 @@ class Interface:
             elif c == curses.KEY_END:
                 focus = len(options)
 
+# End of class Interface
+
+
+
+def scale_time(seconds, type):
+    if seconds < 0:
+        return ('?', 'unknown')[type=='long']
+    elif seconds < 60:
+        if type == 'long':
+            return "%s second%s" % (seconds, ('', 's')[seconds>1])
+        else:
+            return "%ss" % seconds
+    elif seconds < 3600:
+        minutes = int(seconds / 60)
+        if type == 'long':
+            return "%d minute%s" % (minutes, ('', 's')[minutes>1])
+        else:
+            return "%dm" % minutes
+    elif seconds < 86400:
+        hours = int(seconds / 3600)
+        if type == 'long':
+            return "%d hour%s" % (hours, ('', 's')[hours>1])
+        else:
+            return "%dh" % hours
+    else:
+        days = int(seconds / 86400)
+        if type == 'long':
+            return "%d day%s" % (days, ('', 's')[days>1])
+        else:
+            return "%dd" % days
+
+
+def scale_bytes(bytes):
+    if bytes >= 1073741824:
+        scaled_bytes = round((bytes / 1073741824.0), 2)
+        unit = "G"
+    elif bytes >= 1048576:
+        scaled_bytes = round((bytes / 1048576.0), 1)
+        if scaled_bytes >= 100:
+            scaled_bytes = int(scaled_bytes)
+        unit = "M"
+    elif bytes >= 1024:
+        scaled_bytes = round((bytes / 1024.0), 1)
+        if scaled_bytes >= 10:
+            scaled_bytes = int(scaled_bytes)
+        unit = "K"
+    else:
+        return "%dB" % bytes
+
+    # convert to integer if .0
+    if int(scaled_bytes) == float(scaled_bytes):
+        return "%d%s" % (int(scaled_bytes), unit)
+    else:
+        return "%s%s" % (str(scaled_bytes).rstrip('0'), unit)
+    
+
 
 def debug(data):
     if DEBUG:
@@ -865,6 +848,20 @@ def debug(data):
         file.write(data.encode('utf-8'))
         file.close
     
+
+import sys
+def quit(msg='', exitcode=0):
+    try:
+        curses.nocbreak()
+        curses.echo()
+        curses.noraw()
+        curses.endwin()
+    except curses.error:
+        pass
+
+    print msg
+    exit(exitcode)
+
 
 ui = Interface(HOST, PORT)
 

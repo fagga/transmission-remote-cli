@@ -20,73 +20,97 @@
 
 DEBUG=True
 
+USERNAME = ''
+PASSWORD = ''
 HOST = 'localhost'
 PORT = 9091
 
 from optparse import OptionParser
-parser = OptionParser(usage="Usage: %prog [HOST[:PORT]]")
-(options, args) = parser.parse_args()
+parser = OptionParser(usage="Usage: %prog [[USERNAME:PASSWORD@]HOST[:PORT]]")
+(options, connection) = parser.parse_args()
 
-if args:
-    if args[0].find(':') >= 0:
-        HOST, PORT = args[0].split(':')
+# parse connection data
+if connection:
+    if connection[0].find('@') >= 0:
+        auth, connection[0] = connection[0].split('@')
+        if auth.find(':') >= 0:
+            USERNAME, PASSWORD = auth.split(':')
+
+    if connection[0].find(':') >= 0:
+        HOST, PORT = connection[0].split(':')
         PORT = int(PORT)
     else:
-        HOST = args[0]
+        HOST = connection[0]
 
 
 # error codes
 CONNECTION_ERROR = 1
 JSON_ERROR       = 2
+AUTH_ERROR       = 3
 
 
 # Handle communication with Transmission server.
-import simplejson as json
-import socket
-import httplib
 import time
+import simplejson as json
+import urllib2
+
 
 class TransmissionRequest:
-    def __init__(self, host, port, method, tag, arguments=None):
-        self.http_request  = httplib.HTTPConnection(host, port, strict=True)
-        self.response_data = ''
-        self.request_data  = ''
+    def __init__(self, host, port, method, tag, arguments=None, username=None, password=None):
+        url = 'http://%s:%d/transmission/rpc' % (host, port)
+        self.open_request  = None
         self.last_update   = 0
+
+        if username and password:
+            authhandler = urllib2.HTTPDigestAuthHandler()
+            authhandler.add_password('Transmission RPC Server', url, username, password)
+            opener = urllib2.build_opener(authhandler)
+            urllib2.install_opener(opener)
 
         request_data = {'method':method, 'tag':tag}
         if arguments: request_data['arguments'] = arguments
-        self.request_data = json.dumps(request_data)
+        self.http_request = urllib2.Request(url=url, data=json.dumps(request_data))
+
 
 
     def send_request(self):
         """Ask for information from server OR submit command."""
 
         try:
-            self.http_request.request('POST', '/transmission/rpc', self.request_data)
-        except socket.error, msg:
-            quit("Cannot connect: %s" % msg[1], CONNECTION_ERROR)
+            self.open_request = urllib2.urlopen(self.http_request)
+        except urllib2.HTTPError, msg:
+            quit(str(msg), CONNECTION_ERROR)
+            
+        except urllib2.URLError, msg:
+            if msg.reason[0] == 4:
+                return
+            else:
+                quit("Cannot connect to %s: %s" % (self.http_request.host, msg.reason[1]), CONNECTION_ERROR)
+
+        except:
+            quit("unexpected error in send_request()!!")
 
 
     def get_response(self):
         """Get response to previously sent request."""
 
-        try:
-            http_response = self.http_request.getresponse()
-        except httplib.ResponseNotReady:
+        if self.open_request == None:
             return {'result': 'no open request'}
 
-        if http_response.status != 200:
-            quit("HTTP error: %d %s" % (http_response.status, http_response.reason), CONNECTION_ERROR)
+        try:
+            response = self.open_request.read()
+        except:
+            quit("unexpected error in get_response()!!")
 
-        data = http_response.read()
 
         try:
-            data = json.loads(data)
+            data = json.loads(response)
         except ValueError:
-            quit("Cannot not parse response: %s" % self.response_data, JSON_ERROR)
+            quit("Cannot not parse response: %s" % response, JSON_ERROR)
 
-        self.response_data = ''
+        self.open_request = None
         return data
+
 
 # End of Class TransmissionRequest
 
@@ -104,13 +128,15 @@ class Transmission:
                     'sizeWhenDone', 'leftUntilDone', 'addedDate',
                     'errorString' ]
 
-    def __init__(self, host, port):
+    def __init__(self, host, port, username, password):
         self.host  = host
         self.port  = port
+        self.username = username
+        self.password = password
 
-        self.requests = [TransmissionRequest(host, port, 'torrent-get', 7, {'fields': self.LIST_FIELDS}),
-                         TransmissionRequest(host, port, 'session-stats', 21),
-                         TransmissionRequest(host, port, 'session-get', 22)]
+        self.requests = [TransmissionRequest(host, port, 'torrent-get', 7, {'fields': self.LIST_FIELDS}, username=username, password=password),
+                         TransmissionRequest(host, port, 'session-stats', 21, username=username, password=password),
+                         TransmissionRequest(host, port, 'session-get', 22, username=username, password=password)]
 
         self.torrent_cache = []
         self.status_cache  = dict()
@@ -253,10 +279,8 @@ import locale
 locale.setlocale(locale.LC_ALL, '')
 
 class Interface:
-    def __init__(self, host, port):
-        self.host = host
-        self.port = port
-        self.server = Transmission(host, port)
+    def __init__(self, server):
+        self.server = server
 
         self.sort_order   = 'name'
         self.sort_reverse = False
@@ -290,6 +314,8 @@ class Interface:
 
 
     def get_screen_size(self):
+        time.sleep(0.1) # prevents curses.error on rapid resizing
+
         curses.endwin()
         self.screen.refresh()
         self.height, self.width = self.screen.getmaxyx()
@@ -635,7 +661,7 @@ class Interface:
             self.draw_quick_help()
         
     def draw_connection_status(self):
-        status = "Transmission @ %s:%s" % (self.host, self.port)
+        status = "Transmission @ %s:%s" % (self.server.host, self.server.port)
         self.screen.addstr(0, 0, status.encode('utf-8'), curses.A_REVERSE)
 
     def draw_quick_help(self):
@@ -863,7 +889,7 @@ def quit(msg='', exitcode=0):
     exit(exitcode)
 
 
-ui = Interface(HOST, PORT)
+ui = Interface(Transmission(HOST, PORT, USERNAME, PASSWORD))
 
 
 

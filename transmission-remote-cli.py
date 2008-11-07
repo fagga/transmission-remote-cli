@@ -125,9 +125,9 @@ class Transmission:
 
     LIST_FIELDS = [ 'id', 'name', 'status', 'seeders', 'leechers',
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
-                    'sizeWhenDone', 'leftUntilDone', 'addedDate',
+                    'sizeWhenDone', 'haveValid', 'haveUnchecked', 'addedDate',
                     'uploadedEver', 'errorString', 'recheckProgress',
-                    'swarmSpeed' ]
+                    'swarmSpeed', 'peersConnected' ]
 
     def __init__(self, host, port, username, password):
         self.host  = host
@@ -179,9 +179,8 @@ class Transmission:
         if response['tag'] == 7:
             self.torrent_cache = response['arguments']['torrents']
             for t in self.torrent_cache:
-                try: t['percent_done'] = 1/(float(t['sizeWhenDone']) / float(t['sizeWhenDone']-t['leftUntilDone']))
+                try: t['percent_done'] = 1/(float(t['sizeWhenDone']) / float(t['haveValid']))
                 except ZeroDivisionError: t['percent_done'] = 0.0
-                t['current_size'] = t['sizeWhenDone'] - t['leftUntilDone']
                 if int(t['seeders'])  < 0: t['seeders']  = 0
                 if int(t['leechers']) < 0: t['leechers'] = 0
                 if float(t['uploadRatio']) == -2.0:
@@ -190,6 +189,7 @@ class Transmission:
                     t['uploadRatio'] = '0.0'
                 else:
                     t['uploadRatio'] = "%.1f" % float(t['uploadRatio'])
+
 
         # response is a reply to session-stats
         elif response['tag'] == 21:
@@ -210,7 +210,7 @@ class Transmission:
         return self.torrent_cache
 
     def my_cmp(self, x, y, sort_order):
-        if isinstance(x[sort_order], int):
+        if isinstance(x[sort_order], (int, long)):
             return cmp(x[sort_order], y[sort_order])
         else:
             return cmp(x[sort_order].lower(), y[sort_order].lower())
@@ -310,6 +310,9 @@ class Interface:
         curses.init_pair(6, curses.COLOR_CYAN,    curses.COLOR_BLACK) # idle progress
         curses.init_pair(7, curses.COLOR_MAGENTA, curses.COLOR_BLACK) # verifying
 
+        curses.init_pair(8, curses.COLOR_WHITE, curses.COLOR_BLACK) # button
+        curses.init_pair(9, curses.COLOR_BLACK, curses.COLOR_WHITE) # focused button
+
         signal.signal(signal.SIGWINCH, lambda y,frame: self.get_screen_size())
         self.get_screen_size()
 
@@ -407,10 +410,13 @@ class Interface:
 
         # show sort order menu
         elif c == ord('s'):
-            options = [('name','Name'), ('addedDate','Age'), ('percent_done','Progress'),
-                       ('seeders','Seeds'), ('leechers','Leeches'), ('sizeWhenDone', 'Size'),
-                       ('reverse','Reverse')]
-            choice = self.dialog_menu('Sort order', options, map(lambda x: x[0]==self.sort_order, options).index(True)+1)
+            options = [('name','_Name'), ('addedDate','_Age'), ('percent_done','_Progress'),
+                       ('seeders','_Seeds'), ('leechers','_Leeches'), ('sizeWhenDone', 'Si_ze'),
+                       ('status','S_tatus'), ('uploadedEver','_Uploaded'),
+                       ('swarmSpeed','S_warm Rate'), ('peersConnected','P_eers'),
+                       ('reverse','_Reverse')]
+            choice = self.dialog_menu('Sort order', options,
+                                      map(lambda x: x[0]==self.sort_order, options).index(True)+1)
             if choice:
                 if choice == 'reverse':
                     self.sort_reverse = not self.sort_reverse
@@ -530,12 +536,17 @@ class Interface:
 
 
     def draw_torrent_title(self, info, focused, ypos):
-        bar_width = int(self.torrent_title_width * info['percent_done'])
+        if info['status'] == Transmission.STATUS_CHECK:
+            percent_done = info['recheckProgress']
+        else:
+            percent_done = info['percent_done']
+
+        bar_width = int(float(self.torrent_title_width) * float(percent_done))
         title = info['name'][0:self.torrent_title_width].ljust(self.torrent_title_width, ' ')
 
         size = "%s" % scale_bytes(info['sizeWhenDone'])
         if info['percent_done'] < 1:
-            size = "%s / " % scale_bytes(info['current_size']) + size
+            size = "%s / " % scale_bytes(info['haveUnchecked']) + size
         size = '|' + size
         title = title[:-len(size)] + size
 
@@ -543,7 +554,8 @@ class Interface:
             color = curses.color_pair(4)
         elif info['status'] == Transmission.STATUS_STOPPED:
             color = curses.color_pair(5) + curses.A_UNDERLINE
-        elif info['status'] == Transmission.STATUS_CHECK:
+        elif info['status'] == Transmission.STATUS_CHECK or \
+                info['status'] == Transmission.STATUS_CHECK_WAIT:
             color = curses.color_pair(7)
         elif info['rateDownload'] == 0:
             color = curses.color_pair(6)
@@ -566,9 +578,10 @@ class Interface:
         parts = ['no status information available']
         if info['status'] == Transmission.STATUS_CHECK or \
                 info['status'] == Transmission.STATUS_CHECK_WAIT:
-            parts[0]  = ('will verify','verifying')[info['status'] == Transmission.STATUS_CHECK]
-            parts[0] += " (%d%%)" % int(float(info['recheckProgress']) * 100)
-            parts[0] = parts[0].ljust(self.torrent_title_width, ' ')
+            if info['status'] == Transmission.STATUS_CHECK_WAIT:
+                parts[0] = 'will verify'
+            else:
+                parts[0] = "verifying (%d%%)" % int(float(info['recheckProgress']) * 100)
 
         elif info['errorString']:
             parts[0] = "Error: " + info['errorString'].ljust(self.torrent_title_width, ' ')
@@ -594,6 +607,9 @@ class Interface:
 
             if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 17:
                 parts.append("%5s swarm rate" % scale_bytes(info['swarmSpeed']))
+
+            if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 20:
+                parts.append("%4s peers connected" % info['peersConnected'])
 
             
         if focused: tags = curses.A_REVERSE + curses.A_BOLD
@@ -736,20 +752,26 @@ class Interface:
         win.notimeout(True)
         win.keypad(True)
 
+        focus_tags   = curses.color_pair(9)
+        unfocus_tags = 0
+
         input = False
         while True:
             win.move(height-2, (width/2)-6)
             if input:
-                win.addstr('Yes', curses.color_pair(2))
-                win.addstr('  ')
-                win.addstr('No', curses.color_pair(5))
+                win.addstr('Y',  focus_tags + curses.A_UNDERLINE)
+                win.addstr('es', focus_tags)
+                win.addstr('    ')
+                win.addstr('N',  curses.A_UNDERLINE)
+                win.addstr('o')
             else:
-                win.addstr('Yes', curses.color_pair(5))
-                win.addstr('  ')
-                win.addstr('No', curses.color_pair(2))
+                win.addstr('Y', curses.A_UNDERLINE)
+                win.addstr('es')
+                win.addstr('    ')
+                win.addstr('N',  focus_tags + curses.A_UNDERLINE)
+                win.addstr('o', focus_tags)
 
             c = win.getch()
-
             if c == ord('y'):
                 return True
             elif c == ord('n'):
@@ -767,8 +789,16 @@ class Interface:
 
 
     def dialog_input_number(self, message, current_value):
-        message += "\nup/down    +/- 100"
-        message += "\nleft/right +/-  10"
+        if current_value < 50:
+            bigstep   = 10
+            smallstep = 1
+        else:
+            bigstep   = 100
+            smallstep = 10
+
+
+        message += "\nup/down    +/- %3d" % bigstep
+        message += "\nleft/right +/- %3d" % smallstep
         height = 4 + message.count("\n")
         width  = max(map(lambda x: len(x), message.split("\n"))) + 4
 
@@ -795,13 +825,13 @@ class Interface:
                 input += chr(c)
 
             elif c == curses.KEY_LEFT:
-                input = str(int(input) - 10)
+                input = str(int(input) - smallstep)
             elif c == curses.KEY_RIGHT:
-                input = str(int(input) + 10)
+                input = str(int(input) + smallstep)
             elif c == curses.KEY_DOWN:
-                input = str(int(input) - 100)
+                input = str(int(input) - bigstep)
             elif c == curses.KEY_UP:
-                input = str(int(input) + 100)
+                input = str(int(input) + bigstep)
             if int(input) < 0: input = '0'
 
 
@@ -815,16 +845,11 @@ class Interface:
         win.keypad(True)
 
         while True:
-            i = 1
-            for option in options:
-                if i == focus:
-                    win.addstr(i,2, option[1].ljust(width-4, ' '), curses.color_pair(5))
-                else:
-                    win.addstr(i,2, option[1].ljust(width-4, ' '))
-                i+=1
-
+            keymap = self.dialog_list_menu_options(win, width, options, focus)
             c = win.getch()
-            if c == 27 or c == curses.KEY_BREAK:
+            if chr(c) in keymap:
+                return options[keymap[chr(c)]][0]
+            elif c == 27 or c == curses.KEY_BREAK:
                 return None
             elif c == ord("\n"):
                 return options[focus-1][0]
@@ -838,6 +863,22 @@ class Interface:
                 focus = 1
             elif c == curses.KEY_END:
                 focus = len(options)
+
+    def dialog_list_menu_options(self, win, width, options, focus):
+        keys = dict()
+        i = 1
+        for option in options:
+            title = option[1].split('_')
+            if i == focus: tag = curses.color_pair(5)
+            else:          tag = 0
+            win.addstr(i,2, title[0], tag)
+            win.addstr(title[1][0], tag + curses.A_UNDERLINE)
+            win.addstr(title[1][1:], tag)
+            win.addstr(''.ljust(width - len(option[1]) - 4, ' '), tag)
+
+            keys[title[1][0].lower()] = i-1
+            i+=1
+        return keys
 
 # End of class Interface
 

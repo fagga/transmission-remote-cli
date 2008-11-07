@@ -847,7 +847,8 @@ class Interface:
         while True:
             keymap = self.dialog_list_menu_options(win, width, options, focus)
             c = win.getch()
-            if chr(c) in keymap:
+            
+            if c > 96 and c < 123 and chr(c) in keymap:
                 return options[keymap[chr(c)]][0]
             elif c == 27 or c == curses.KEY_BREAK:
                 return None

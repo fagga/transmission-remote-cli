@@ -126,7 +126,8 @@ class Transmission:
     LIST_FIELDS = [ 'id', 'name', 'status', 'seeders', 'leechers',
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
                     'sizeWhenDone', 'leftUntilDone', 'addedDate',
-                    'errorString' ]
+                    'uploadedEver', 'errorString', 'recheckProgress',
+                    'swarmSpeed' ]
 
     def __init__(self, host, port, username, password):
         self.host  = host
@@ -316,9 +317,16 @@ class Interface:
     def get_screen_size(self):
         time.sleep(0.1) # prevents curses.error on rapid resizing
 
-        curses.endwin()
-        self.screen.refresh()
-        self.height, self.width = self.screen.getmaxyx()
+        while True:
+            curses.endwin()
+            self.screen.refresh()
+            self.height, self.width = self.screen.getmaxyx()
+            if self.width < 50:
+                self.screen.addstr(0,0, "Terminal too small", curses.A_REVERSE + curses.A_BOLD)
+                time.sleep(0.5)
+            else:
+                break
+
         self.focus = -1
         self.scrollpos = 0
         self.manage_layout()
@@ -383,8 +391,8 @@ class Interface:
         c = self.screen.getch()
         if c == -1: return
 
-        elif c == curses.KEY_RESIZE:
-            self.get_screen_size()
+#        elif c == curses.KEY_RESIZE:
+#            self.get_screen_size()
 
         # reset + redraw
         elif c == 27 or c == curses.KEY_BREAK or c == 12:
@@ -554,31 +562,51 @@ class Interface:
 
 
     def draw_torrent_status(self, info, focused, ypos):
-        status = 'unknown status'
-        if   info['status'] == Transmission.STATUS_CHECK_WAIT: status = 'will verify'
-        elif info['status'] == Transmission.STATUS_CHECK:      status = 'verifying'
+        peers = ''
+        parts = ['no status information available']
+        if info['status'] == Transmission.STATUS_CHECK or \
+                info['status'] == Transmission.STATUS_CHECK_WAIT:
+            parts[0]  = ('will verify','verifying')[info['status'] == Transmission.STATUS_CHECK]
+            parts[0] += " (%d%%)" % int(float(info['recheckProgress']) * 100)
+            parts[0] = parts[0].ljust(self.torrent_title_width, ' ')
 
         elif info['errorString']:
-            line = info['errorString'].ljust(self.torrent_title_width, ' ')
+            parts[0] = "Error: " + info['errorString'].ljust(self.torrent_title_width, ' ')
 
-        elif info['status'] == Transmission.STATUS_SEED:     status = 'seeding'
-        elif info['status'] == Transmission.STATUS_STOPPED:  status = 'paused'
-        elif info['status'] == Transmission.STATUS_DOWNLOAD:
-            status = ('idle','downloading')[info['rateDownload'] > 0]
-        line = status
-
-        if info['percent_done'] < 1:
-            line += " (%s%%)" % int(info['percent_done'] * 100)
-        
-        peers  = "%d seed%s " % (info['seeders'], ('s', '')[info['seeders']==1])
-        peers += "%d leech%s" % (info['leechers'], ('es', '')[info['leechers']==1])
-        line = line + peers.rjust(self.torrent_title_width - len(line), ' ')
-
-        if focused:
-            self.pad.addstr(ypos+1, 0, line, curses.A_REVERSE + curses.A_BOLD)
         else:
-            self.pad.addstr(ypos+1, 0, line)
+            if info['status'] == Transmission.STATUS_SEED:
+                parts[0] = 'seeding'
+            elif info['status'] == Transmission.STATUS_DOWNLOAD:
+                parts[0] = ('idle','downloading')[info['rateDownload'] > 0]
+            elif info['status'] == Transmission.STATUS_STOPPED:
+                parts[0] = 'paused'
+            if info['percent_done'] < 1:
+                parts[0] += " (%d%%)" % int(float(info['percent_done']) * 100)
+            parts[0] = parts[0].ljust(17, ' ')
 
+            # seeds and leeches will be appended right justified later
+            peers  = "%4d seed%s " % (info['seeders'], ('s', ' ')[info['seeders']==1])
+            peers += "%4d leech%s" % (info['leechers'], ('es', '  ')[info['leechers']==1])
+
+            # show additional information if enough room
+            if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 15:
+                parts.append("%5s uploaded" % scale_bytes(info['uploadedEver']))
+
+            if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 17:
+                parts.append("%5s swarm rate" % scale_bytes(info['swarmSpeed']))
+
+            
+        if focused: tags = curses.A_REVERSE + curses.A_BOLD
+        else:       tags = 0
+
+        remaining_space = self.torrent_title_width - sum(map(lambda x: len(x), parts), len(peers))
+        delimiter = ' ' * int(remaining_space / (len(parts)))
+        line = delimiter.join(parts)
+
+        # make sure the peers element is always right justified
+        line += ' ' * int(self.torrent_title_width - len(line) - len(peers)) + peers
+        self.pad.addstr(ypos+1, 0, line, tags)
+        
 
 
 

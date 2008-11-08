@@ -135,9 +135,12 @@ class Transmission:
         self.username = username
         self.password = password
 
-        self.requests = [TransmissionRequest(host, port, 'torrent-get', 7, {'fields': self.LIST_FIELDS}, username=username, password=password),
-                         TransmissionRequest(host, port, 'session-stats', 21, username=username, password=password),
-                         TransmissionRequest(host, port, 'session-get', 22, username=username, password=password)]
+        self.requests = [TransmissionRequest(host, port, 'torrent-get', 7, {'fields': self.LIST_FIELDS},
+                                             username=username, password=password),
+                         TransmissionRequest(host, port, 'session-stats', 21,
+                                             username=username, password=password),
+                         TransmissionRequest(host, port, 'session-get', 22,
+                                             username=username, password=password)]
 
         self.torrent_cache = []
         self.status_cache  = dict()
@@ -205,12 +208,16 @@ class Transmission:
 
 
 
-    def get_torrentlist(self, sort_order='name', reverse=False):
-        self.torrent_cache.sort(cmp=lambda x,y: self.my_cmp(x, y, sort_order), reverse=reverse)
+    def get_torrentlist(self, sort_orders, reverse=False):
+        for sort_order in sort_orders:
+            debug("sorting by %s\n" % sort_order)
+            self.torrent_cache.sort(cmp=lambda x,y: self.my_cmp(x, y, sort_order), reverse=reverse)
+        debug("\n")
+
         return self.torrent_cache
 
     def my_cmp(self, x, y, sort_order):
-        if isinstance(x[sort_order], (int, long)):
+        if isinstance(x[sort_order], (int, long, float)):
             return cmp(x[sort_order], y[sort_order])
         else:
             return cmp(x[sort_order].lower(), y[sort_order].lower())
@@ -283,9 +290,9 @@ class Interface:
     def __init__(self, server):
         self.server = server
 
-        self.sort_order   = 'name'
+        self.sort_orders  = ['name']
         self.sort_reverse = False
-        self.torrents = self.server.get_torrentlist(self.sort_order, self.sort_reverse)
+        self.torrents = self.server.get_torrentlist(self.sort_orders, self.sort_reverse)
         self.stats    = self.server.get_daemon_stats()
 
         self.focus     = -1  # -1: nothing focused; min: 0 (top of list); max: <# of torrents>-1 (bottom of list)
@@ -381,7 +388,7 @@ class Interface:
             if error:
                 self.draw_title_bar(error)
             else:
-                self.torrents = self.server.get_torrentlist(self.sort_order, self.sort_reverse)
+                self.torrents = self.server.get_torrentlist(self.sort_orders, self.sort_reverse)
                 self.stats    = self.server.get_daemon_stats()
                 self.draw_torrentlist()
                 self.draw_title_bar()
@@ -416,15 +423,16 @@ class Interface:
                        ('swarmSpeed','S_warm Rate'), ('peersConnected','P_eers'),
                        ('reverse','_Reverse')]
             choice = self.dialog_menu('Sort order', options,
-                                      map(lambda x: x[0]==self.sort_order, options).index(True)+1)
+                                      map(lambda x: x[0]==self.sort_orders[0], options).index(True)+1)
             if choice:
                 if choice == 'reverse':
                     self.sort_reverse = not self.sort_reverse
                 else:
-                    self.sort_order = choice
-                self.focus = -1
-                self.scrollpos = 0
-
+                    self.sort_orders.append(choice)
+                    while len(self.sort_orders) > 3 or self.sort_orders[0] == choice:
+                        self.sort_orders.pop(0)
+                    if self.sort_orders[-2] == choice:
+                        self.sort_orders.pop()
 
         # movement
         elif c == curses.KEY_UP:
@@ -453,7 +461,7 @@ class Interface:
                 self.server.start_torrent(id)
             else:
                 self.server.stop_torrent(id)
-            self.torrents = self.server.get_torrentlist(self.sort_order, self.sort_reverse)
+            self.torrents = self.server.get_torrentlist(self.sort_orders, self.sort_reverse)
             
         # verify torrent data
         elif c == ord('v'):
@@ -461,7 +469,7 @@ class Interface:
             id = self.torrents[self.focus]['id']
             if self.torrents[self.focus]['status'] != Transmission.STATUS_CHECK:
                 self.server.verify_torrent(id)
-            self.torrents = self.server.get_torrentlist(self.sort_order, self.sort_reverse)
+            self.torrents = self.server.get_torrentlist(self.sort_orders, self.sort_reverse)
 
         # remove torrent
         elif c == ord('r'):
@@ -470,7 +478,7 @@ class Interface:
             name = self.torrents[self.focus]['name'][0:self.width - 15]
             if self.dialog_yesno("Remove %s?" % name.encode('utf8')) == True:
                 self.server.remove_torrent(id)
-            self.torrents = self.server.get_torrentlist(self.sort_order, self.sort_reverse)
+            self.torrents = self.server.get_torrentlist(self.sort_orders, self.sort_reverse)
 
         else: return
 

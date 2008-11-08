@@ -210,10 +210,7 @@ class Transmission:
 
     def get_torrentlist(self, sort_orders, reverse=False):
         for sort_order in sort_orders:
-            debug("sorting by %s\n" % sort_order)
             self.torrent_cache.sort(cmp=lambda x,y: self.my_cmp(x, y, sort_order), reverse=reverse)
-        debug("\n")
-
         return self.torrent_cache
 
     def my_cmp(self, x, y, sort_order):

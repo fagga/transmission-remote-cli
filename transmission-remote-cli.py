@@ -553,7 +553,7 @@ class Interface:
 
         size = "%s" % scale_bytes(info['sizeWhenDone'])
         if info['percent_done'] < 1:
-            size = "%s / " % scale_bytes(info['haveUnchecked']) + size
+            size = "%s / " % scale_bytes(info['haveValid']) + size
         size = '|' + size
         title = title[:-len(size)] + size
 
@@ -591,7 +591,7 @@ class Interface:
                 parts[0] = "verifying (%d%%)" % int(float(info['recheckProgress']) * 100)
 
         elif info['errorString']:
-            parts[0] = "Error: " + info['errorString'].ljust(self.torrent_title_width, ' ')
+            parts[0] = ("Error: " + info['errorString']).ljust(self.torrent_title_width, ' ')
 
         else:
             if info['status'] == Transmission.STATUS_SEED:

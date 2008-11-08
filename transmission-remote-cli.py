@@ -429,10 +429,8 @@ class Interface:
                     self.sort_reverse = not self.sort_reverse
                 else:
                     self.sort_orders.append(choice)
-                    while len(self.sort_orders) > 3 or self.sort_orders[0] == choice:
+                    while len(self.sort_orders) > 2 or self.sort_orders[0] == choice:
                         self.sort_orders.pop(0)
-                    if self.sort_orders[-2] == choice:
-                        self.sort_orders.pop()
 
         # movement
         elif c == curses.KEY_UP:

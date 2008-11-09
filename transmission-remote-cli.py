@@ -123,7 +123,7 @@ class Transmission:
     STATUS_SEED       = 1 << 3
     STATUS_STOPPED    = 1 << 4
 
-    LIST_FIELDS = [ 'id', 'name', 'status', 'seeders', 'leechers',
+    LIST_FIELDS = [ 'id', 'name', 'status', 'seeders', 'leechers', 'desiredAvailable',
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
                     'sizeWhenDone', 'haveValid', 'haveUnchecked', 'addedDate',
                     'uploadedEver', 'errorString', 'recheckProgress',
@@ -551,10 +551,13 @@ class Interface:
         bar_width = int(float(self.torrent_title_width) * float(percent_done))
         title = info['name'][0:self.torrent_title_width].ljust(self.torrent_title_width, ' ')
 
-        size = "%s" % scale_bytes(info['sizeWhenDone'])
+        size = "%5s" % scale_bytes(info['sizeWhenDone'])
+
         if info['percent_done'] < 1:
-            size = "%s / " % scale_bytes(info['haveValid']) + size
-        size = '|' + size
+            available = info['desiredAvailable'] + info['haveValid'] + info['haveUnchecked']
+            size = "%5s / %5s / " % (scale_bytes(info['haveValid']),
+                                        scale_bytes(available)) + size
+        size = '| ' + size
         title = title[:-len(size)] + size
 
         if info['status'] == Transmission.STATUS_SEED:

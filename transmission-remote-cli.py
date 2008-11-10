@@ -302,9 +302,9 @@ class Interface:
 
 
     def init_screen(self):
-        curses.halfdelay(10) # STDIN timeout
-        curses.curs_set(0)   # hide cursor
-        self.screen.keypad(True) # enable special keys
+        curses.halfdelay(10)      # STDIN timeout
+        try: curses.curs_set(0)   # hide cursor
+        except curses.error: pass
 
         curses.init_pair(1, curses.COLOR_BLACK,   curses.COLOR_BLUE)  # download rate
         curses.init_pair(2, curses.COLOR_BLACK,   curses.COLOR_RED)   # upload rate
@@ -391,6 +391,7 @@ class Interface:
                 self.draw_title_bar()
                 self.draw_stats()
 
+            self.screen.move(0,0)
             self.handle_user_input()
 
 

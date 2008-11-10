@@ -439,10 +439,14 @@ class Interface:
             self.scroll_up()
         elif c == curses.KEY_DOWN:
             self.scroll_down()
+        elif c == curses.KEY_PPAGE:
+            self.scroll_page_up()
+        elif c == curses.KEY_NPAGE:
+            self.scroll_page_down()
         elif c == curses.KEY_HOME:
-            self.scroll_home()
+            self.scroll_to_top()
         elif c == curses.KEY_END:
-            self.scroll_end()
+            self.scroll_to_end()
 
 
         # upload/download limits
@@ -472,7 +476,7 @@ class Interface:
             self.torrents = self.server.get_torrentlist(self.sort_orders, self.sort_reverse)
 
         # remove torrent
-        elif c == ord('r'):
+        elif c == ord('r') or c == curses.KEY_DC:
             if self.focus < 0: return
             id = self.torrents[self.focus]['id']
             name = self.torrents[self.focus]['name'][0:self.width - 15]
@@ -555,7 +559,7 @@ class Interface:
         size = "%5s" % scale_bytes(info['sizeWhenDone'])
 
         if info['percent_done'] < 1:
-            available = info['desiredAvailable'] + info['haveValid']
+            available = info['desiredAvailable'] + info['haveValid'] + info['haveUnchecked']
             size = "%5s / %5s / " % (scale_bytes(info['haveValid']),
                                      scale_bytes(available)) + size
         size = '| ' + size
@@ -640,6 +644,7 @@ class Interface:
 
     def scroll_up(self):
         if self.focus < 0:
+            self.focus = -1
             return
         else:
             self.focus -= 1
@@ -657,11 +662,20 @@ class Interface:
             if self.focus+1 - self.scrollpos/3 > self.torrents_per_page:
                 self.scrollpos += 3
 
-    def scroll_home(self):
+    def scroll_page_up(self):
+        for x in range(self.torrents_per_page - 1):
+            self.scroll_up()
+
+    def scroll_page_down(self):
+        if self.focus < 0: self.focus = 0
+        for x in range(self.torrents_per_page - 1):
+            self.scroll_down()
+
+    def scroll_to_top(self):
         self.focus     = 0
         self.scrollpos = 0
 
-    def scroll_end(self):
+    def scroll_to_end(self):
         self.focus     = len(self.torrents)-1
         self.scrollpos = max(0, (len(self.torrents) - self.torrents_per_page) * 3)
 

@@ -554,9 +554,9 @@ class Interface:
         size = "%5s" % scale_bytes(info['sizeWhenDone'])
 
         if info['percent_done'] < 1:
-            available = info['desiredAvailable'] + info['haveValid'] + info['haveUnchecked']
+            available = info['desiredAvailable'] + info['haveValid']
             size = "%5s / %5s / " % (scale_bytes(info['haveValid']),
-                                        scale_bytes(available)) + size
+                                     scale_bytes(available)) + size
         size = '| ' + size
         title = title[:-len(size)] + size
 

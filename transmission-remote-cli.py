@@ -279,6 +279,7 @@ class Interface:
 
         self.sort_orders  = ['name']
         self.sort_reverse = False
+        self.selected = -1  # changes to >-1 when focus >-1 & user hits return
         self.torrents = self.server.get_torrentlist(self.sort_orders, self.sort_reverse)
         self.stats    = self.server.get_daemon_stats()
 
@@ -371,15 +372,21 @@ class Interface:
         self.draw_torrentlist()
 
         while True:
-            error = self.server.update(1)
-            if error:
-                self.draw_title_bar(error)
-            else:
-                self.torrents = self.server.get_torrentlist(self.sort_orders, self.sort_reverse)
-                self.stats    = self.server.get_daemon_stats()
+            # update torrentlist
+            self.server.update(1)
+            self.torrents = self.server.get_torrentlist(self.sort_orders, self.sort_reverse)
+            self.stats    = self.server.get_daemon_stats()
+
+            # display torrentlist
+            if self.selected == -1:
                 self.draw_torrentlist()
-                self.draw_title_bar()
-                self.draw_stats()
+
+            # display some torrent's details
+            else:
+                self.draw_torrentdetails(self.torrents[self.selected]['id'])
+
+            self.draw_title_bar()  # show shortcuts and stuff
+            self.draw_stats()      # show global states
 
             self.screen.move(0,0)
             self.handle_user_input()
@@ -394,17 +401,22 @@ class Interface:
 
         # reset + redraw
         elif c == 27 or c == curses.KEY_BREAK or c == 12:
-            self.focus = -1
+            self.focus = self.selected = -1
             self.scrollpos = 0
-            self.draw_torrentlist()
 
         # quit on q or ctrl-c
         elif c == ord('q'):
-            quit()
+            if self.selected == -1: quit()  # exit
+            else: self.selected = -1        # return to list view
 
+        # select torrent for detailed view
+        elif c == ord("\n") and self.selected == -1:
+            self.screen.clear()
+            self.pad.clear()
+            self.selected = self.focus
 
         # show sort order menu
-        elif c == ord('s'):
+        elif c == ord('s') and self.selected == -1:
             options = [('name','_Name'), ('addedDate','_Age'), ('percent_done','_Progress'),
                        ('seeders','_Seeds'), ('leechers','_Leeches'), ('sizeWhenDone', 'Si_ze'),
                        ('status','S_tatus'), ('uploadedEver','_Uploaded'), ('uploadRatio','Rati_o_'),
@@ -417,26 +429,8 @@ class Interface:
                     self.sort_reverse = not self.sort_reverse
                 else:
                     self.sort_orders.append(choice)
-                    while len(self.sort_orders) > 2 or self.sort_orders[0] == choice:
-                        if len(self.sort_orders) > 1:
-                            self.sort_orders.pop(0)
-                        else:
-                            break
-
-
-        # movement
-        elif c == curses.KEY_UP:
-            self.scroll_up()
-        elif c == curses.KEY_DOWN:
-            self.scroll_down()
-        elif c == curses.KEY_PPAGE:
-            self.scroll_page_up()
-        elif c == curses.KEY_NPAGE:
-            self.scroll_page_down()
-        elif c == curses.KEY_HOME:
-            self.scroll_to_top()
-        elif c == curses.KEY_END:
-            self.scroll_to_end()
+                    while len(self.sort_orders) > 2:
+                        self.sort_orders.pop(0)
 
 
         # upload/download limits
@@ -474,9 +468,22 @@ class Interface:
                 self.server.remove_torrent(id)
             self.torrents = self.server.get_torrentlist(self.sort_orders, self.sort_reverse)
 
+
+        # movement
+        elif self.selected == -1:
+            if c == curses.KEY_UP:       self.scroll_up()
+            elif c == curses.KEY_DOWN:   self.scroll_down()
+            elif c == curses.KEY_PPAGE:  self.scroll_page_up()
+            elif c == curses.KEY_NPAGE:  self.scroll_page_down()
+            elif c == curses.KEY_HOME:   self.scroll_to_top()
+            elif c == curses.KEY_END:    self.scroll_to_end()
+
         else: return
 
-        self.draw_torrentlist()
+        if self.selected == -1:
+            self.draw_torrentlist()
+        else:
+            self.draw_torrentdetails(self.torrents[self.selected]['id'])
 
 
 
@@ -630,6 +637,13 @@ class Interface:
         
 
 
+    def draw_torrentdetails(self, id):
+        self.pad.addstr(0,0, "This will show the details of torrent #" + str(id) + " some day.")
+        self.pad.refresh(0,0, 1,0, self.height-1,self.width)
+        self.screen.refresh()
+
+
+
 
 
     def scroll_up(self):
@@ -724,15 +738,21 @@ class Interface:
         self.screen.addstr(0, 0, status.encode('utf-8'), curses.A_REVERSE)
 
     def draw_quick_help(self):
-        help = "| s Sort | u Upload Limit | d Download Limit | q Quit"
-        if self.focus >= 0:
-            help = "| p Pause/Unpause | r Remove | v Verify " + help
+        help = [('u','Upload Limit'), ('d','Download Limit')]
 
-        if len(help) > self.width:
-            help = help[0:self.width]
+        if self.selected == -1:
+            help  = [('s','Sort')] + help + [('q','Quit')]
+            if self.focus >= 0:
+                help = [('p','Pause/Unpause'), ('r','Remove'), ('v','Verify')] + help
+        else:
+            help += [('q','Back to List')]
 
-        self.screen.insstr(0, self.width-len(help), help, curses.A_REVERSE)
-        
+        # convert help to str
+        line = ' | '.join(map(lambda x: "%s %s" % (x[0], x[1]), help))
+        line = line[0:self.width]
+        self.screen.insstr(0, self.width-len(line), line, curses.A_REVERSE)
+
+
 
 
 

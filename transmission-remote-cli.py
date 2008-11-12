@@ -16,8 +16,6 @@
 ########################################################################
 
 
-
-
 DEBUG=True
 
 USERNAME = ''
@@ -184,15 +182,7 @@ class Transmission:
             for t in self.torrent_cache:
                 try: t['percent_done'] = 1/(float(t['sizeWhenDone']) / float(t['haveValid']))
                 except ZeroDivisionError: t['percent_done'] = 0.0
-                if int(t['seeders'])  < 0: t['seeders']  = 0
-                if int(t['leechers']) < 0: t['leechers'] = 0
-                if float(t['uploadRatio']) == -2.0:
-                    t['uploadRatio'] = 'oo'
-                elif float(t['uploadRatio']) == -1.0:
-                    t['uploadRatio'] = '0.0'
-                else:
-                    t['uploadRatio'] = "%.1f" % float(t['uploadRatio'])
-
+                t['uploadRatio'] = round(float(t['uploadRatio']), 1)
 
         # response is a reply to session-stats
         elif response['tag'] == 21:
@@ -366,7 +356,7 @@ class Interface:
 
     def get_rateUpload_width(self, torrents):
         new_width = max(map(lambda x: len(scale_bytes(x['rateUpload'])), torrents))
-        new_width = max(max(map(lambda x: len(x['uploadRatio']), torrents)), new_width)
+        new_width = max(max(map(lambda x: len(num2str(x['uploadRatio'])), torrents)), new_width)
         new_width = max(len(scale_bytes(self.stats['uploadSpeed'])), new_width)
         new_width = max(self.rateUpload_width, new_width) # don't shrink
         return new_width
@@ -417,7 +407,7 @@ class Interface:
         elif c == ord('s'):
             options = [('name','_Name'), ('addedDate','_Age'), ('percent_done','_Progress'),
                        ('seeders','_Seeds'), ('leechers','_Leeches'), ('sizeWhenDone', 'Si_ze'),
-                       ('status','S_tatus'), ('uploadedEver','_Uploaded'),
+                       ('status','S_tatus'), ('uploadedEver','_Uploaded'), ('uploadRatio','Rati_o_'),
                        ('swarmSpeed','S_warm Rate'), ('peersConnected','P_eers'),
                        ('reverse','_Reverse')]
             choice = self.dialog_menu('Sort order', options,
@@ -537,7 +527,7 @@ class Interface:
     def draw_ratio(self, info, ypos):
         self.pad.addstr(ypos+1, self.width-self.rateUpload_width-1, "R")
         self.pad.addstr(ypos+1, self.width-self.rateUpload_width,
-                       "%s" % info['uploadRatio'].rjust(self.rateUpload_width, ' '),
+                       "%s" % num2str(info['uploadRatio']).rjust(self.rateUpload_width, ' '),
                        curses.color_pair(5) + curses.A_BOLD + curses.A_REVERSE)
 
     def draw_eta(self, info, ypos):
@@ -613,8 +603,8 @@ class Interface:
             parts[0] = parts[0].ljust(17, ' ')
 
             # seeds and leeches will be appended right justified later
-            peers  = "%4d seed%s " % (info['seeders'], ('s', ' ')[info['seeders']==1])
-            peers += "%4d leech%s" % (info['leechers'], ('es', '  ')[info['leechers']==1])
+            peers  = "%4s seed%s " % (num2str(info['seeders']), ('s', ' ')[info['seeders']==1])
+            peers += "%4s leech%s" % (num2str(info['leechers']), ('es', '  ')[info['leechers']==1])
 
             # show additional information if enough room
             if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 15:
@@ -961,6 +951,14 @@ def scale_bytes(bytes):
     else:
         return "%s%s" % (str(scaled_bytes).rstrip('0'), unit)
     
+
+def num2str(num):
+    if int(num) == -1:
+        return '?'
+    elif int(num) == -2:
+        return 'oo'
+    else:
+        return str(num)
 
 
 def debug(data):

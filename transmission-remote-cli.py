@@ -59,12 +59,6 @@ class TransmissionRequest:
         self.open_request  = None
         self.last_update   = 0
 
-        if username and password:
-            authhandler = urllib2.HTTPDigestAuthHandler()
-            authhandler.add_password('Transmission RPC Server', url, username, password)
-            opener = urllib2.build_opener(authhandler)
-            urllib2.install_opener(opener)
-
         request_data = {'method':method, 'tag':tag}
         if arguments: request_data['arguments'] = arguments
         self.http_request = urllib2.Request(url=url, data=json.dumps(request_data))
@@ -86,7 +80,7 @@ class TransmissionRequest:
                 quit("Cannot connect to %s: %s" % (self.http_request.host, msg.reason[1]), CONNECTION_ERROR)
 
         except:
-            quit("unexpected error in send_request()!!")
+            quit("unexpected error in send_request() - report how you did this")
 
 
     def get_response(self):
@@ -98,7 +92,7 @@ class TransmissionRequest:
         try:
             response = self.open_request.read()
         except:
-            quit("unexpected error in get_response()!!")
+            quit("unexpected error in get_response() - report how you did this")
 
 
         try:
@@ -127,18 +121,24 @@ class Transmission:
                     'uploadedEver', 'errorString', 'recheckProgress',
                     'swarmSpeed', 'peersConnected' ]
 
+    DETAIL_FIELDS = [ 'files', 'peers', 'trackers' ] + LIST_FIELDS
+
     def __init__(self, host, port, username, password):
         self.host  = host
         self.port  = port
         self.username = username
         self.password = password
 
-        self.requests = [TransmissionRequest(host, port, 'torrent-get', 7, {'fields': self.LIST_FIELDS},
-                                             username=username, password=password),
-                         TransmissionRequest(host, port, 'session-stats', 21,
-                                             username=username, password=password),
-                         TransmissionRequest(host, port, 'session-get', 22,
-                                             username=username, password=password)]
+        if username and password:
+            url = 'http://%s:%d/transmission/rpc' % (host, port)
+            authhandler = urllib2.HTTPDigestAuthHandler()
+            authhandler.add_password('Transmission RPC Server', url, username, password)
+            opener = urllib2.build_opener(authhandler)
+            urllib2.install_opener(opener)
+
+        self.requests = [TransmissionRequest(host, port, 'torrent-get', 7, {'fields': self.LIST_FIELDS}),
+                         TransmissionRequest(host, port, 'session-stats', 21),
+                         TransmissionRequest(host, port, 'session-get', 22)]
 
         self.torrent_cache = []
         self.status_cache  = dict()
@@ -180,9 +180,8 @@ class Transmission:
         if response['tag'] == 7:
             self.torrent_cache = response['arguments']['torrents']
             for t in self.torrent_cache:
-                try: t['percent_done'] = 1/(float(t['sizeWhenDone']) / float(t['haveValid']))
-                except ZeroDivisionError: t['percent_done'] = 0.0
                 t['uploadRatio'] = round(float(t['uploadRatio']), 1)
+                t['percent_done'] = percent(float(t['sizeWhenDone']), float(t['haveValid']))
 
         # response is a reply to session-stats
         elif response['tag'] == 21:
@@ -210,7 +209,23 @@ class Transmission:
             return cmp(x[sort_order].lower(), y[sort_order].lower())
 
 
-    def get_daemon_stats(self):
+    def get_torrentdetails(self, id):
+        request = TransmissionRequest(self.host, self.port, 'torrent-get', 7, {'ids':id, 'fields': self.DETAIL_FIELDS})
+        request.send_request()
+        response = request.get_response()
+
+        if response['result'] != 'success':
+            quit(str(response['result']), CONNECTION_ERROR)
+
+        else:
+            t = response['arguments']['torrents'][0]
+            t['percent_done'] = percent(float(t['sizeWhenDone']), float(t['haveValid']))
+            t['uploadRatio'] = round(float(t['uploadRatio']), 1)
+            return t
+
+
+
+    def get_global_stats(self):
         return self.status_cache
 
             
@@ -281,7 +296,7 @@ class Interface:
         self.sort_reverse = False
         self.selected = -1  # changes to >-1 when focus >-1 & user hits return
         self.torrents = self.server.get_torrentlist(self.sort_orders, self.sort_reverse)
-        self.stats    = self.server.get_daemon_stats()
+        self.stats    = self.server.get_global_stats()
 
         self.focus     = -1  # -1: nothing focused; min: 0 (top of list); max: <# of torrents>-1 (bottom of list)
         self.scrollpos = 0   # start of torrentlist
@@ -375,7 +390,9 @@ class Interface:
             # update torrentlist
             self.server.update(1)
             self.torrents = self.server.get_torrentlist(self.sort_orders, self.sort_reverse)
-            self.stats    = self.server.get_daemon_stats()
+            self.stats    = self.server.get_global_stats()
+
+            self.manage_layout()
 
             # display torrentlist
             if self.selected == -1:
@@ -401,8 +418,11 @@ class Interface:
 
         # reset + redraw
         elif c == 27 or c == curses.KEY_BREAK or c == 12:
-            self.focus = self.selected = -1
-            self.scrollpos = 0
+            if self.selected > -1:
+                self.selected = -1
+            else:
+                self.scrollpos = 0
+                self.focus     = -1
 
         # quit on q or ctrl-c
         elif c == ord('q'):
@@ -410,7 +430,7 @@ class Interface:
             else: self.selected = -1        # return to list view
 
         # select torrent for detailed view
-        elif c == ord("\n") and self.selected == -1:
+        elif c == ord("\n") and self.focus > -1 and self.selected == -1:
             self.screen.clear()
             self.pad.clear()
             self.selected = self.focus
@@ -489,18 +509,16 @@ class Interface:
 
 
     def draw_torrentlist(self):
-        self.manage_layout() # length of torrentlist may have changed
-
         ypos = 0
         for i in range(len(self.torrents)):
-            self.draw_torrentitem(self.torrents[i], (i == self.focus), ypos, 0)
+            self.draw_torrentitem(self.torrents[i], (i == self.focus), ypos)
             ypos += 3
 
         self.pad.refresh(self.scrollpos,0, 1,0, self.torrentlist_height,self.width-1)
         self.screen.refresh()
 
 
-    def draw_torrentitem(self, info, focused, y, x):
+    def draw_torrentitem(self, info, focused, y):
         # the torrent name is also a progress bar
         self.draw_torrent_title(info, focused, y)
 
@@ -556,9 +574,11 @@ class Interface:
         size = "%5s" % scale_bytes(info['sizeWhenDone'])
 
         if info['percent_done'] < 1:
-            available = info['desiredAvailable'] + info['haveValid'] + info['haveUnchecked']
-            size = "%5s / %5s / " % (scale_bytes(info['haveValid']),
-                                     scale_bytes(available)) + size
+            if info['seeders'] <= 0:
+                available = info['desiredAvailable'] + info['haveValid']
+                size = "%5s / " % scale_bytes(info['desiredAvailable'] + info['haveValid']) + size
+            size = "%5s / " % scale_bytes(info['haveValid']) + size
+
         size = '| ' + size
         title = title[:-len(size)] + size
 
@@ -637,11 +657,14 @@ class Interface:
         
 
 
+
     def draw_torrentdetails(self, id):
-        self.pad.addstr(0,0, "This will show the details of torrent #" + str(id) + " some day.")
+        torrent = self.server.get_torrentdetails(id)
+#        debug(repr(torrent) + "\n\n")
+        self.draw_torrentitem(torrent, False, 0)
+
         self.pad.refresh(0,0, 1,0, self.height-1,self.width)
         self.screen.refresh()
-
 
 
 
@@ -692,7 +715,7 @@ class Interface:
     def draw_stats(self):
         self.screen.insstr((self.height-1), 0, ' '.center(self.width, ' '), curses.A_REVERSE)
         self.draw_torrent_stats()
-        self.draw_transmission_stats()
+        self.draw_global_rates()
 
 
     def draw_torrent_stats(self):
@@ -709,7 +732,7 @@ class Interface:
         self.screen.addstr((self.height-1), 0, torrents, curses.A_REVERSE)
 
 
-    def draw_transmission_stats(self):
+    def draw_global_rates(self):
         rates_width = self.rateDownload_width + self.rateUpload_width + 3
         self.screen.move((self.height-1), self.width-rates_width)
 
@@ -918,6 +941,12 @@ class Interface:
 
 # End of class Interface
 
+
+
+def percent(full, part):
+    try: percent = 1/(float(full) / float(part))
+    except ZeroDivisionError: percent = 0.0
+    return percent
 
 
 def scale_time(seconds, type):

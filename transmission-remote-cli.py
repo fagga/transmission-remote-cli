@@ -443,7 +443,7 @@ class Interface:
                        ('swarmSpeed','S_warm Rate'), ('peersConnected','P_eers'),
                        ('reverse','_Reverse')]
             choice = self.dialog_menu('Sort order', options,
-                                      map(lambda x: x[0]==self.sort_orders[0], options).index(True)+1)
+                                      map(lambda x: x[0]==self.sort_orders[-1], options).index(True)+1)
             if choice:
                 if choice == 'reverse':
                     self.sort_reverse = not self.sort_reverse

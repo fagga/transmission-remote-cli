@@ -121,7 +121,7 @@ class Transmission:
                     'uploadedEver', 'errorString', 'recheckProgress',
                     'swarmSpeed', 'peersConnected' ]
 
-    DETAIL_FIELDS = [ 'files', 'peers', 'trackers' ] + LIST_FIELDS
+    DETAIL_FIELDS = [ 'files', 'priorities', 'peers', 'trackers' ] + LIST_FIELDS
 
     def __init__(self, host, port, username, password):
         self.host  = host
@@ -142,6 +142,9 @@ class Transmission:
 
         self.torrent_cache = []
         self.status_cache  = dict()
+        self.torrent_details_request = None
+        self.torrent_details_update  = 0
+        self.torrent_details_cache   = {}
 
         # make sure there are no undefined values
         self.update(0) # send request
@@ -195,7 +198,8 @@ class Transmission:
 
 
 
-
+    def get_global_stats(self):
+        return self.status_cache
 
     def get_torrent_list(self, sort_orders, reverse=False):
         for sort_order in sort_orders:
@@ -208,30 +212,38 @@ class Transmission:
         else:
             return cmp(x[sort_order].lower(), y[sort_order].lower())
 
+    def get_torrent_details(self, id, delay=0.5):
+        if time.time() - self.torrent_details_update < delay:
+            return self.torrent_details_cache
+        self.torrent_details_update = time.time()
 
-    def get_torrent_details(self, id):
-        request = TransmissionRequest(self.host, self.port, 'torrent-get', 7, {'ids':id, 'fields': self.DETAIL_FIELDS})
-        request.send_request()
-        response = request.get_response()
-        while response['result'] == 'no open request':
-            response = request.get_response()
-            
 
-        if response['result'] != 'success':
-            quit(str(response['result']), CONNECTION_ERROR)
+        start = time.time()
+
+        if self.torrent_details_request == None:
+            self.torrent_details_request = TransmissionRequest(self.host, self.port,
+                                                               'torrent-get', 77,
+                                                               {'ids':id,
+                                                                'fields': self.DETAIL_FIELDS})
+            self.torrent_details_request.send_request()
+
+            if len(self.torrent_details_cache) <= 0:
+                while True:
+                    details = self.get_torrent_details(id, 0)
+                    if details:
+                        return details
 
         else:
-            t = response['arguments']['torrents'][0]
-            t['percent_done'] = percent(float(t['sizeWhenDone']), float(t['haveValid']))
-            t['uploadRatio']  = round(float(t['uploadRatio']), 1)
-            return t
+            response = self.torrent_details_request.get_response()
+            if response['result'] == 'success':
+                self.torrent_details_request = None
+                t = response['arguments']['torrents'][0]
+                t['percent_done'] = percent(float(t['sizeWhenDone']), float(t['haveValid']))
+                t['uploadRatio']  = round(float(t['uploadRatio']), 1)
+                self.torrent_details_cache = t
+        return self.torrent_details_cache
 
 
-
-    def get_global_stats(self):
-        return self.status_cache
-
-            
 
 
     def set_upload_limit(self, new_limit):
@@ -306,6 +318,8 @@ class Interface:
         self.torrents_per_page  = 0
         self.rateDownload_width = self.rateUpload_width = 0
 
+        self.details_focus = 0;
+
         os.environ['ESCDELAY'] = '0' # make escape usable
         curses.wrapper(self.run)
 
@@ -365,7 +379,6 @@ class Interface:
         else:
             self.torrent_title_width = 80
 
-
     def get_rateDownload_width(self, torrents):
         new_width = max(map(lambda x: len(scale_bytes(x['rateDownload'])), torrents))
         new_width = max(max(map(lambda x: len(scale_time(x['eta'], 'short')), torrents)), new_width)
@@ -403,7 +416,7 @@ class Interface:
 
             # display some torrent's details
             else:
-                self.draw_torrent_details(self.torrents[self.selected]['id'])
+                self.draw_details(self.torrents[self.selected]['id'])
 
             self.draw_title_bar()  # show shortcuts and stuff
             self.draw_stats()      # show global states
@@ -492,21 +505,27 @@ class Interface:
 #            self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
 
 
-        # movement
+        # movement (torrent list)
         elif self.selected == -1:
-            if c == curses.KEY_UP:       self.scroll_up()
-            elif c == curses.KEY_DOWN:   self.scroll_down()
-            elif c == curses.KEY_PPAGE:  self.scroll_page_up()
-            elif c == curses.KEY_NPAGE:  self.scroll_page_down()
-            elif c == curses.KEY_HOME:   self.scroll_to_top()
-            elif c == curses.KEY_END:    self.scroll_to_end()
+            if c == curses.KEY_UP:      self.scroll_up()
+            elif c == curses.KEY_DOWN:  self.scroll_down()
+            elif c == curses.KEY_PPAGE: self.scroll_page_up()
+            elif c == curses.KEY_NPAGE: self.scroll_page_down()
+            elif c == curses.KEY_HOME:  self.scroll_to_top()
+            elif c == curses.KEY_END:   self.scroll_to_end()
 
-        else: return
+        # movement (torrent details)
+        elif self.selected > -1:
+            if c == curses.KEY_RIGHT:  self.next_details()
+            elif c == curses.KEY_LEFT: self.prev_details()
+
+
+        else: return # don't recognize key
 
         if self.selected == -1:
             self.draw_torrent_list()
         else:
-            self.draw_torrent_details(self.torrents[self.selected]['id'])
+            self.draw_details(self.torrents[self.selected]['id'])
 
 
 
@@ -514,16 +533,16 @@ class Interface:
     def draw_torrent_list(self):
         ypos = 0
         for i in range(len(self.torrents)):
-            self.draw_torrent_item(self.torrents[i], (i == self.focus), ypos)
+            self.draw_torrentlist_item(self.torrents[i], (i == self.focus), ypos)
             ypos += 3
 
         self.pad.refresh(self.scrollpos,0, 1,0, self.torrentlist_height,self.width-1)
         self.screen.refresh()
 
 
-    def draw_torrent_item(self, torrent, focused, y):
+    def draw_torrentlist_item(self, torrent, focused, y):
         # the torrent name is also a progress bar
-        self.draw_torrent_title(torrent, focused, y)
+        self.draw_torrentlist_title(torrent, focused, y)
 
         rates = ''
         if torrent['status'] == Transmission.STATUS_DOWNLOAD:
@@ -536,7 +555,7 @@ class Interface:
         self.draw_ratio(torrent, y)
 
         # the line below the title/progress
-        self.draw_torrent_status(torrent, focused, y)
+        self.draw_torrentlist_status(torrent, focused, y)
 
 
 
@@ -565,7 +584,7 @@ class Interface:
                         curses.color_pair(5) + curses.A_BOLD + curses.A_REVERSE)
 
 
-    def draw_torrent_title(self, torrent, focused, ypos):
+    def draw_torrentlist_title(self, torrent, focused, ypos):
         if torrent['status'] == Transmission.STATUS_CHECK:
             percent_done = torrent['recheckProgress']
         else:
@@ -608,7 +627,7 @@ class Interface:
             self.pad.addstr(ypos, bar_width, title[bar_width:], curses.A_REVERSE)
 
 
-    def draw_torrent_status(self, torrent, focused, ypos):
+    def draw_torrentlist_status(self, torrent, focused, ypos):
         peers = ''
         parts = ['no status information available']
         if torrent['status'] == Transmission.STATUS_CHECK or \
@@ -640,7 +659,7 @@ class Interface:
             if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 15:
                 parts.append("%5s uploaded" % scale_bytes(torrent['uploadedEver']))
 
-            if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 17:
+            if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 18:
                 parts.append("%5s swarm rate" % scale_bytes(torrent['swarmSpeed']))
 
             if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 20:
@@ -661,27 +680,78 @@ class Interface:
 
 
 
-    def draw_torrent_details(self, id):
+    def draw_details(self, id):
         torrent = self.server.get_torrent_details(id)
-#        debug(repr(torrent) + "\n\n")
-        self.draw_torrent_item(torrent, False, 0)
+#        debug(repr(torrent) + "\n\n\n")
 
-        self.pad.hline(2, 0, curses.ACS_HLINE, self.width)
+        self.draw_torrentlist_item(torrent, False, 0)
 
-        self.draw_torrent_filelist(torrent, 3)
+        # divider + menu
+        self.pad.addstr(2, 0, ' '.center(self.width, ' '), curses.A_REVERSE)
 
-        self.pad.refresh(0,0, 1,0, self.height-1,self.width)
+        menu_items = ['Files', 'Peers', 'Tracker', 'Webseeds']
+        xpos = 0
+        for item in menu_items:
+            self.pad.move(2, xpos)
+            xpos += 10
+            if menu_items.index(item) == self.details_focus:
+                tags = curses.A_REVERSE + curses.A_BOLD
+            else:
+                tags = curses.A_REVERSE
+            self.pad.addstr(item[0], curses.A_UNDERLINE + tags)
+            self.pad.addstr(item[1:], tags)
+
+
+        self.draw_filelist(torrent, 3)
+
+        self.pad.refresh(0,0, 1,0, self.height-2,self.width)
         self.screen.refresh()
 
+    def draw_filelist(self, torrent, ypos):
+        # draw column names
+        column_names = 'Progress  Priority  Filename'
+        self.pad.addstr(ypos, 0, column_names.ljust(self.width, ' '), curses.A_UNDERLINE)
 
-
-    def draw_torrent_filelist(self, torrent, ypos):
+        ypos += 1
         for file in torrent['files']:
-            done = percent(file['length'], file['bytesCompleted'])
+            index = torrent['files'].index(file)
 
-            self.pad.move(ypos, 0)
-            self.pad.addstr("%3d%% %s" % (done*100, file['name']))
+            self.draw_filelist_percent(file, ypos)
+            self.draw_filelist_priority(torrent, index, ypos)
+            self.draw_filelist_filename(file, ypos)
             ypos += 1
+
+    def draw_filelist_percent(self, file, ypos):
+        done = str(int(percent(file['length'], file['bytesCompleted']))) + '%'
+        self.pad.move(ypos, 0)
+        self.pad.addstr("%s" % done.center(8, ' '))
+        
+    def draw_filelist_priority(self, torrent, index, ypos):
+        priority = torrent['priorities'][index]
+        if   priority == -1: priority = 'low'
+        elif priority == 0:  priority = 'normal'
+        elif priority == 1:  priority = 'high'
+        self.pad.move(ypos, 9)
+        self.pad.addstr("%s" % priority.center(9, ' '))
+
+    def draw_filelist_filename(self, file, ypos):
+        name = file['name'][0:self.width-20]
+        self.pad.move(ypos, 20)
+        self.pad.addstr("%s" % name)
+
+    def next_details(self):
+        if self.details_focus >= 3:
+            self.details_focus = 0
+        else:
+            self.details_focus += 1
+
+    def prev_details(self):
+        if self.details_focus <= 0:
+            self.details_focus = 3
+        else:
+            self.details_focus -= 1
+        
+
 
 
 
@@ -727,14 +797,13 @@ class Interface:
 
 
 
-
     def draw_stats(self):
         self.screen.insstr((self.height-1), 0, ' '.center(self.width, ' '), curses.A_REVERSE)
-        self.draw_torrent_stats()
+        self.draw_torrents_stats()
         self.draw_global_rates()
 
 
-    def draw_torrent_stats(self):
+    def draw_torrents_stats(self):
         torrents = "%d Torrents: " % self.stats['torrentCount']
 
         downloading_torrents = filter(lambda x: x['status']==Transmission.STATUS_DOWNLOAD, self.torrents)

@@ -54,34 +54,32 @@ import urllib2
 
 
 class TransmissionRequest:
-    def __init__(self, host, port, method, tag, arguments=None, username=None, password=None):
-        url = 'http://%s:%d/transmission/rpc' % (host, port)
+    def __init__(self, host, port, method=None, tag=None, arguments=None):
+        self.url = 'http://%s:%d/transmission/rpc' % (host, port)
         self.open_request  = None
         self.last_update   = 0
+        if method and tag:
+            self.set_request_data(method, tag, arguments)
 
+    def set_request_data(self, method, tag, arguments=None):
         request_data = {'method':method, 'tag':tag}
         if arguments: request_data['arguments'] = arguments
-        self.http_request = urllib2.Request(url=url, data=json.dumps(request_data))
-
-
+        self.http_request = urllib2.Request(url=self.url, data=json.dumps(request_data))
 
     def send_request(self):
         """Ask for information from server OR submit command."""
 
         try:
             self.open_request = urllib2.urlopen(self.http_request)
+        except AttributeError:
+            return
         except urllib2.HTTPError, msg:
             quit(str(msg), CONNECTION_ERROR)
-            
         except urllib2.URLError, msg:
             if msg.reason[0] == 4:
                 return
             else:
                 quit("Cannot connect to %s: %s" % (self.http_request.host, msg.reason[1]), CONNECTION_ERROR)
-
-        except:
-            quit("unexpected error in send_request() - report how you did this")
-
 
     def get_response(self):
         """Get response to previously sent request."""
@@ -89,17 +87,11 @@ class TransmissionRequest:
         if self.open_request == None:
             return {'result': 'no open request'}
 
-        try:
-            response = self.open_request.read()
-        except:
-            quit("unexpected error in get_response() - report how you did this")
-
-
+        response = self.open_request.read()
         try:
             data = json.loads(response)
         except ValueError:
             quit("Cannot not parse response: %s" % response, JSON_ERROR)
-
         self.open_request = None
         return data
 
@@ -136,15 +128,19 @@ class Transmission:
             opener = urllib2.build_opener(authhandler)
             urllib2.install_opener(opener)
 
-        self.requests = [TransmissionRequest(host, port, 'torrent-get', 7, {'fields': self.LIST_FIELDS}),
-                         TransmissionRequest(host, port, 'session-stats', 21),
-                         TransmissionRequest(host, port, 'session-get', 22)]
+        self.requests = {'torrent-list':
+                             TransmissionRequest(host, port, 'torrent-get', 7, {'fields': self.LIST_FIELDS}),
+                         'session-stats':
+                             TransmissionRequest(host, port, 'session-stats', 21),
+                         'session-get':
+                             TransmissionRequest(host, port, 'session-get', 22),
+                         'torrent-details':
+                             TransmissionRequest(host, port)}
+
 
         self.torrent_cache = []
         self.status_cache  = dict()
-        self.torrent_details_request = None
-        self.torrent_details_update  = 0
-        self.torrent_details_cache   = {}
+        self.torrent_details_cache = dict()
 
         # make sure there are no undefined values
         self.update(0) # send request
@@ -157,7 +153,7 @@ class Transmission:
 
         tag_waiting_for_occurred = False
 
-        for request in self.requests:
+        for request in self.requests.values():
             if time.time() - request.last_update >= delay:
                 request.last_update = time.time()
 
@@ -180,11 +176,15 @@ class Transmission:
 
     def parse_response(self, response):
         # response is a reply to torrent-get
-        if response['tag'] == 7:
-            self.torrent_cache = response['arguments']['torrents']
-            for t in self.torrent_cache:
+        if response['tag'] == 7 or response['tag'] == 77:
+            for t in response['arguments']['torrents']:
                 t['uploadRatio'] = round(float(t['uploadRatio']), 1)
                 t['percent_done'] = percent(float(t['sizeWhenDone']), float(t['haveValid']))
+
+            if response['tag'] == 7:
+                self.torrent_cache = response['arguments']['torrents']
+            elif response['tag'] == 77:
+                self.torrent_details_cache = response['arguments']['torrents'][0]
 
         # response is a reply to session-stats
         elif response['tag'] == 21:
@@ -201,6 +201,9 @@ class Transmission:
     def get_global_stats(self):
         return self.status_cache
 
+    def get_torrent_details(self):
+        return self.torrent_details_cache
+
     def get_torrent_list(self, sort_orders, reverse=False):
         for sort_order in sort_orders:
             self.torrent_cache.sort(cmp=lambda x,y: self.my_cmp(x, y, sort_order), reverse=reverse)
@@ -212,39 +215,12 @@ class Transmission:
         else:
             return cmp(x[sort_order].lower(), y[sort_order].lower())
 
-    def get_torrent_details(self, id, delay=0.5):
-        if time.time() - self.torrent_details_update < delay:
-            return self.torrent_details_cache
-        self.torrent_details_update = time.time()
-
-
-        start = time.time()
-
-        if self.torrent_details_request == None:
-            self.torrent_details_request = TransmissionRequest(self.host, self.port,
-                                                               'torrent-get', 77,
-                                                               {'ids':id,
-                                                                'fields': self.DETAIL_FIELDS})
-            self.torrent_details_request.send_request()
-
-            if len(self.torrent_details_cache) <= 0:
-                while True:
-                    details = self.get_torrent_details(id, 0)
-                    if details:
-                        return details
-
+    def set_torrent_details_id(self, id):
+        if id < 0:
+            self.requests['torrent-details'] = TransmissionRequest(self.host, self.port)
         else:
-            response = self.torrent_details_request.get_response()
-            if response['result'] == 'success':
-                self.torrent_details_request = None
-                t = response['arguments']['torrents'][0]
-                t['percent_done'] = percent(float(t['sizeWhenDone']), float(t['haveValid']))
-                t['uploadRatio']  = round(float(t['uploadRatio']), 1)
-                self.torrent_details_cache = t
-        return self.torrent_details_cache
-
-
-
+            self.requests['torrent-details'].set_request_data('torrent-get', 77,
+                                                              {'ids':id, 'fields': self.DETAIL_FIELDS})
 
     def set_upload_limit(self, new_limit):
         request = TransmissionRequest(self.host, self.port, 'session-set', 1,
@@ -318,7 +294,7 @@ class Interface:
         self.torrents_per_page  = 0
         self.rateDownload_width = self.rateUpload_width = 0
 
-        self.details_focus = 0;
+        self.details_category_focus = 0;
 
         os.environ['ESCDELAY'] = '0' # make escape usable
         curses.wrapper(self.run)
@@ -443,13 +419,18 @@ class Interface:
         # quit on q or ctrl-c
         elif c == ord('q'):
             if self.selected == -1: quit()  # exit
-            else: self.selected = -1        # return to list view
+            else:                           # return to list view
+                self.server.set_torrent_details_id(-1)
+                self.selected = -1
 
         # select torrent for detailed view
         elif c == ord("\n") and self.focus > -1 and self.selected == -1:
             self.screen.clear()
             self.pad.clear()
             self.selected = self.focus
+            self.server.set_torrent_details_id(self.torrents[self.focus]['id'])
+            self.server.update(0) # send request
+            self.server.update(0) # get response
 
         # show sort order menu
         elif c == ord('s') and self.selected == -1:
@@ -485,7 +466,6 @@ class Interface:
                 self.server.start_torrent(id)
             else:
                 self.server.stop_torrent(id)
-#            self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
             
         # verify torrent data
         elif c == ord('v'):
@@ -493,7 +473,6 @@ class Interface:
             id = self.torrents[self.focus]['id']
             if self.torrents[self.focus]['status'] != Transmission.STATUS_CHECK:
                 self.server.verify_torrent(id)
-#            self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
 
         # remove torrent
         elif c == ord('r') or c == curses.KEY_DC:
@@ -502,8 +481,6 @@ class Interface:
             name = self.torrents[self.focus]['name'][0:self.width - 15]
             if self.dialog_yesno("Remove %s?" % name.encode('utf8')) == True:
                 self.server.remove_torrent(id)
-#            self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
-
 
         # movement (torrent list)
         elif self.selected == -1:
@@ -519,9 +496,9 @@ class Interface:
             if c == curses.KEY_RIGHT:  self.next_details()
             elif c == curses.KEY_LEFT: self.prev_details()
 
-
         else: return # don't recognize key
 
+        # update view
         if self.selected == -1:
             self.draw_torrent_list()
         else:
@@ -549,7 +526,7 @@ class Interface:
             self.draw_downloadrate(torrent['rateDownload'], y)
         if torrent['status'] == Transmission.STATUS_DOWNLOAD or torrent['status'] == Transmission.STATUS_SEED:
             self.draw_uploadrate(torrent['rateUpload'], y)
-        if torrent['percent_done'] < 1:
+        if torrent['percent_done'] < 1 and torrent['status'] == Transmission.STATUS_DOWNLOAD:
             self.draw_eta(torrent, y)
 
         self.draw_ratio(torrent, y)
@@ -681,8 +658,9 @@ class Interface:
 
 
     def draw_details(self, id):
-        torrent = self.server.get_torrent_details(id)
+        torrent = self.server.get_torrent_details()
 #        debug(repr(torrent) + "\n\n\n")
+        if not torrent: return
 
         self.draw_torrentlist_item(torrent, False, 0)
 
@@ -694,7 +672,7 @@ class Interface:
         for item in menu_items:
             self.pad.move(2, xpos)
             xpos += 10
-            if menu_items.index(item) == self.details_focus:
+            if menu_items.index(item) == self.details_category_focus:
                 tags = curses.A_REVERSE + curses.A_BOLD
             else:
                 tags = curses.A_REVERSE
@@ -740,16 +718,16 @@ class Interface:
         self.pad.addstr("%s" % name)
 
     def next_details(self):
-        if self.details_focus >= 3:
-            self.details_focus = 0
+        if self.details_category_focus >= 3:
+            self.details_category_focus = 0
         else:
-            self.details_focus += 1
+            self.details_category_focus += 1
 
     def prev_details(self):
-        if self.details_focus <= 0:
-            self.details_focus = 3
+        if self.details_category_focus <= 0:
+            self.details_category_focus = 3
         else:
-            self.details_focus -= 1
+            self.details_category_focus -= 1
         
 
 

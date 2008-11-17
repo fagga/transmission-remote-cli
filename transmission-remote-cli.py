@@ -113,7 +113,8 @@ class Transmission:
                     'uploadedEver', 'errorString', 'recheckProgress',
                     'swarmSpeed', 'peersConnected' ]
 
-    DETAIL_FIELDS = [ 'files', 'priorities', 'peers', 'trackers' ] + LIST_FIELDS
+    DETAIL_FIELDS = [ 'files', 'priorities', 'peers', 'trackers',
+                      'activityDate', 'dateCreated', 'startDate', 'doneDate' ] + LIST_FIELDS
 
     def __init__(self, host, port, username, password):
         self.host  = host
@@ -179,7 +180,8 @@ class Transmission:
         if response['tag'] == 7 or response['tag'] == 77:
             for t in response['arguments']['torrents']:
                 t['uploadRatio'] = round(float(t['uploadRatio']), 1)
-                t['percent_done'] = percent(float(t['sizeWhenDone']), float(t['haveValid']))
+                t['percent_done'] = percent(float(t['sizeWhenDone']),
+                                            float(t['haveValid'] + t['haveUnchecked']))
 
             if response['tag'] == 7:
                 self.torrent_cache = response['arguments']['torrents']
@@ -519,14 +521,14 @@ class Interface:
 
     def draw_torrentlist_item(self, torrent, focused, y):
         # the torrent name is also a progress bar
-        self.draw_torrentlist_title(torrent, focused, y)
+        self.draw_torrentlist_title(torrent, focused, self.torrent_title_width, y)
 
         rates = ''
         if torrent['status'] == Transmission.STATUS_DOWNLOAD:
             self.draw_downloadrate(torrent['rateDownload'], y)
         if torrent['status'] == Transmission.STATUS_DOWNLOAD or torrent['status'] == Transmission.STATUS_SEED:
             self.draw_uploadrate(torrent['rateUpload'], y)
-        if torrent['percent_done'] < 1 and torrent['status'] == Transmission.STATUS_DOWNLOAD:
+        if torrent['percent_done'] < 100 and torrent['status'] == Transmission.STATUS_DOWNLOAD:
             self.draw_eta(torrent, y)
 
         self.draw_ratio(torrent, y)
@@ -539,47 +541,46 @@ class Interface:
     def draw_downloadrate(self, rate, ypos):
         self.pad.addstr(ypos, self.width-self.rateDownload_width-self.rateUpload_width-3, "D")
         self.pad.addstr(ypos, self.width-self.rateDownload_width-self.rateUpload_width-2,
-                        "%s" % scale_bytes(rate).rjust(self.rateDownload_width, ' '),
+                        "%s" % scale_bytes(rate).rjust(self.rateDownload_width),
                         curses.color_pair(1) + curses.A_BOLD + curses.A_REVERSE)
 
     def draw_uploadrate(self, rate, ypos):
         self.pad.addstr(ypos, self.width-self.rateUpload_width-1, "U")
         self.pad.addstr(ypos, self.width-self.rateUpload_width,
-                       "%s" % scale_bytes(rate).rjust(self.rateUpload_width, ' '),
+                       "%s" % scale_bytes(rate).rjust(self.rateUpload_width),
                        curses.color_pair(2) + curses.A_BOLD + curses.A_REVERSE)
 
     def draw_ratio(self, torrent, ypos):
         self.pad.addstr(ypos+1, self.width-self.rateUpload_width-1, "R")
         self.pad.addstr(ypos+1, self.width-self.rateUpload_width,
-                       "%s" % num2str(torrent['uploadRatio']).rjust(self.rateUpload_width, ' '),
+                       "%s" % num2str(torrent['uploadRatio']).rjust(self.rateUpload_width),
                        curses.color_pair(5) + curses.A_BOLD + curses.A_REVERSE)
 
     def draw_eta(self, torrent, ypos):
         self.pad.addstr(ypos+1, self.width-self.rateDownload_width-self.rateUpload_width-3, "T")
         self.pad.addstr(ypos+1, self.width-self.rateDownload_width-self.rateUpload_width-2,
-                        "%s" % scale_time(torrent['eta'], 'short').rjust(self.rateDownload_width, ' '),
+                        "%s" % scale_time(torrent['eta'], 'short').rjust(self.rateDownload_width),
                         curses.color_pair(5) + curses.A_BOLD + curses.A_REVERSE)
 
 
-    def draw_torrentlist_title(self, torrent, focused, ypos):
+    def draw_torrentlist_title(self, torrent, focused, width, ypos, nosize=False):
         if torrent['status'] == Transmission.STATUS_CHECK:
-            percent_done = torrent['recheckProgress']
+            percent_done = torrent['recheckProgress'] * 100
         else:
             percent_done = torrent['percent_done']
 
-        bar_width = int(float(self.torrent_title_width) * float(percent_done))
-        title = torrent['name'][0:self.torrent_title_width].ljust(self.torrent_title_width, ' ')
+        bar_width = int(float(width) * (float(percent_done)/100))
+        title = torrent['name'][0:width].ljust(width)
 
-        size = "%5s" % scale_bytes(torrent['sizeWhenDone'])
-
-        if torrent['percent_done'] < 1:
-            if torrent['seeders'] <= 0:
-                available = torrent['desiredAvailable'] + torrent['haveValid']
-                size = "%5s / " % scale_bytes(torrent['desiredAvailable'] + torrent['haveValid']) + size
-            size = "%5s / " % scale_bytes(torrent['haveValid']) + size
-
-        size = '| ' + size
-        title = title[:-len(size)] + size
+        if not nosize:
+            size = "%5s" % scale_bytes(torrent['sizeWhenDone'])
+            if torrent['percent_done'] < 100:
+                if torrent['seeders'] <= 0:
+                    available = torrent['desiredAvailable'] + torrent['haveValid']
+                    size = "%5s / " % scale_bytes(torrent['desiredAvailable'] + torrent['haveValid']) + size
+                size = "%5s / " % scale_bytes(torrent['haveValid'] + torrent['haveUnchecked']) + size
+            size = '| ' + size
+            title = title[:-len(size)] + size
 
         if torrent['status'] == Transmission.STATUS_SEED:
             color = curses.color_pair(4)
@@ -590,18 +591,25 @@ class Interface:
             color = curses.color_pair(7)
         elif torrent['rateDownload'] == 0:
             color = curses.color_pair(6)
-        elif torrent['percent_done'] < 1:
+        elif torrent['percent_done'] < 100:
             color = curses.color_pair(3)
         else:
             color = 0
 
+        tag = curses.A_REVERSE
+        tag_done = tag + color
+        if focused:
+            tag += curses.A_BOLD
+            tag_done += curses.A_BOLD
+
         title = title.encode('utf-8')
-        if focused: 
-            self.pad.addstr(ypos, 0, title[0:bar_width], curses.A_REVERSE + color + curses.A_BOLD)
-            self.pad.addstr(ypos, bar_width, title[bar_width:], curses.A_REVERSE + curses.A_BOLD)
-        else:
-            self.pad.addstr(ypos, 0, title[0:bar_width], curses.A_REVERSE + color)
-            self.pad.addstr(ypos, bar_width, title[bar_width:], curses.A_REVERSE)
+        # addstr() dies when you tell it to draw on the last column of the
+        # terminal, so we have to catch this exception.
+        try:
+            self.pad.addstr(ypos, 0, title[0:bar_width], tag_done)
+            self.pad.addstr(ypos, bar_width, title[bar_width:], tag)
+        except:
+            pass
 
 
     def draw_torrentlist_status(self, torrent, focused, ypos):
@@ -615,7 +623,7 @@ class Interface:
                 parts[0] = "verifying (%d%%)" % int(float(torrent['recheckProgress']) * 100)
 
         elif torrent['errorString']:
-            parts[0] = ("Error: " + torrent['errorString']).ljust(self.torrent_title_width, ' ')
+            parts[0] = ("Error: " + torrent['errorString']).ljust(self.torrent_title_width)
 
         else:
             if torrent['status'] == Transmission.STATUS_SEED:
@@ -624,9 +632,9 @@ class Interface:
                 parts[0] = ('idle','downloading')[torrent['rateDownload'] > 0]
             elif torrent['status'] == Transmission.STATUS_STOPPED:
                 parts[0] = 'paused'
-            if torrent['percent_done'] < 1:
-                parts[0] += " (%d%%)" % int(float(torrent['percent_done']) * 100)
-            parts[0] = parts[0].ljust(17, ' ')
+            if torrent['percent_done'] < 100:
+                parts[0] += " (%d%%)" % torrent['percent_done']
+            parts[0] = parts[0].ljust(17)
 
             # seeds and leeches will be appended right justified later
             peers  = "%4s seed%s " % (num2str(torrent['seeders']), ('s', ' ')[torrent['seeders']==1])
@@ -659,18 +667,19 @@ class Interface:
 
     def draw_details(self, id):
         torrent = self.server.get_torrent_details()
-#        debug(repr(torrent) + "\n\n\n")
         if not torrent: return
 
-        self.draw_torrentlist_item(torrent, False, 0)
+        self.draw_details_header(torrent)
+
+        menu_ypos = 10
 
         # divider + menu
-        self.pad.addstr(2, 0, ' '.center(self.width, ' '), curses.A_REVERSE)
+        self.pad.addstr(menu_ypos, 0, ' '.center(self.width), curses.A_REVERSE)
 
         menu_items = ['Files', 'Peers', 'Tracker', 'Webseeds']
         xpos = 0
         for item in menu_items:
-            self.pad.move(2, xpos)
+            self.pad.move(menu_ypos, xpos)
             xpos += 10
             if menu_items.index(item) == self.details_category_focus:
                 tags = curses.A_REVERSE + curses.A_BOLD
@@ -679,16 +688,85 @@ class Interface:
             self.pad.addstr(item[0], curses.A_UNDERLINE + tags)
             self.pad.addstr(item[1:], tags)
 
-
-        self.draw_filelist(torrent, 3)
+        if self.details_category_focus == 0:
+            self.draw_filelist(torrent, menu_ypos+1)
+        elif self.details_category_focus == 1:
+            self.draw_peerlist(torrent, menu_ypos+1)
 
         self.pad.refresh(0,0, 1,0, self.height-2,self.width)
         self.screen.refresh()
 
+    def draw_details_header(self, torrent):
+        # torrent name
+        self.draw_torrentlist_title(torrent, False, self.width, 0, True)
+
+        # files summary
+        self.pad.addstr(1,0, "%d files" % len(torrent['files']))
+        complete = map(lambda x: x['bytesCompleted'] == x['length'], torrent['files']).count(True)
+        partial  = map(lambda x: x['bytesCompleted'] > 0,            torrent['files']).count(True)
+        if complete == len(torrent['files']):
+            self.pad.addstr(" (all complete)")
+        else:
+            self.pad.addstr(" (%d complete, %d started)" % (complete, partial))
+
+        # dates (started, finished, etc)
+        date_format = "%x %X"
+        added = "   added: %s (%s old)" % \
+            (time.strftime(date_format, time.localtime(torrent['addedDate'])),
+             scale_time(int(time.time() - torrent['addedDate']), 'long'))
+        started = " started: %s (%s%s)" % \
+            (time.strftime(date_format, time.localtime(torrent['startDate'])),
+             scale_time(int(time.time() - torrent['startDate']), 'long'),
+             (' ago','')[time.time() - torrent['startDate'] < 10])
+        activity = "activity: %s (%s%s)" % \
+            (time.strftime(date_format, time.localtime(torrent['activityDate'])),
+             scale_time(int(time.time() - torrent['activityDate']), 'long'),
+             (' ago','')[time.time() - torrent['activityDate'] < 10])
+        if torrent['percent_done'] < 100 and torrent['eta'] > 0:
+            finished = "finished: %s (in %s)" % \
+                (time.strftime(date_format, time.localtime(time.time() + torrent['eta'])),
+                 scale_time(torrent['eta'], 'long'))
+        elif torrent['doneDate'] <= 0:
+            finished = 'finished: sometime'
+        else:
+            finished = "finished: %s (%s%s)" % \
+                (time.strftime(date_format, time.localtime(torrent['doneDate'])),
+                 scale_time(int(time.time() - torrent['doneDate']), 'long'),
+                 (' ago','')[time.time() - torrent['doneDate'] < 10])
+
+        if self.width < 100:
+            self.pad.addstr(2, 0, added)
+            self.pad.addstr(3, 0, finished)
+            self.pad.addstr(4, 0, started)
+            self.pad.addstr(5, 0, activity)
+            
+        else:
+            self.pad.addstr(2, 0, added)
+            self.pad.addstr(2, 50, started)
+            self.pad.addstr(3, 0, finished)
+            self.pad.addstr(3, 50, activity)
+
+
+
+#   State: Stopped
+#   Percent Done: 5.85%
+#   ETA: Unknown
+#   Download Speed: 0.0 KB/s
+#   Upload Speed: 0.0 KB/s
+#   Have: 255.4 MB (36.6 MB verified)
+#   Total size: 4.3 GB (4.3 GB wanted)
+#   Downloaded: 257.4 MB
+#   Uploaded: 181.4 MB
+#   Ratio: 0.70
+#   Corrupt DL: None
+#   Peers: connected to 0, uploading to 0, downloading from 0
+
+
+
     def draw_filelist(self, torrent, ypos):
         # draw column names
         column_names = 'Progress  Priority  Filename'
-        self.pad.addstr(ypos, 0, column_names.ljust(self.width, ' '), curses.A_UNDERLINE)
+        self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
 
         ypos += 1
         for file in torrent['files']:
@@ -702,7 +780,7 @@ class Interface:
     def draw_filelist_percent(self, file, ypos):
         done = str(int(percent(file['length'], file['bytesCompleted']))) + '%'
         self.pad.move(ypos, 0)
-        self.pad.addstr("%s" % done.center(8, ' '))
+        self.pad.addstr("%s" % done.center(8))
         
     def draw_filelist_priority(self, torrent, index, ypos):
         priority = torrent['priorities'][index]
@@ -710,12 +788,17 @@ class Interface:
         elif priority == 0:  priority = 'normal'
         elif priority == 1:  priority = 'high'
         self.pad.move(ypos, 9)
-        self.pad.addstr("%s" % priority.center(9, ' '))
+        self.pad.addstr("%s" % priority.center(9))
 
     def draw_filelist_filename(self, file, ypos):
         name = file['name'][0:self.width-20]
         self.pad.move(ypos, 20)
         self.pad.addstr("%s" % name)
+
+    def draw_peerlist(self, torrent, ypos):
+        pass
+        debug(repr(torrent) + "\n\n\n")
+
 
     def next_details(self):
         if self.details_category_focus >= 3:
@@ -776,7 +859,7 @@ class Interface:
 
 
     def draw_stats(self):
-        self.screen.insstr((self.height-1), 0, ' '.center(self.width, ' '), curses.A_REVERSE)
+        self.screen.insstr((self.height-1), 0, ' '.center(self.width), curses.A_REVERSE)
         self.draw_torrents_stats()
         self.draw_global_rates()
 
@@ -800,11 +883,11 @@ class Interface:
         self.screen.move((self.height-1), self.width-rates_width)
 
         self.screen.addstr('D', curses.A_REVERSE)
-        self.screen.addstr(scale_bytes(self.stats['downloadSpeed']).rjust(self.rateDownload_width, ' '),
+        self.screen.addstr(scale_bytes(self.stats['downloadSpeed']).rjust(self.rateDownload_width),
                            curses.A_REVERSE + curses.A_BOLD + curses.color_pair(1))
 
         self.screen.addstr(' U', curses.A_REVERSE)
-        self.screen.insstr(scale_bytes(self.stats['uploadSpeed']).rjust(self.rateUpload_width, ' '),
+        self.screen.insstr(scale_bytes(self.stats['uploadSpeed']).rjust(self.rateUpload_width),
                            curses.A_REVERSE + curses.A_BOLD + curses.color_pair(2))
 
 
@@ -812,7 +895,7 @@ class Interface:
 
 
     def draw_title_bar(self, error_msg=''):
-        self.screen.insstr(0, 0, ' '.center(self.width, ' '), curses.A_REVERSE)
+        self.screen.insstr(0, 0, ' '.center(self.width), curses.A_REVERSE)
         if error_msg:
             self.screen.addstr(0, 0, error_msg.encode('utf-8'), curses.A_REVERSE + curses.color_pair(1))
         else:
@@ -929,7 +1012,7 @@ class Interface:
 
         input = str(current_value)
         while True:
-            win.addstr(height-2, 2, input.ljust(width-4, ' '), curses.color_pair(5))
+            win.addstr(height-2, 2, input.ljust(width-4), curses.color_pair(5))
             c = win.getch()
             if c == 27 or c == curses.KEY_BREAK:
                 return -1
@@ -996,7 +1079,7 @@ class Interface:
             win.addstr(i,2, title[0], tag)
             win.addstr(title[1][0], tag + curses.A_UNDERLINE)
             win.addstr(title[1][1:], tag)
-            win.addstr(''.ljust(width - len(option[1]) - 4, ' '), tag)
+            win.addstr(''.ljust(width - len(option[1]) - 4), tag)
 
             keys[title[1][0].lower()] = i-1
             i+=1
@@ -1007,17 +1090,20 @@ class Interface:
 
 
 def percent(full, part):
-    try: percent = 1/(float(full) / float(part))
+    try: percent = 100/(float(full) / float(part))
     except ZeroDivisionError: percent = 0.0
     return percent
 
 
 def scale_time(seconds, type):
     if seconds < 0:
-        return ('?', 'unknown')[type=='long']
+        return ('?', 'some time')[type=='long']
     elif seconds < 60:
         if type == 'long':
-            return "%s second%s" % (seconds, ('', 's')[seconds>1])
+            if seconds < 10:
+                return 'just now'
+            else:
+                return "%s second%s" % (seconds, ('', 's')[seconds>1])
         else:
             return "%ss" % seconds
     elif seconds < 3600:
@@ -1092,6 +1178,7 @@ def quit(msg='', exitcode=0):
 
     print msg
     exit(exitcode)
+
 
 
 ui = Interface(Transmission(HOST, PORT, USERNAME, PASSWORD))

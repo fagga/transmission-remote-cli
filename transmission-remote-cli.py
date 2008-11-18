@@ -113,9 +113,9 @@ class Transmission:
                     'uploadedEver', 'errorString', 'recheckProgress',
                     'swarmSpeed', 'peersConnected' ]
 
-    DETAIL_FIELDS = [ 'files', 'priorities', 'peers', 'trackers',
+    DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
-                      'totalSize' ] + LIST_FIELDS
+                      'totalSize', 'announceURL', 'announceResponse' ] + LIST_FIELDS
 
     def __init__(self, host, port, username, password):
         self.host  = host
@@ -674,7 +674,7 @@ class Interface:
         torrent = self.server.get_torrent_details()
         if not torrent: return
 
-        # torrent name
+        # torrent name + progress bar
         self.draw_torrentlist_title(torrent, True, self.width, 0, True)
 
         # divider + menu
@@ -692,10 +692,13 @@ class Interface:
             self.pad.addstr(title[1][1:], tags)
             xpos += len(item)+1
 
+        # which details to display
         if self.details_category_focus == 1:
             self.draw_filelist(torrent, 4)
         elif self.details_category_focus == 2:
             self.draw_peerlist(torrent, 4)
+        elif self.details_category_focus == 3:
+            self.draw_trackerlist(torrent, 4)
         else:
             self.draw_details_overview(torrent, 4)
             
@@ -806,7 +809,8 @@ class Interface:
 
     def draw_filelist_priority(self, torrent, index, ypos):
         priority = torrent['priorities'][index]
-        if   priority == -1: priority = 'low'
+        if not torrent['wanted'][index]: priority = 'off'
+        elif priority == -1: priority = 'low'
         elif priority == 0:  priority = 'normal'
         elif priority == 1:  priority = 'high'
         self.pad.move(ypos, 14)
@@ -820,6 +824,19 @@ class Interface:
     def draw_peerlist(self, torrent, ypos):
 #        debug(repr(torrent) + "\n\n\n")
         pass
+
+    def draw_trackerlist(self, torrent, ypos):
+        debug(repr(torrent) + "\n\n\n")
+        for tracker in torrent['trackers']:
+            if tracker['announce'] == torrent['announceURL']:
+                self.pad.addstr(ypos, 2, "#%02d" % (tracker['tier']+1), curses.A_BOLD)
+            else:
+                self.pad.addstr(ypos, 2, "#%02d" % (tracker['tier']+1))
+            self.pad.addstr(ypos, 6, tracker['announce'])
+            self.pad.addstr(ypos+1, 6, tracker['scrape'])
+            ypos += 3
+
+
 
 
     def draw_hline(self, ypos, width, title):

@@ -113,7 +113,7 @@ class Transmission:
                     'uploadedEver', 'errorString', 'recheckProgress',
                     'swarmSpeed', 'peersConnected' ]
 
-    DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
+    DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers', 'webseeds',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
                       'totalSize', 'announceURL', 'announceResponse', 'lastAnnounceTime',
                       'nextAnnounceTime', 'lastScrapeTime', 'nextScrapeTime',
@@ -352,7 +352,7 @@ class Interface:
             curses.endwin()
             self.screen.refresh()
             self.height, self.width = self.screen.getmaxyx()
-            if self.width < 50:
+            if self.width < 50 or self.height < 16:
                 self.screen.erase()
                 self.screen.addstr(0,0, "Terminal too small", curses.A_REVERSE + curses.A_BOLD)
                 time.sleep(1)
@@ -712,9 +712,7 @@ class Interface:
         elif self.details_category_focus == 3:
             self.draw_trackerlist(torrent, 4)
         elif self.details_category_focus == 4:
-            # webseeds
-            pass
-
+            self.draw_webseedlist(torrent, 4)
         self.pad.refresh(0,0, 1,0, self.height-2,self.width)
         self.screen.refresh()
 
@@ -795,7 +793,6 @@ class Interface:
         # draw column names
         column_names = '  # Progress Size Priority Filename'
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
-
         ypos += 1
         for file in torrent['files']:
             index = torrent['files'].index(file)
@@ -808,8 +805,7 @@ class Interface:
 
     def draw_filelist_percent(self, file, ypos):
         done = str(int(percent(file['length'], file['bytesCompleted']))) + '%'
-        self.pad.move(ypos, 4)
-        self.pad.addstr("%s" % done.rjust(6))
+        self.pad.addstr(ypos, 4, "%s" % done.rjust(6))
 
     def draw_filelist_size(self, file, ypos):
         self.pad.addstr(ypos, 12, scale_bytes(file['length']).rjust(5))
@@ -820,18 +816,45 @@ class Interface:
         elif priority == -1: priority = 'low'
         elif priority == 0:  priority = 'normal'
         elif priority == 1:  priority = 'high'
-        self.pad.move(ypos, 18)
-        self.pad.addstr("%s" % priority.center(8))
+        self.pad.addstr(ypos, 18, priority.center(8))
 
     def draw_filelist_filename(self, file, ypos):
-        name = file['name'][0:self.width-27]
-        self.pad.move(ypos, 27)
-        self.pad.addstr("%s" % name)
+        self.pad.addstr(ypos, 27, "%s" % file['name'][0:self.width-27].encode('utf-8'))
+
 
 
     def draw_peerlist(self, torrent, ypos):
-#        debug(repr(torrent) + "\n\n\n")
-        pass
+        try:
+            torrent['peers']
+        except:
+            self.pad.addstr(ypos, 1, "Feature is available in Transmission versions above 1.4 only.")
+            return
+        self.pad.addstr(ypos, 1, "Feature not implemented yet.")
+
+        column_names = '       IP       Flags     Down    Up Progress Client'
+        self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
+        ypos += 1
+        for peer in torrent['peers']:
+            self.draw_peerlist_address(peer, ypos, 0)
+            self.draw_peerlist_flags(peer, ypos, 16)
+            self.draw_peerlist_download(peer, ypos, 25)
+            self.draw_peerlist_upload(peer, ypos, 31)
+            self.draw_peerlist_progress(peer, ypos, 40)
+            self.draw_peerlist_clientname(peer, ypos, 46)
+            ypos += 1
+    def draw_peerlist_address(self, peer, ypos, xpos):
+        self.pad.addstr(ypos, xpos, "%15s" % peer['address'])
+    def draw_peerlist_download(self, peer, ypos, xpos):
+        self.pad.addstr(ypos, xpos, "%5s" % scale_bytes(peer['rateToClient']))
+    def draw_peerlist_upload(self, peer, ypos, xpos):
+        self.pad.addstr(ypos, xpos, "%5s" % scale_bytes(peer['rateToPeer']))
+    def draw_peerlist_progress(self, peer, ypos, xpos):
+        self.pad.addstr(ypos, xpos, "%d%%" % (float(peer['progress'])*100))
+    def draw_peerlist_clientname(self, peer, ypos, xpos):
+        self.pad.addstr(ypos, xpos, peer['clientName'].encode('utf-8'))
+    def draw_peerlist_flags(self, peer, ypos, xpos):
+        self.pad.addstr(ypos, xpos, "%-7s" % peer['flagStr'])
+
 
     def draw_trackerlist(self, torrent, ypos):
         # find active tracker
@@ -849,20 +872,32 @@ class Interface:
         self.pad.addstr(ypos+2, 2, "Announce response: %s" % torrent['announceResponse'])
         self.pad.addstr(ypos+3, 2, "Next announce:     %s" % timestamp(torrent['nextAnnounceTime']))
 
-        self.pad.addstr(ypos+5, 0, active['scrape'])
-        self.pad.addstr(ypos+6, 2, "Latest scrape:   %s" % timestamp(torrent['lastScrapeTime']))
-        self.pad.addstr(ypos+7, 2, "Scrape response: %s" % torrent['scrapeResponse'])
-        self.pad.addstr(ypos+8, 2, "Next scrape:     %s" % timestamp(torrent['nextScrapeTime']))
-        ypos += 10
-
+        scrape_width   = max(60, len(active['scrape']))
+        announce_width = max(60, len(active['announce']))
+        if self.width < announce_width + scrape_width + 2:
+            xpos = 0
+            ypos += 5
+        else:
+            xpos = announce_width + 2
+        self.pad.addstr(ypos,   xpos, active['scrape'])
+        self.pad.addstr(ypos+1, xpos+2, "Latest scrape:   %s" % timestamp(torrent['lastScrapeTime']))
+        self.pad.addstr(ypos+2, xpos+2, "Scrape response: %s" % torrent['scrapeResponse'])
+        self.pad.addstr(ypos+3, xpos+2, "Next scrape:     %s" % timestamp(torrent['nextScrapeTime']))
+        ypos += 5
         
         if inactive:
-            self.pad.addstr(ypos, 0, "Inactive Tracker%s:" % ('','s')[len(inactive)>1])
+            self.pad.addstr(ypos, 0, "Fallback Tracker%s:" % ('','s')[len(inactive)>1])
             # show inactive trackers
             for tracker in inactive:
                 ypos += 1
                 self.pad.addstr(ypos, 2, tracker['announce'])
+
             
+    def draw_webseedlist(self, torrent, ypos):
+        self.pad.addstr(ypos, 1, "Feature not implemented yet.")
+#        debug(repr(torrent['webseeds']) + "\n\n\n")
+        
+
 
 
 

@@ -462,10 +462,11 @@ class Interface:
         # show sort order menu
         elif c == ord('s') and self.selected == -1:
             options = [('name','_Name'), ('addedDate','_Age'), ('percent_done','_Progress'),
-                       ('seeders','_Seeds'), ('leechers','_Leeches'), ('sizeWhenDone', 'Si_ze'),
-                       ('status','S_tatus'), ('uploadedEver','_Uploaded'), ('uploadRatio','Rati_o_'),
-                       ('swarmSpeed','S_warm Rate'), ('peersConnected','P_eers'),
-                       ('reverse','_Reverse')]
+                       ('seeders','_Seeds'), ('leechers','Lee_ches'), ('sizeWhenDone', 'Si_ze'),
+                       ('status','S_tatus'), ('uploadedEver','_Uploaded'),
+                       ('rateUpload','Up_load Speed'), ('rateDownload','Do_wnload Speed'),
+                       ('swarmSpeed','Swar_m Rate'), ('uploadRatio','Rati_o_'),
+                       ('peersConnected','P_eers'), ('reverse','_Reverse')]
             choice = self.dialog_menu('Sort order', options,
                                       map(lambda x: x[0]==self.sort_orders[-1], options).index(True)+1)
             if choice:

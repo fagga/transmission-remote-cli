@@ -277,7 +277,7 @@ class Transmission:
         if torrent['status'] == Transmission.STATUS_CHECK_WAIT:
             status = 'will verify'
         elif torrent['status'] == Transmission.STATUS_CHECK:
-            status = "verifying (%d%%)" % int(float(torrent['recheckProgress']) * 100)
+            status = "verifying"
         elif torrent['errorString']:
             status = torrent['errorString']
         elif torrent['status'] == Transmission.STATUS_SEED:
@@ -590,7 +590,7 @@ class Interface:
 
     def draw_torrentlist_title(self, torrent, focused, width, ypos):
         if torrent['status'] == Transmission.STATUS_CHECK:
-            percent_done = torrent['recheckProgress'] * 100
+            percent_done = float(torrent['recheckProgress']) * 100
         else:
             percent_done = torrent['percent_done']
 
@@ -642,7 +642,7 @@ class Interface:
 
         if not torrent['errorString']:
             if torrent['status'] == Transmission.STATUS_CHECK:
-                parts[0] += " (%d%%)" % int(torrent['recheckProgress'] * 100)
+                parts[0] += " (%d%%)" % int(float(torrent['recheckProgress']) * 100)
             elif torrent['status'] == Transmission.STATUS_DOWNLOAD:
                 parts[0] += " (%d%%)" % torrent['percent_done']
             parts[0] = parts[0].ljust(18)

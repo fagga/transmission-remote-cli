@@ -510,7 +510,7 @@ class Interface:
             if self.dialog_yesno("Remove %s?" % name.encode('utf8')) == True:
                 self.server.remove_torrent(id)
 
-        # movement (torrent list)
+        # movement in torrent list
         elif self.selected == -1:
             if c == curses.KEY_UP:      self.scroll_up()
             elif c == curses.KEY_DOWN:  self.scroll_down()
@@ -519,10 +519,18 @@ class Interface:
             elif c == curses.KEY_HOME:  self.scroll_to_top()
             elif c == curses.KEY_END:   self.scroll_to_end()
 
-        # movement (torrent details)
+        # torrent details
         elif self.selected > -1:
-            if c == curses.KEY_RIGHT:  self.next_details()
-            elif c == curses.KEY_LEFT: self.prev_details()
+            if c == curses.KEY_RIGHT or c == ord("\t"): self.next_details()
+            elif c == curses.KEY_LEFT:                  self.prev_details()
+            elif c == ord('o'): self.details_category_focus = 0
+            elif c == ord('f'): self.details_category_focus = 1
+            elif c == ord('e'): self.details_category_focus = 2
+            elif c == ord('t'): self.details_category_focus = 3
+            elif c == ord('w'): self.details_category_focus = 4
+
+            
+
 
         else: return # don't recognize key
 
@@ -686,13 +694,13 @@ class Interface:
         self.pad = curses.newpad(self.pad_height, self.width)
 
         # torrent name + progress bar
-        self.draw_torrentlist_title(torrent, True, self.width, 0)
+        self.draw_torrentlist_item(torrent, False, 0)
 
         # divider + menu
-        menu_items = ['_Overview', "_Files", '_Peers', '_Tracker', '_Webseeds' ]
+        menu_items = ['_Overview', "_Files", 'P_eers', '_Tracker', '_Webseeds' ]
         xpos = int((self.width - sum(map(lambda x: len(x), menu_items))-len(menu_items)) / 2)
         for item in menu_items:
-            self.pad.move(2, xpos)
+            self.pad.move(3, xpos)
             tags = curses.A_BOLD
             if menu_items.index(item) == self.details_category_focus:
                 tags += curses.A_REVERSE
@@ -704,15 +712,15 @@ class Interface:
 
         # which details to display
         if self.details_category_focus == 0:
-            self.draw_details_overview(torrent, 4)
+            self.draw_details_overview(torrent, 5)
         elif self.details_category_focus == 1:
-            self.draw_filelist(torrent, 4)
+            self.draw_filelist(torrent, 5)
         elif self.details_category_focus == 2:
-            self.draw_peerlist(torrent, 4)
+            self.draw_peerlist(torrent, 5)
         elif self.details_category_focus == 3:
-            self.draw_trackerlist(torrent, 4)
+            self.draw_trackerlist(torrent, 5)
         elif self.details_category_focus == 4:
-            self.draw_webseedlist(torrent, 4)
+            self.draw_webseedlist(torrent, 5)
         self.pad.refresh(0,0, 1,0, self.height-2,self.width)
         self.screen.refresh()
 
@@ -824,12 +832,10 @@ class Interface:
 
 
     def draw_peerlist(self, torrent, ypos):
-        try:
-            torrent['peers']
+        try: torrent['peers']
         except:
             self.pad.addstr(ypos, 1, "Feature is available in Transmission versions above 1.4 only.")
             return
-        self.pad.addstr(ypos, 1, "Feature not implemented yet.")
 
         column_names = '       IP       Flags     Down    Up Progress Client'
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
@@ -1015,14 +1021,10 @@ class Interface:
 
 
 
-    def draw_title_bar(self, error_msg=''):
+    def draw_title_bar(self):
         self.screen.insstr(0, 0, ' '.center(self.width), curses.A_REVERSE)
-        if error_msg:
-            self.screen.addstr(0, 0, error_msg.encode('utf-8'), curses.A_REVERSE + curses.color_pair(1))
-        else:
-            self.draw_connection_status()
-            self.draw_quick_help()
-        
+        self.draw_connection_status()
+        self.draw_quick_help()
     def draw_connection_status(self):
         status = "Transmission @ %s:%s" % (self.server.host, self.server.port)
         self.screen.addstr(0, 0, status.encode('utf-8'), curses.A_REVERSE)
@@ -1031,11 +1033,12 @@ class Interface:
         help = [('u','Upload Limit'), ('d','Download Limit')]
 
         if self.selected == -1:
-            help  = [('s','Sort')] + help + [('q','Quit')]
             if self.focus >= 0:
-                help = [('p','Pause/Unpause'), ('r','Remove'), ('v','Verify')] + help
+                help = [('enter','View Details'), ('p','Pause/Unpause'), ('r','Remove'), ('v','Verify')]
+            else:
+                help = [('s','Sort')] + help + [('q','Quit')]
         else:
-            help += [('q','Back to List')]
+            help = [('Move with','cursor keys'), ('q','Back to List')]
 
         # convert help to str
         line = ' | '.join(map(lambda x: "%s %s" % (x[0], x[1]), help))
@@ -1175,7 +1178,7 @@ class Interface:
             
             if c > 96 and c < 123 and chr(c) in keymap:
                 return options[keymap[chr(c)]][0]
-            elif c == 27 or c == curses.KEY_BREAK:
+            elif c == 27 or c == ord('q'):
                 return None
             elif c == ord("\n"):
                 return options[focus-1][0]

@@ -149,8 +149,7 @@ class Transmission:
         self.torrent_details_cache = dict()
 
         # make sure there are no undefined values
-        self.update(0) # send request
-        self.update(0) # get response
+        self.wait_for_torrentlist_update()
 
 
 
@@ -303,20 +302,17 @@ class Transmission:
         self.wait_for_details_update()
 
 
-
     def wait_for_torrentlist_update(self):
         self.wait_for_update(7)
     def wait_for_details_update(self):
         self.wait_for_update(77)
     def wait_for_update(self, update_id):
         start = time.time()
-        while True:
+        self.update(0) # send request
+        while True:    # wait for response
             if self.update(0, update_id): break
-        while True:
-            if self.update(0, update_id): break
-#        debug("delay was %.3f seconds\n" % (time.time() - start))
+        debug("delay was %.3f seconds\n\n\n" % (time.time() - start))
         
-
 
     def get_status(self, torrent):
         if torrent['status'] == Transmission.STATUS_CHECK_WAIT:
@@ -504,8 +500,7 @@ class Interface:
             self.screen.clear()
             self.selected = self.focus
             self.server.set_torrent_details_id(self.torrents[self.focus]['id'])
-            self.server.update(0) # send request
-            self.server.update(0) # get response
+            self.server.wait_for_details_update()
 
         # show sort order menu
         elif c == ord('s') and self.selected == -1:
@@ -831,12 +826,11 @@ class Interface:
                      "%s each" % scale_bytes(t['pieceSize'], 'long')])
 
         info.append(['Download'])
+        info[-1].append(" %s" % scale_bytes(t['downloadedEver'], 'long'))
         if t['percent_done'] >= 100:
-            info[-1].append(' complete; ')
+            info[-1][-1] += ' (complete); '
         else:
-            info[-1].append(" %s (%s%%); " % \
-                (scale_bytes(t['haveUnchecked'] + t['haveValid'], 'long'), \
-                     int(t['percent_done'])))
+            info[-1][-1] += " (%d%%); " % int(t['percent_done'])
             if t['rateDownload']:
                 info[-1].append("receiving %s per second; " % scale_bytes(t['rateDownload'], 'long'))
             else:

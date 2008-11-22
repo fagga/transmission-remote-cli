@@ -1,7 +1,8 @@
 #!/usr/bin/python
 ########################################################################
-# This is transmission-remote-cli, a client for the daemon of the      #
-# BitTorrent client Transmission.                                      #
+# This is transmission-remote-cli, whereas 'cli' stands for 'Curses    #
+# Luminous Interface', a client for the daemon of the BitTorrent       #
+# client Transmission.                                                 #
 #                                                                      #
 # This program is free software: you can redistribute it and/or modify #
 # it under the terms of the GNU General Public License as published by #
@@ -15,8 +16,8 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
+VERSION=0.1
 
-DEBUG=True
 
 USERNAME = ''
 PASSWORD = ''
@@ -24,8 +25,12 @@ HOST = 'localhost'
 PORT = 9091
 
 from optparse import OptionParser
-parser = OptionParser(usage="Usage: %prog [[USERNAME:PASSWORD@]HOST[:PORT]]")
+parser = OptionParser(usage="Usage: %prog [[USERNAME:PASSWORD@]HOST[:PORT]]",
+                      version="%%prog %s" % VERSION)
+parser.add_option("--debug", action="store_true", dest="DEBUG", default=False,
+                  help="Create file debug.log in current directory and put alienese messages in it.")
 (options, connection) = parser.parse_args()
+
 
 # parse connection data
 if connection:
@@ -311,7 +316,7 @@ class Transmission:
         self.update(0) # send request
         while True:    # wait for response
             if self.update(0, update_id): break
-#        debug("delay was %.3f seconds\n\n\n" % (time.time() - start))
+        debug("delay was %.3f seconds\n\n\n" % (time.time() - start))
         
 
     def get_status(self, torrent):
@@ -994,7 +999,7 @@ class Interface:
             
     def draw_webseedlist(self, ypos):
         self.pad.addstr(ypos, 1, "Feature not implemented yet.")
-#        debug(repr(self.torrent_details['webseeds']) + "\n\n\n")
+        debug("webseeds: " + repr(self.torrent_details['webseeds']) + "\n\n\n")
         
 
 
@@ -1402,7 +1407,7 @@ def num2str(num):
 
 
 def debug(data):
-    if DEBUG:
+    if options.DEBUG:
         file = open("debug.log", 'a')
         file.write(data.encode('utf-8'))
         file.close

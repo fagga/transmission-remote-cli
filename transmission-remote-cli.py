@@ -117,7 +117,7 @@ class Transmission:
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
                       'totalSize', 'announceURL', 'announceResponse', 'lastAnnounceTime',
                       'nextAnnounceTime', 'lastScrapeTime', 'nextScrapeTime',
-                      'scrapeResponse', 'scrapeURL', 'hashString',
+                      'scrapeResponse', 'scrapeURL', 'hashString', 'timesCompleted',
                       'pieceCount', 'pieceSize', 'downloadedEver', 'corruptEver',
                       'peersKnown', 'peersSendingToUs', 'peersGettingFromUs' ] + LIST_FIELDS
 
@@ -208,9 +208,6 @@ class Transmission:
     def get_global_stats(self):
         return self.status_cache
 
-    def get_torrent_details(self):
-        return self.torrent_details_cache
-
     def get_torrent_list(self, sort_orders, reverse=False):
         for sort_order in sort_orders:
             self.torrent_cache.sort(cmp=lambda x,y: self.my_cmp(x, y, sort_order), reverse=reverse)
@@ -222,6 +219,8 @@ class Transmission:
         else:
             return cmp(x[sort_order].lower(), y[sort_order].lower())
 
+    def get_torrent_details(self):
+        return self.torrent_details_cache
     def set_torrent_details_id(self, id):
         if id < 0:
             self.requests['torrent-details'] = TransmissionRequest(self.host, self.port)
@@ -359,8 +358,10 @@ class Interface:
             else:
                 break
 
-        self.focus = -1
+        self.focus     = -1
         self.scrollpos = 0
+        self.focus_filelist     = -1
+        self.scrollpos_filelist = 0
         self.manage_layout()
 
 
@@ -369,6 +370,8 @@ class Interface:
         self.pad = curses.newpad(self.pad_height, self.width)
         self.mainview_height = self.height - 2
         self.torrents_per_page  = self.mainview_height/3
+        self.files_per_page = self.height - 8
+
 
         if self.torrents:
             visible_torrents = self.torrents[self.scrollpos/3 : self.scrollpos/3 + self.torrents_per_page + 1]
@@ -432,13 +435,12 @@ class Interface:
         c = self.screen.getch()
         if c == -1: return
 
-#        elif c == curses.KEY_RESIZE:
-#            self.get_screen_size()
-
         # reset + redraw
         elif c == 27 or c == curses.KEY_BREAK or c == 12:
             if self.selected > -1:
                 self.selected = -1
+                self.focus_filelist     = -1
+                self.scrollpos_filelist = 0
             else:
                 self.scrollpos = 0
                 self.focus     = -1
@@ -512,12 +514,21 @@ class Interface:
 
         # movement in torrent list
         elif self.selected == -1:
-            if c == curses.KEY_UP:      self.scroll_up()
-            elif c == curses.KEY_DOWN:  self.scroll_down()
-            elif c == curses.KEY_PPAGE: self.scroll_page_up()
-            elif c == curses.KEY_NPAGE: self.scroll_page_down()
-            elif c == curses.KEY_HOME:  self.scroll_to_top()
-            elif c == curses.KEY_END:   self.scroll_to_end()
+            if   c == curses.KEY_UP:
+                self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, 3)
+            elif c == curses.KEY_DOWN:
+                self.focus, self.scrollpos = self.move_down(self.focus, self.scrollpos, 3,
+                                                            self.torrents_per_page, len(self.torrents))
+            elif c == curses.KEY_PPAGE:
+                self.focus, self.scrollpos = self.move_page_up(self.focus, self.scrollpos, 3,
+                                                               self.torrents_per_page)
+            elif c == curses.KEY_NPAGE:
+                self.focus, self.scrollpos = self.move_page_down(self.focus, self.scrollpos, 3,
+                                                                 self.torrents_per_page, len(self.torrents))
+            elif c == curses.KEY_HOME:
+                self.focus, self.scrollpos = self.move_to_top()
+            elif c == curses.KEY_END:
+                self.focus, self.scrollpos = self.move_to_end(3, self.torrents_per_page, len(self.torrents))
 
         # torrent details
         elif self.selected > -1:
@@ -529,7 +540,18 @@ class Interface:
             elif c == ord('t'): self.details_category_focus = 3
             elif c == ord('w'): self.details_category_focus = 4
 
+            # file list focus
+            elif c == curses.KEY_UP:
+                self.focus_filelist, self.scrollpos_filelist = \
+                    self.move_up(self.focus_filelist, self.scrollpos_filelist, 1)
+            elif c == curses.KEY_DOWN:
+                self.focus_filelist, self.scrollpos_filelist = \
+                    self.move_down(self.focus_filelist, self.scrollpos_filelist, 1,
+                                   self.files_per_page, len(self.torrent_details['files']))
             
+            debug("file focus:%d  file scrollpos:%d  files per page:%d  file list length:%d\n" % \
+                      (self.focus_filelist, self.scrollpos_filelist,
+                       self.files_per_page, len(self.torrent_details['files'])))
 
 
         else: return # don't recognize key
@@ -686,15 +708,15 @@ class Interface:
 
 
     def draw_details(self, id):
-        torrent = self.server.get_torrent_details()
-        if not torrent: return
+        self.torrent_details = self.server.get_torrent_details()
+#        if not torrent: return
 
         # details could need more space than the torrent list
-        self.pad_height = max(50, len(torrent['files'])+10, (len(self.torrents)+1)*3, self.height)
+        self.pad_height = max(50, len(self.torrent_details['files'])+10, (len(self.torrents)+1)*3, self.height)
         self.pad = curses.newpad(self.pad_height, self.width)
 
         # torrent name + progress bar
-        self.draw_torrentlist_item(torrent, False, 0)
+        self.draw_torrentlist_item(self.torrent_details, False, 0)
 
         # divider + menu
         menu_items = ['_Overview', "_Files", 'P_eers', '_Tracker', '_Webseeds' ]
@@ -712,103 +734,120 @@ class Interface:
 
         # which details to display
         if self.details_category_focus == 0:
-            self.draw_details_overview(torrent, 5)
+            self.draw_details_overview(5)
         elif self.details_category_focus == 1:
-            self.draw_filelist(torrent, 5)
+            self.draw_filelist(5)
         elif self.details_category_focus == 2:
-            self.draw_peerlist(torrent, 5)
+            self.draw_peerlist(5)
         elif self.details_category_focus == 3:
-            self.draw_trackerlist(torrent, 5)
+            self.draw_trackerlist(5)
         elif self.details_category_focus == 4:
-            self.draw_webseedlist(torrent, 5)
+            self.draw_webseedlist(5)
         self.pad.refresh(0,0, 1,0, self.height-2,self.width)
         self.screen.refresh()
 
 
-    def draw_details_overview(self, torrent, ypos):
+
+    def draw_details_overview(self, ypos):
+        t = self.torrent_details
         info = []
-        info.append(['Hash', " %s" % torrent['hashString']])
-        info.append(['ID', " %s" % torrent['id']])
+        info.append(['Hash', " %s" % t['hashString']])
+        info.append(['ID', " %s" % t['id']])
 
-        info.append(['Download'])
-        if torrent['percent_done'] >= 100:
-            info[-1].append(' complete; ')
-        else:
-            info[-1].append(" %s (%s%%); " % \
-                (scale_bytes(torrent['haveUnchecked'] + torrent['haveValid'], 'long'), \
-                     int(torrent['percent_done'])))
-            if torrent['rateDownload']:
-                info[-1].append("receiving %s/second; " % scale_bytes(torrent['rateDownload'], 'long'))
-            else:
-                info[-1].append("no reception in progress; ")
-        info[-1].append("%s verified; " % scale_bytes(torrent['haveValid'], 'long'))
-        info[-1].append("%s corrupt"  % scale_bytes(torrent['corruptEver'], 'long'))
+        info.append(['Size', " %s; " % scale_bytes(t['totalSize'], 'long'),
+                     "%s wanted" % (scale_bytes(t['sizeWhenDone'], 'long'),'everything') \
+                         [t['totalSize']==t['sizeWhenDone']]])
 
-        info.append(['Upload', " %s (%s%%); " % \
-                         (scale_bytes(torrent['uploadedEver'], 'long'),
-                          int(percent(torrent['downloadedEver'], torrent['uploadedEver'])))])
-        if torrent['rateUpload']:
-            info[-1].append("sending %s/second" % scale_bytes(torrent['rateUpload'], 'long'))
-        else:
-            info[-1].append("no transmission in progress")
-
-        info.append(['Size', " %s; " % scale_bytes(torrent['totalSize'], 'long'),
-                     "%s wanted" % (scale_bytes(torrent['sizeWhenDone'], 'long'),'everything') \
-                         [torrent['totalSize']==torrent['sizeWhenDone']]])
-
-        info.append(['Files', " %d; " % len(torrent['files'])])
-        complete     = map(lambda x: x['bytesCompleted'] == x['length'], torrent['files']).count(True)
-        not_complete = filter(lambda x: x['bytesCompleted'] != x['length'], torrent['files'])
+        info.append(['Files', " %d; " % len(t['files'])])
+        complete     = map(lambda x: x['bytesCompleted'] == x['length'], t['files']).count(True)
+        not_complete = filter(lambda x: x['bytesCompleted'] != x['length'], t['files'])
         partial      = map(lambda x: x['bytesCompleted'] > 0, not_complete).count(True)
-        if complete == len(torrent['files']):
+        if complete == len(t['files']):
             info[-1].append("all complete")
         else:
             info[-1].append("%d complete; " % complete)
             info[-1].append("%d commenced" % partial)
 
-        info.append(['Pieces', " %s; " % torrent['pieceCount'],
-                     "%s each" % scale_bytes(torrent['pieceSize'], 'long')])
+        info.append(['Pieces', " %s; " % t['pieceCount'],
+                     "%s each" % scale_bytes(t['pieceSize'], 'long')])
 
-        info.append(['Peers', " %d reported by Tracker; " % torrent['peersKnown'],
-                     "connected to %d; "                  % torrent['peersConnected'],
-                     "downloading from %d; "              % torrent['peersSendingToUs'],
-                     "uploading to %d"                    % torrent['peersGettingFromUs']])
+        info.append(['Download'])
+        if t['percent_done'] >= 100:
+            info[-1].append(' complete; ')
+        else:
+            info[-1].append(" %s (%s%%); " % \
+                (scale_bytes(t['haveUnchecked'] + t['haveValid'], 'long'), \
+                     int(t['percent_done'])))
+            if t['rateDownload']:
+                info[-1].append("receiving %s per second; " % scale_bytes(t['rateDownload'], 'long'))
+            else:
+                info[-1].append("no reception in progress; ")
+        info[-1].append("%s verified; " % scale_bytes(t['haveValid'], 'long'))
+        info[-1].append("%s corrupt"  % scale_bytes(t['corruptEver'], 'long'))
 
-        ypos, key_width = self.draw_table(ypos, info)
+        info.append(['Upload', " %s (%s%%); " % \
+                         (scale_bytes(t['uploadedEver'], 'long'),
+                          int(percent(t['downloadedEver'], t['uploadedEver'])))])
+        if t['rateUpload']:
+            info[-1].append("sending %s per second" % scale_bytes(t['rateUpload'], 'long'))
+        else:
+            info[-1].append("no transmission in progress")
 
-        self.draw_details_eventdates(torrent, ypos+1)
+        info.append(['Peers', " %d reported by tracker; " % t['peersKnown'],
+                     "connected to %d; "                  % t['peersConnected'],
+                     "downloading from %d; "              % t['peersSendingToUs'],
+                     "uploading to %d; "                  % t['peersGettingFromUs']])
 
+        ypos, key_width = self.draw_details_list(ypos, info)
+
+        self.pad.addstr(ypos, 1, "Tracker has seen %d clients completing this torrent." \
+                            % t['timesCompleted'])
+
+        self.draw_details_eventdates(ypos+2)
         return ypos+2
-#  Tracker knows of 128 seeders and 258 leechers
-#  Tracker has seen 1000 clients complete this torrent
 
-    def draw_details_eventdates(self, torrent, ypos):
+    def draw_details_eventdates(self, ypos):
+        t = self.torrent_details
         self.draw_hline(ypos, self.width, ' Events ') ; ypos += 1
         # dates (started, finished, etc)
-        info = [['Added',    ' ' + timestamp(torrent['addedDate'])],
-                ['Started',  ' ' + timestamp(torrent['startDate'])],
-                ['Activity', ' ' + timestamp(torrent['activityDate'])]]
-        if torrent['percent_done'] < 100 and torrent['eta'] > 0:
-            info.append(['Finished', ' ' + timestamp(time.time() + torrent['eta'])])
-        elif torrent['doneDate'] <= 0:
+        info = [['Added',    ' ' + timestamp(t['addedDate'])],
+                ['Started',  ' ' + timestamp(t['startDate'])],
+                ['Activity', ' ' + timestamp(t['activityDate'])]]
+        if t['percent_done'] < 100 and t['eta'] > 0:
+            info.append(['Finished', ' ' + timestamp(time.time() + t['eta'])])
+        elif t['doneDate'] <= 0:
             info.append(['Finished', ' sometime'])
         else:
-            info.append(['Finished', ' ' + timestamp(torrent['doneDate'])])
-        return self.draw_table(ypos, info)
+            info.append(['Finished', ' ' + timestamp(t['doneDate'])])
+        return self.draw_details_list(ypos, info)
 
 
-    def draw_filelist(self, torrent, ypos):
+    def draw_filelist(self, ypos):
+        t = self.torrent_details
         # draw column names
         column_names = '  # Progress Size Priority Filename'
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
+
+        start = self.scrollpos_filelist
+        end   = self.scrollpos_filelist + self.files_per_page
+
         ypos += 1
-        for file in torrent['files']:
-            index = torrent['files'].index(file)
+        for file in t['files'][start:end]:
+            index = t['files'].index(file)
+
+            focused = (index == self.focus_filelist)
+            if focused:
+                self.pad.attron(curses.A_REVERSE)
+                self.pad.addstr(ypos, 0, ' '*self.width, curses.A_REVERSE)
+
             self.pad.addstr(ypos, 0, str(index+1).rjust(3))
             self.draw_filelist_percent(file, ypos)
             self.draw_filelist_size(file, ypos)
-            self.draw_filelist_priority(torrent, index, ypos)
+            self.draw_filelist_priority(t, index, ypos)
             self.draw_filelist_filename(file, ypos)
+
+            if focused:
+                self.pad.attroff(curses.A_REVERSE)
             ypos += 1
 
     def draw_filelist_percent(self, file, ypos):
@@ -831,16 +870,16 @@ class Interface:
 
 
 
-    def draw_peerlist(self, torrent, ypos):
-        try: torrent['peers']
+    def draw_peerlist(self, ypos):
+        try: self.torrent_details['peers']
         except:
-            self.pad.addstr(ypos, 1, "Feature is available in Transmission versions above 1.4 only.")
+            self.pad.addstr(ypos, 1, "Peer list is not available in versions below 1.4.")
             return
 
         column_names = '       IP       Flags     Down    Up Progress Client'
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
         ypos += 1
-        for peer in torrent['peers']:
+        for peer in self.torrent_details['peers']:
             self.draw_peerlist_address(peer, ypos, 0)
             self.draw_peerlist_flags(peer, ypos, 16)
             self.draw_peerlist_download(peer, ypos, 25)
@@ -862,21 +901,22 @@ class Interface:
         self.pad.addstr(ypos, xpos, "%-7s" % peer['flagStr'])
 
 
-    def draw_trackerlist(self, torrent, ypos):
+    def draw_trackerlist(self, ypos):
+        t = self.torrent_details
         # find active tracker
         active   = ''
         inactive = []
-        for tracker in torrent['trackers']:
-            if tracker['announce'] == torrent['announceURL']:
+        for tracker in t['trackers']:
+            if tracker['announce'] == t['announceURL']:
                 active = tracker
             else:
                 inactive.append(tracker)
 
         # show active tracker
         self.pad.addstr(ypos, 0, active['announce'])
-        self.pad.addstr(ypos+1, 2, "Latest announce:   %s" % timestamp(torrent['lastAnnounceTime']))
-        self.pad.addstr(ypos+2, 2, "Announce response: %s" % torrent['announceResponse'])
-        self.pad.addstr(ypos+3, 2, "Next announce:     %s" % timestamp(torrent['nextAnnounceTime']))
+        self.pad.addstr(ypos+1, 2, "Latest announce:   %s" % timestamp(t['lastAnnounceTime']))
+        self.pad.addstr(ypos+2, 2, "Announce response: %s" % t['announceResponse'])
+        self.pad.addstr(ypos+3, 2, "Next announce:     %s" % timestamp(t['nextAnnounceTime']))
 
         scrape_width   = max(60, len(active['scrape']))
         announce_width = max(60, len(active['announce']))
@@ -886,9 +926,9 @@ class Interface:
         else:
             xpos = announce_width + 2
         self.pad.addstr(ypos,   xpos, active['scrape'])
-        self.pad.addstr(ypos+1, xpos+2, "Latest scrape:   %s" % timestamp(torrent['lastScrapeTime']))
-        self.pad.addstr(ypos+2, xpos+2, "Scrape response: %s" % torrent['scrapeResponse'])
-        self.pad.addstr(ypos+3, xpos+2, "Next scrape:     %s" % timestamp(torrent['nextScrapeTime']))
+        self.pad.addstr(ypos+1, xpos+2, "Latest scrape:   %s" % timestamp(t['lastScrapeTime']))
+        self.pad.addstr(ypos+2, xpos+2, "Scrape response: %s" % t['scrapeResponse'])
+        self.pad.addstr(ypos+3, xpos+2, "Next scrape:     %s" % timestamp(t['nextScrapeTime']))
         ypos += 5
         
         if inactive:
@@ -899,9 +939,9 @@ class Interface:
                 self.pad.addstr(ypos, 2, tracker['announce'])
 
             
-    def draw_webseedlist(self, torrent, ypos):
+    def draw_webseedlist(self, ypos):
         self.pad.addstr(ypos, 1, "Feature not implemented yet.")
-#        debug(repr(torrent['webseeds']) + "\n\n\n")
+#        debug(repr(self.torrent_details['webseeds']) + "\n\n\n")
         
 
 
@@ -911,7 +951,7 @@ class Interface:
         self.pad.hline(ypos, 0, curses.ACS_HLINE, width)
         self.pad.addstr(ypos, width-(width-2), title, curses.A_REVERSE)
 
-    def draw_table(self, ypos, info):
+    def draw_details_list(self, ypos, info):
         key_width = max(map(lambda x: len(x[0]), info))
         for i in info:
             self.pad.addstr(ypos, 1, i[0].rjust(key_width) + ':') # key
@@ -942,44 +982,43 @@ class Interface:
 
 
 
-
-    def scroll_up(self):
-        if self.focus < 0:
-            self.focus = -1
-            return
+    def move_up(self, focus, scrollpos, step_size):
+        if focus < 0: focus = -1
         else:
-            self.focus -= 1
-            if self.scrollpos/3 - self.focus > 0:
-                self.scrollpos -= 3
-                self.scrollpos = max(0, self.scrollpos)
-            while self.scrollpos % 3:
-                self.scrollpos -= 1
+            focus -= 1
+            if scrollpos/step_size - focus > 0:
+                scrollpos -= 3
+                scrollpos = max(0, scrollpos)
+            while scrollpos % step_size:
+                scrollpos -= 1
+        return focus, scrollpos
 
-    def scroll_down(self):
-        if self.focus >= len(self.torrents)-1:
-            return
-        else:
-            self.focus += 1
-            if self.focus+1 - self.scrollpos/3 > self.torrents_per_page:
-                self.scrollpos += 3
+    def move_down(self, focus, scrollpos, step_size, elements_per_page, list_height):
+        if focus < list_height - 1:
+            focus += 1
+            if focus+1 - scrollpos/step_size > elements_per_page:
+                scrollpos += step_size
+        return focus, scrollpos
 
-    def scroll_page_up(self):
-        for x in range(self.torrents_per_page - 1):
-            self.scroll_up()
+    def move_page_up(self, focus, scrollpos, step_size, elements_per_page):
+        for x in range(elements_per_page - 1):
+            focus, scrollpos = self.move_up(focus, scrollpos, step_size)
+        if focus < 0: focus = 0
+        return focus, scrollpos
 
-    def scroll_page_down(self):
-        if self.focus < 0: self.focus = 0
-        for x in range(self.torrents_per_page - 1):
-            self.scroll_down()
+    def move_page_down(self, focus, scrollpos, step_size, elements_per_page, list_height):
+        if focus < 0: focus = 0
+        for x in range(elements_per_page - 1):
+            focus, scrollpos = self.move_down(focus, scrollpos, step_size, elements_per_page, list_height)
+        return focus, scrollpos
 
-    def scroll_to_top(self):
-        self.focus     = 0
-        self.scrollpos = 0
+    def move_to_top(self):
+        return 0, 0
 
-    def scroll_to_end(self):
-        self.focus     = len(self.torrents)-1
-        self.scrollpos = max(0, (len(self.torrents) - self.torrents_per_page) * 3)
-
+    def move_to_end(self, step_size, elements_per_page, list_height):
+        focus     = list_height - 1
+        scrollpos = max(0, (list_height - elements_per_page) * step_size)
+        return focus, scrollpos
 
 
 

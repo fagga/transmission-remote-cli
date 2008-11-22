@@ -311,7 +311,7 @@ class Transmission:
         self.update(0) # send request
         while True:    # wait for response
             if self.update(0, update_id): break
-        debug("delay was %.3f seconds\n\n\n" % (time.time() - start))
+#        debug("delay was %.3f seconds\n\n\n" % (time.time() - start))
         
 
     def get_status(self, torrent):

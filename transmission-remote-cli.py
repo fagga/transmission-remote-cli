@@ -353,6 +353,7 @@ class Interface:
     def __init__(self, server):
         self.server = server
 
+        self.filter_list  = ''
         self.sort_orders  = ['name']
         self.sort_reverse = False
         self.selected = -1  # changes to >-1 when focus >-1 & user hits return
@@ -458,6 +459,7 @@ class Interface:
             # update torrentlist
             self.server.update(1)
             self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
+            self.filter_torrent_list()
             self.stats    = self.server.get_global_stats()
 
             self.manage_layout()
@@ -475,6 +477,23 @@ class Interface:
 
             self.screen.move(0,0)
             self.handle_user_input()
+
+    def filter_torrent_list(self):
+        if self.filter_list == 'downloading':
+            self.torrents = filter(lambda x: x['rateDownload'] > 0, self.torrents)
+        elif self.filter_list == 'uploading':
+            self.torrents = filter(lambda x: x['rateUpload'] > 0, self.torrents)
+        elif self.filter_list == 'paused':
+            self.torrents = filter(lambda x: x['status'] == Transmission.STATUS_STOPPED, self.torrents)
+        elif self.filter_list == 'seeding':
+            self.torrents = filter(lambda x: x['status'] == Transmission.STATUS_SEED, self.torrents)
+        elif self.filter_list == 'idle':
+            self.torrents = filter(lambda x: x['status'] == Transmission.STATUS_DOWNLOAD and \
+                                       x['rateDownload'] == 0, self.torrents)
+        elif self.filter_list == 'verifying':
+            self.torrents = filter(lambda x: x['status'] == Transmission.STATUS_CHECK or \
+                                       x['status'] == Transmission.STATUS_CHECK_WAIT, self.torrents)
+
 
 
     def handle_user_input(self):
@@ -524,6 +543,15 @@ class Interface:
                     self.sort_orders.append(choice)
                     while len(self.sort_orders) > 2:
                         self.sort_orders.pop(0)
+
+        # show state filter menu
+        elif c == ord('f') and self.selected == -1:
+            options = [('downloading','_Downloading'), ('uploading','_Uploading'),
+                       ('paused','_Paused'), ('seeding','_Seeding'), ('verifying','_Verifying'),
+                       ('idle','_Idle'), ('','_All')]
+            self.filter_list = self.dialog_menu('Show', options,
+                                  map(lambda x: x[0]==self.filter_list, options).index(True)+1)
+            debug("filter set to %s\n" % self.filter_list)
 
 
         # upload/download limits
@@ -831,20 +859,20 @@ class Interface:
                      "%s each" % scale_bytes(t['pieceSize'], 'long')])
 
         info.append(['Download'])
-        info[-1].append(" %s (" % scale_bytes(t['downloadedEver'], 'long') +\
-                        "%d%%" % int(t['percent_done']) +\
-                        ') received; ')
-        info[-1].append("%s verified; " % scale_bytes(t['haveValid'], 'long'))
+        info[-1].append(" %s" % scale_bytes(t['downloadedEver'], 'long') + \
+                        " (%d%%) received; " % int(percent(t['sizeWhenDone'], t['downloadedEver'])))
+        info[-1].append("%s" % scale_bytes(t['haveValid'], 'long') + \
+                        " (%d%%) verified; " % int(percent(t['sizeWhenDone'], t['haveValid'])))
         info[-1].append("%s corrupt"  % scale_bytes(t['corruptEver'], 'long'))
         if t['percent_done'] < 100:
+            info[-1][-1] += '; '
             if t['rateDownload']:
-                info[-1].append("receiving %s per second; " % scale_bytes(t['rateDownload'], 'long'))
+                info[-1].append("receiving %s per second" % scale_bytes(t['rateDownload'], 'long'))
             else:
-                info[-1].append("no reception in progress; ")
+                info[-1].append("no reception in progress")
 
         info.append(['Upload', " %s " % scale_bytes(t['uploadedEver'], 'long') + \
                          "(%.2f copies) distributed; " % (float(t['uploadedEver']) / float(t['sizeWhenDone']))])
-
         if t['rateUpload']:
             info[-1].append("sending %s per second" % scale_bytes(t['rateUpload'], 'long'))
         else:
@@ -1132,7 +1160,7 @@ class Interface:
             if self.focus >= 0:
                 help = [('enter','View Details'), ('p','Pause/Unpause'), ('r','Remove'), ('v','Verify')]
             else:
-                help = [('s','Sort')] + help + [('q','Quit')]
+                help = [('f','Filter'), ('s','Sort')] + help + [('q','Quit')]
         else:
             help = [('Move with','cursor keys'), ('q','Back to List')]
             if self.focus_filelist > -1:

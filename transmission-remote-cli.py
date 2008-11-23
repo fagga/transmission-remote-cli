@@ -831,21 +831,20 @@ class Interface:
                      "%s each" % scale_bytes(t['pieceSize'], 'long')])
 
         info.append(['Download'])
-        info[-1].append(" %s" % scale_bytes(t['downloadedEver'], 'long'))
-        if t['percent_done'] >= 100:
-            info[-1][-1] += ' (complete); '
-        else:
-            info[-1][-1] += " (%d%%); " % int(t['percent_done'])
+        info[-1].append(" %s (" % scale_bytes(t['downloadedEver'], 'long') +\
+                        "%d%%" % int(t['percent_done']) +\
+                        ') received; ')
+        info[-1].append("%s verified; " % scale_bytes(t['haveValid'], 'long'))
+        info[-1].append("%s corrupt"  % scale_bytes(t['corruptEver'], 'long'))
+        if t['percent_done'] < 100:
             if t['rateDownload']:
                 info[-1].append("receiving %s per second; " % scale_bytes(t['rateDownload'], 'long'))
             else:
                 info[-1].append("no reception in progress; ")
-        info[-1].append("%s verified; " % scale_bytes(t['haveValid'], 'long'))
-        info[-1].append("%s corrupt"  % scale_bytes(t['corruptEver'], 'long'))
 
-        info.append(['Upload', " %s (%s%%); " % \
-                         (scale_bytes(t['uploadedEver'], 'long'),
-                          int(percent(t['downloadedEver'], t['uploadedEver'])))])
+        info.append(['Upload', " %s " % scale_bytes(t['uploadedEver'], 'long') + \
+                         "(%.2f copies) distributed; " % (float(t['uploadedEver']) / float(t['sizeWhenDone']))])
+
         if t['rateUpload']:
             info[-1].append("sending %s per second" % scale_bytes(t['rateUpload'], 'long'))
         else:
@@ -854,12 +853,12 @@ class Interface:
         info.append(['Peers', " %d reported by tracker; " % t['peersKnown'],
                      "connected to %d; "                  % t['peersConnected'],
                      "downloading from %d; "              % t['peersSendingToUs'],
-                     "uploading to %d; "                  % t['peersGettingFromUs']])
+                     "uploading to %d"                    % t['peersGettingFromUs']])
 
         ypos, key_width = self.draw_details_list(ypos, info)
 
-        self.pad.addstr(ypos, 1, "Tracker has seen %d clients completing this torrent." \
-                            % t['timesCompleted'])
+        self.pad.addstr(ypos, 1, "Tracker has seen %s clients completing this torrent." \
+                            % num2str(t['timesCompleted']))
 
         self.draw_details_eventdates(ypos+2)
         return ypos+2

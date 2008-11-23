@@ -353,9 +353,12 @@ class Interface:
     def __init__(self, server):
         self.server = server
 
-        self.filter_list  = ''
+        self.filter_list    = ''
+        self.filter_inverse = False
+
         self.sort_orders  = ['name']
         self.sort_reverse = False
+
         self.selected = -1  # changes to >-1 when focus >-1 & user hits return
         self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
         self.stats    = self.server.get_global_stats()
@@ -479,21 +482,24 @@ class Interface:
             self.handle_user_input()
 
     def filter_torrent_list(self):
+        unfiltered = self.torrents
         if self.filter_list == 'downloading':
-            self.torrents = filter(lambda x: x['rateDownload'] > 0, self.torrents)
+            self.torrents = [t for t in self.torrents if t['rateDownload'] > 0]
         elif self.filter_list == 'uploading':
-            self.torrents = filter(lambda x: x['rateUpload'] > 0, self.torrents)
+            self.torrents = [t for t in self.torrents if t['rateUpload'] > 0]
         elif self.filter_list == 'paused':
-            self.torrents = filter(lambda x: x['status'] == Transmission.STATUS_STOPPED, self.torrents)
+            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_STOPPED]
         elif self.filter_list == 'seeding':
-            self.torrents = filter(lambda x: x['status'] == Transmission.STATUS_SEED, self.torrents)
+            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_SEED]
         elif self.filter_list == 'idle':
-            self.torrents = filter(lambda x: x['status'] == Transmission.STATUS_DOWNLOAD and \
-                                       x['rateDownload'] == 0, self.torrents)
+            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_DOWNLOAD \
+                                 and t['rateDownload'] == 0 and t['rateUpload'] == 0]
         elif self.filter_list == 'verifying':
-            self.torrents = filter(lambda x: x['status'] == Transmission.STATUS_CHECK or \
-                                       x['status'] == Transmission.STATUS_CHECK_WAIT, self.torrents)
-
+            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_CHECK \
+                                 or t['status'] == Transmission.STATUS_CHECK_WAIT]
+        # invert list?
+        if self.filter_inverse:
+            self.torrents = [t for t in unfiltered if t not in self.torrents]
 
 
     def handle_user_input(self):
@@ -536,22 +542,25 @@ class Interface:
                        ('peersConnected','P_eers'), ('reverse','_Reverse')]
             choice = self.dialog_menu('Sort order', options,
                                       map(lambda x: x[0]==self.sort_orders[-1], options).index(True)+1)
-            if choice:
-                if choice == 'reverse':
-                    self.sort_reverse = not self.sort_reverse
-                else:
-                    self.sort_orders.append(choice)
-                    while len(self.sort_orders) > 2:
-                        self.sort_orders.pop(0)
+            if choice == 'reverse':
+                self.sort_reverse = not self.sort_reverse
+            else:
+                self.sort_orders.append(choice)
+                while len(self.sort_orders) > 2:
+                    self.sort_orders.pop(0)
 
         # show state filter menu
         elif c == ord('f') and self.selected == -1:
             options = [('downloading','_Downloading'), ('uploading','_Uploading'),
                        ('paused','_Paused'), ('seeding','_Seeding'), ('verifying','_Verifying'),
-                       ('idle','_Idle'), ('','_All')]
-            self.filter_list = self.dialog_menu('Show', options,
-                                  map(lambda x: x[0]==self.filter_list, options).index(True)+1)
-            debug("filter set to %s\n" % self.filter_list)
+                       ('idle','_Idle'), ('invert','I_nvert'), ('','_All')]
+            choice = self.dialog_menu('Show only', options,
+                                      map(lambda x: x[0]==self.filter_list, options).index(True)+1)
+            if choice == 'invert':
+                self.filter_inverse = not self.filter_inverse
+            else:
+                if choice == '': self.filter_inverse = False
+                self.filter_list = choice
 
 
         # upload/download limits
@@ -1110,39 +1119,38 @@ class Interface:
 
 
     def draw_stats(self):
-        self.screen.insstr((self.height-1), 0, ' '.center(self.width), curses.A_REVERSE)
+        self.screen.insstr(self.height-1, 0, ' '.center(self.width), curses.A_REVERSE)
         self.draw_torrents_stats()
+        self.draw_current_filter()
         self.draw_global_rates()
-
 
     def draw_torrents_stats(self):
         torrents = "%d Torrents: " % self.stats['torrentCount']
-
         downloading_torrents = filter(lambda x: x['status']==Transmission.STATUS_DOWNLOAD, self.torrents)
         torrents += "%d downloading; " % len(downloading_torrents)
-
         seeding_torrents = filter(lambda x: x['status']==Transmission.STATUS_SEED, self.torrents)
         torrents += "%d seeding; " % len(seeding_torrents)
-
         torrents += "%d paused" % self.stats['pausedTorrentCount']
-
         self.screen.addstr((self.height-1), 0, torrents, curses.A_REVERSE)
 
+    def draw_current_filter(self):
+        if not self.filter_list or self.width < 80: return
+        line = self.filter_list
+        if self.filter_inverse: line = '!' + line
+        if self.width >= 100: line = 'Filter: ' + line
+        free_space = self.width - 50 - 15
+        xpos = 45 + (free_space / 2)
+        self.screen.addstr(self.height-1, xpos, line, curses.A_REVERSE)
 
     def draw_global_rates(self):
         rates_width = self.rateDownload_width + self.rateUpload_width + 3
-        self.screen.move((self.height-1), self.width-rates_width)
-
+        self.screen.move(self.height-1, self.width-rates_width)
         self.screen.addstr('D', curses.A_REVERSE)
         self.screen.addstr(scale_bytes(self.stats['downloadSpeed']).rjust(self.rateDownload_width),
                            curses.A_REVERSE + curses.A_BOLD + curses.color_pair(1))
-
         self.screen.addstr(' U', curses.A_REVERSE)
         self.screen.insstr(scale_bytes(self.stats['uploadSpeed']).rjust(self.rateUpload_width),
                            curses.A_REVERSE + curses.A_BOLD + curses.color_pair(2))
-
-
-
 
 
     def draw_title_bar(self):
@@ -1300,6 +1308,7 @@ class Interface:
         win.notimeout(True)
         win.keypad(True)
 
+        old_focus = focus
         while True:
             keymap = self.dialog_list_menu_options(win, width, options, focus)
             c = win.getch()
@@ -1307,7 +1316,7 @@ class Interface:
             if c > 96 and c < 123 and chr(c) in keymap:
                 return options[keymap[chr(c)]][0]
             elif c == 27 or c == ord('q'):
-                return None
+                return options[old_focus-1][0]
             elif c == ord("\n"):
                 return options[focus-1][0]
             elif c == curses.KEY_DOWN:

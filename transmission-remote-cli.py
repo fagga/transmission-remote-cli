@@ -116,7 +116,8 @@ class Transmission:
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
                     'sizeWhenDone', 'haveValid', 'haveUnchecked', 'addedDate',
                     'uploadedEver', 'errorString', 'recheckProgress',
-                    'swarmSpeed', 'peersConnected', 'uploadLimit', 'downloadLimit' ]
+                    'swarmSpeed', 'peersConnected',
+                    'uploadLimit', 'uploadLimitMode', 'downloadLimit', 'downloadLimitMode' ]
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers', 'webseeds',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
@@ -245,18 +246,19 @@ class Transmission:
         else:
             data['speed-limit-'+direction+'-enabled'] = 0
 
+        debug(repr(data)+"\n\n\n")
         request = TransmissionRequest(self.host, self.port, type, 1, data)
         request.send_request()
 
         # changing global rates doesn't change torrent states automatically, so
         # we have to do that on our own.
-        if type == 'session-set':
-            data['ids'] = []
-            for t in self.torrent_cache:
-                if t['uploadLimit'] == self.status_cache['speed-limit-up']/1024:
-                    data['ids'].append(t['id'])
-            request = TransmissionRequest(self.host, self.port, 'torrent-set', 1, data)
-            request.send_request()
+#         if type == 'session-set':
+#             data['ids'] = []
+#             for t in self.torrent_cache:
+#                 if t['uploadLimit'] == self.status_cache['speed-limit-up']/1024:
+#                     data['ids'].append(t['id'])
+#             request = TransmissionRequest(self.host, self.port, 'torrent-set', 1, data)
+#             request.send_request()
         self.wait_for_torrentlist_update()
 
 
@@ -704,7 +706,8 @@ class Interface:
 
     def draw_downloadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateDownload_width-self.rateUpload_width-3)
-        if torrent['downloadLimit'] != self.stats['speed-limit-down']/1024:
+#        if torrent['downloadLimit'] != self.stats['speed-limit-down']/1024:
+        if torrent['downloadLimitMode']:
             self.pad.addstr('d', curses.A_BOLD)
         else:
             self.pad.addstr('D')
@@ -713,7 +716,9 @@ class Interface:
 
     def draw_uploadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateUpload_width-1)
-        if torrent['uploadLimit'] != self.stats['speed-limit-up']/1024:
+#        if torrent['uploadLimit'] != self.stats['speed-limit-up']/1024:
+#        debug(repr(torrent['uploadLimitMode']) + "\n")
+        if torrent['uploadLimitMode']:
             self.pad.addstr('u', curses.A_BOLD)
         else:
             self.pad.addstr('U')
@@ -901,6 +906,8 @@ class Interface:
             info[-1][-1] += '; '
             if t['rateDownload']:
                 info[-1].append("receiving %s per second" % scale_bytes(t['rateDownload'], 'long'))
+                if t['downloadLimitMode']:
+                    info[-1][-1] += " (throttled to %s)" % scale_bytes(t['downloadLimit']*1024, 'long')
             else:
                 info[-1].append("no reception in progress")
 
@@ -908,6 +915,8 @@ class Interface:
                          "(%.2f copies) distributed; " % (float(t['uploadedEver']) / float(t['sizeWhenDone']))])
         if t['rateUpload']:
             info[-1].append("sending %s per second" % scale_bytes(t['rateUpload'], 'long'))
+            if t['uploadLimitMode']:
+                info[-1][-1] += " (throttled to %s)" % scale_bytes(t['uploadLimit']*1024, 'long')
         else:
             info[-1].append("no transmission in progress")
 

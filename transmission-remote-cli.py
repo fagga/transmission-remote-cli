@@ -417,8 +417,8 @@ class Interface:
             else:
                 break
 
-        self.focus     = -1
-        self.scrollpos = 0
+#        self.focus     = -1
+#        self.scrollpos = 0
         self.focus_filelist     = -1
         self.scrollpos_filelist = 0
         self.manage_layout()
@@ -470,9 +470,10 @@ class Interface:
         while True:
             # update torrentlist
             self.server.update(1)
+
             self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
-            self.filter_torrent_list()
             self.stats    = self.server.get_global_stats()
+            self.filter_torrent_list()
 
             self.manage_layout()
 
@@ -511,22 +512,28 @@ class Interface:
             self.torrents = [t for t in unfiltered if t not in self.torrents]
 
 
+
     def handle_user_input(self):
         c = self.screen.getch()
         if c == -1: return
 
-        # reset + redraw
+        # list all currently available key bindings
+        elif c == ord('?') or c == curses.KEY_F1:
+            self.list_key_bindings()
+
+        # go back or unfocus
         elif c == 27 or c == curses.KEY_BREAK or c == 12:
             if self.focus_filelist > -1:     # unfocus file
                 self.focus_filelist     = -1
                 self.scrollpos_filelist = 0
             elif self.selected > -1:         # return from details
+                self.details_category_focus = 0;
                 self.selected = -1
             else:                            # unfocus main list
                 self.scrollpos = 0
                 self.focus     = -1
 
-        # quit on q or ctrl-c
+        # go back or quit on q
         elif c == ord('q'):
             if self.selected == -1: quit()  # exit
             else:                           # return to list view
@@ -589,28 +596,22 @@ class Interface:
             if limit >= 0: self.server.set_rate_limit('down', limit, self.torrents[self.focus]['id'])
 
         # pause/unpause torrent
-        elif c == ord('p'):
-            if self.focus < 0: return
-            id = self.torrents[self.focus]['id']
+        elif c == ord('p') and self.focus > -1:
             if self.torrents[self.focus]['status'] == Transmission.STATUS_STOPPED:
-                self.server.start_torrent(id)
+                self.server.start_torrent(self.torrents[self.focus]['id'])
             else:
-                self.server.stop_torrent(id)
+                self.server.stop_torrent(self.torrents[self.focus]['id'])
             
         # verify torrent data
-        elif c == ord('v'):
-            if self.focus < 0: return
-            id = self.torrents[self.focus]['id']
+        elif c == ord('v') and self.focus > -1:
             if self.torrents[self.focus]['status'] != Transmission.STATUS_CHECK:
-                self.server.verify_torrent(id)
+                self.server.verify_torrent(self.torrents[self.focus]['id'])
 
         # remove torrent
-        elif c == ord('r') or c == curses.KEY_DC:
-            if self.focus < 0: return
-            id = self.torrents[self.focus]['id']
+        elif c == ord('r') or c == curses.KEY_DC and self.focus > -1:
             name = self.torrents[self.focus]['name'][0:self.width - 15]
             if self.dialog_yesno("Remove %s?" % name.encode('utf8')) == True:
-                self.server.remove_torrent(id)
+                self.server.remove_torrent(self.torrents[self.focus]['id'])
 
         # movement in torrent list
         elif self.selected == -1:
@@ -713,7 +714,6 @@ class Interface:
     def draw_uploadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateUpload_width-1)
         if torrent['uploadLimit'] != self.stats['speed-limit-up']/1024:
-            debug("torrent up:%d  global up:%d\n" % (torrent['uploadLimit'], self.stats['speed-limit-up']/1024))
             self.pad.addstr('u', curses.A_BOLD)
         else:
             self.pad.addstr('U')
@@ -1206,15 +1206,43 @@ class Interface:
         self.screen.insstr(0, self.width-len(line), line, curses.A_REVERSE)
 
 
+    def list_key_bindings(self):
+        message = "      F1 / ?  Show this help\n" + \
+            "           p  Pause/Unpause focused torrent\n" + \
+            "           v  Verify focused torrent\n" + \
+            "     DEL / r  Remove focused torrent (and keep it's content)\n" + \
+            "       u / d  Adjust maximum global upload/download rate\n" + \
+            "       U / D  Adjust maximum upload/download rate for focused torrent\n"
+        if self.selected == -1:
+            message +=  "           f  Filter torrent list\n" + \
+                "           s  Sort torrent list\n" \
+                "       Enter  View focused torrent's details\n" + \
+                "     q / ESC  Unfocus/Quit\n\n"
+        else:
+            message += "           o  Jump to overview\n" + \
+                "           f  Jump to file list\n" + \
+                "           e  Jump to peer list\n" + \
+                "           t  Jump to tracker information\n" + \
+                "           w  Jump to webseed list\n" + \
+                "   up / down  Select file/peer (in appropriate view)\n" + \
+                "left / right  Jump to next/previous view\n" + \
+                "     q / ESC  Unfocus/Back to list\n\n"
 
-
+        width  = max(map(lambda x: len(x), message.split("\n"))) + 4
+        width  = min(self.width, width)
+        message += "Hit any key to close".center(width-4)
+        height = min(self.height, message.count("\n")+3)
+        win = self.window(height, width, message)
+        win.notimeout(True)
+        win.keypad(True)
+        win.getch()
 
 
     def window(self, height, width, message=''):
         height = min(self.height, height)
         width  = min(self.width, width)
-        ypos = int(self.height - height)/2
-        xpos = int(self.width  - width)/2
+        ypos = (self.height - height)/2
+        xpos = (self.width  - width)/2
         win = curses.newwin(height, width, ypos, xpos)
         win.box()
         win.bkgd(' ', curses.A_REVERSE + curses.A_BOLD)

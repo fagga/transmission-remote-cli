@@ -116,7 +116,7 @@ class Transmission:
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
                     'sizeWhenDone', 'haveValid', 'haveUnchecked', 'addedDate',
                     'uploadedEver', 'errorString', 'recheckProgress',
-                    'swarmSpeed', 'peersConnected' ]
+                    'swarmSpeed', 'peersConnected', 'uploadLimit', 'downloadLimit' ]
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers', 'webseeds',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
@@ -232,17 +232,32 @@ class Transmission:
             self.requests['torrent-details'].set_request_data('torrent-get', 77,
                                                               {'ids':id, 'fields': self.DETAIL_FIELDS})
 
-    def set_upload_limit(self, new_limit):
-        request = TransmissionRequest(self.host, self.port, 'session-set', 1,
-                                      { 'speed-limit-up': int(new_limit),
-                                        'speed-limit-up-enabled': 1 })
+    def set_rate_limit(self, direction, new_limit, torrent_id=-1):
+        data = dict()
+        type = 'session-set'
+        if torrent_id >= 0:
+            type = 'torrent-set'
+            data['ids'] = [torrent_id]
+            
+        if new_limit > 0:
+            data['speed-limit-'+direction] = int(new_limit)
+            data['speed-limit-'+direction+'-enabled'] = 1
+        else:
+            data['speed-limit-'+direction+'-enabled'] = 0
+
+        request = TransmissionRequest(self.host, self.port, type, 1, data)
         request.send_request()
 
-    def set_download_limit(self, new_limit):
-        request = TransmissionRequest(self.host, self.port, 'session-set', 1,
-                                      { 'speed-limit-down': int(new_limit),
-                                        'speed-limit-down-enabled': 1 })
-        request.send_request()
+        # changing global rates doesn't change torrent states automatically, so
+        # we have to do that on our own.
+        if type == 'session-set':
+            data['ids'] = []
+            for t in self.torrent_cache:
+                if t['uploadLimit'] == self.status_cache['speed-limit-up']/1024:
+                    data['ids'].append(t['id'])
+            request = TransmissionRequest(self.host, self.port, 'torrent-set', 1, data)
+            request.send_request()
+        self.wait_for_torrentlist_update()
 
 
     def stop_torrent(self, id):
@@ -266,13 +281,7 @@ class Transmission:
         self.wait_for_torrentlist_update()
 
 
-# 91 	   "files-wanted"             | array      indices of file(s) to download
-# 92 	   "files-unwanted"           | array      indices of file(s) to not download
-# 93 	   "ids"                      | array      torrent list, as described in 3.1
-# 94 	   "peer-limit"               | number     maximum number of peers
-# 95 	   "priority-high"            | array      indices of high-priority file(s)
-# 96 	   "priority-low"             | array      indices of low-priority file(s)
-# 97 	   "priority-normal"          | array      indices of normal-priority file(s)
+
     def increase_file_priority(self, file_num):
         current_priority = self.torrent_details_cache['priorities'][file_num]
         if not self.torrent_details_cache['wanted'][file_num]:
@@ -566,10 +575,18 @@ class Interface:
         # upload/download limits
         elif c == ord('u'):
             limit = self.dialog_input_number("Upload limit in Kilobytes per second", self.stats['speed-limit-up']/1024)
-            if limit >= 0: self.server.set_upload_limit(limit)
+            if limit >= 0: self.server.set_rate_limit('up', limit)
+        elif c == ord('U') and self.focus > -1:
+            limit = self.dialog_input_number("Upload limit in Kilobytes per second for\n%s" % \
+                                                 self.torrents[self.focus]['name'], self.torrents[self.focus]['uploadLimit'])
+            if limit >= 0: self.server.set_rate_limit('up', limit, self.torrents[self.focus]['id'])
         elif c == ord('d'):
             limit = self.dialog_input_number("Download limit in Kilobytes per second", self.stats['speed-limit-down']/1024)
-            if limit >= 0: self.server.set_download_limit(limit)
+            if limit >= 0: self.server.set_rate_limit('down', limit)
+        elif c == ord('D') and self.focus > -1:
+            limit = self.dialog_input_number("Download limit in Kilobytes per second for\n%s" % \
+                                                 self.torrents[self.focus]['name'], self.torrents[self.focus]['downloadLimit'])
+            if limit >= 0: self.server.set_rate_limit('down', limit, self.torrents[self.focus]['id'])
 
         # pause/unpause torrent
         elif c == ord('p'):
@@ -671,9 +688,9 @@ class Interface:
 
         rates = ''
         if torrent['status'] == Transmission.STATUS_DOWNLOAD:
-            self.draw_downloadrate(torrent['rateDownload'], y)
+            self.draw_downloadrate(torrent, y)
         if torrent['status'] == Transmission.STATUS_DOWNLOAD or torrent['status'] == Transmission.STATUS_SEED:
-            self.draw_uploadrate(torrent['rateUpload'], y)
+            self.draw_uploadrate(torrent, y)
         if torrent['percent_done'] < 100 and torrent['status'] == Transmission.STATUS_DOWNLOAD:
             self.draw_eta(torrent, y)
 
@@ -684,16 +701,23 @@ class Interface:
 
 
 
-    def draw_downloadrate(self, rate, ypos):
-        self.pad.addstr(ypos, self.width-self.rateDownload_width-self.rateUpload_width-3, "D")
-        self.pad.addstr(ypos, self.width-self.rateDownload_width-self.rateUpload_width-2,
-                        "%s" % scale_bytes(rate).rjust(self.rateDownload_width),
+    def draw_downloadrate(self, torrent, ypos):
+        self.pad.move(ypos, self.width-self.rateDownload_width-self.rateUpload_width-3)
+        if torrent['downloadLimit'] != self.stats['speed-limit-down']/1024:
+            self.pad.addstr('d', curses.A_BOLD)
+        else:
+            self.pad.addstr('D')
+        self.pad.addstr(scale_bytes(torrent['rateDownload']).rjust(self.rateDownload_width),
                         curses.color_pair(1) + curses.A_BOLD + curses.A_REVERSE)
 
-    def draw_uploadrate(self, rate, ypos):
-        self.pad.addstr(ypos, self.width-self.rateUpload_width-1, "U")
-        self.pad.addstr(ypos, self.width-self.rateUpload_width,
-                       "%s" % scale_bytes(rate).rjust(self.rateUpload_width),
+    def draw_uploadrate(self, torrent, ypos):
+        self.pad.move(ypos, self.width-self.rateUpload_width-1)
+        if torrent['uploadLimit'] != self.stats['speed-limit-up']/1024:
+            debug("torrent up:%d  global up:%d\n" % (torrent['uploadLimit'], self.stats['speed-limit-up']/1024))
+            self.pad.addstr('u', curses.A_BOLD)
+        else:
+            self.pad.addstr('U')
+        self.pad.addstr(scale_bytes(torrent['rateUpload']).rjust(self.rateUpload_width),
                        curses.color_pair(2) + curses.A_BOLD + curses.A_REVERSE)
 
     def draw_ratio(self, torrent, ypos):
@@ -1187,6 +1211,8 @@ class Interface:
 
 
     def window(self, height, width, message=''):
+        height = min(self.height, height)
+        width  = min(self.width, width)
         ypos = int(self.height - height)/2
         xpos = int(self.width  - width)/2
         win = curses.newwin(height, width, ypos, xpos)
@@ -1195,6 +1221,7 @@ class Interface:
 
         ypos = 1
         for msg in message.split("\n"):
+            msg = msg[0:self.width-4]
             win.addstr(ypos, 2, msg)
             ypos += 1
 
@@ -1253,18 +1280,21 @@ class Interface:
 
 
     def dialog_input_number(self, message, current_value):
-        if current_value < 50:
-            bigstep   = 10
+        if current_value < 20:
+            bigstep   = 5
             smallstep = 1
+        elif current_value < 50:
+            bigstep   = 10
+            smallstep = 5
         else:
-            bigstep   = 100
+            bigstep   = 50
             smallstep = 10
+        height = 6 + message.count("\n")
+        width  = max(max(map(lambda x: len(x), message.split("\n"))), 20) + 4
+        width  = min(self.width, width)
 
-
-        message += "\nup/down    +/- %3d" % bigstep
-        message += "\nleft/right +/- %3d" % smallstep
-        height = 4 + message.count("\n")
-        width  = max(map(lambda x: len(x), message.split("\n"))) + 4
+        message += "\n" + ("up/down    +/- %3d" % bigstep).rjust(width-4)
+        message += "\n" + ("left/right +/- %3d" % smallstep).rjust(width-4)
 
         win = self.window(height, width, message)
         win.notimeout(True)

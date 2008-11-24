@@ -1186,7 +1186,7 @@ class Interface:
         self.screen.addstr(0, 0, status.encode('utf-8'), curses.A_REVERSE)
 
     def draw_quick_help(self):
-        help = [('u','Upload Limit'), ('d','Download Limit')]
+        help = [('?','View Shortcuts')]
 
         if self.selected == -1:
             if self.focus >= 0:
@@ -1198,9 +1198,7 @@ class Interface:
             if self.focus_filelist > -1:
                 help = [('left/right','Decrease/Increase Priority'),
                         ('escape','Unfocus')] + help
-                
 
-        # convert help to str
         line = ' | '.join(map(lambda x: "%s %s" % (x[0], x[1]), help))
         line = line[0:self.width]
         self.screen.insstr(0, self.width-len(line), line, curses.A_REVERSE)

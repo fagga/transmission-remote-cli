@@ -583,18 +583,22 @@ class Interface:
 
         # upload/download limits
         elif c == ord('u'):
-            limit = self.dialog_input_number("Upload limit in Kilobytes per second", self.stats['speed-limit-up']/1024)
+            limit = self.dialog_input_number("Global upload limit in kilobytes per second",
+                                             self.stats['speed-limit-up']/1024)
             if limit >= 0: self.server.set_rate_limit('up', limit)
         elif c == ord('U') and self.focus > -1:
-            limit = self.dialog_input_number("Upload limit in Kilobytes per second for\n%s" % \
-                                                 self.torrents[self.focus]['name'], self.torrents[self.focus]['uploadLimit'])
+            limit = self.dialog_input_number("Upload limit in kilobytes per second for\n%s" % \
+                                                 self.torrents[self.focus]['name'],
+                                             self.torrents[self.focus]['uploadLimit'])
             if limit >= 0: self.server.set_rate_limit('up', limit, self.torrents[self.focus]['id'])
         elif c == ord('d'):
-            limit = self.dialog_input_number("Download limit in Kilobytes per second", self.stats['speed-limit-down']/1024)
+            limit = self.dialog_input_number("Global download limit in kilobytes per second",
+                                             self.stats['speed-limit-down']/1024)
             if limit >= 0: self.server.set_rate_limit('down', limit)
         elif c == ord('D') and self.focus > -1:
             limit = self.dialog_input_number("Download limit in Kilobytes per second for\n%s" % \
-                                                 self.torrents[self.focus]['name'], self.torrents[self.focus]['downloadLimit'])
+                                                 self.torrents[self.focus]['name'],
+                                             self.torrents[self.focus]['downloadLimit'])
             if limit >= 0: self.server.set_rate_limit('down', limit, self.torrents[self.focus]['id'])
 
         # pause/unpause torrent
@@ -706,7 +710,6 @@ class Interface:
 
     def draw_downloadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateDownload_width-self.rateUpload_width-3)
-#        if torrent['downloadLimit'] != self.stats['speed-limit-down']/1024:
         if torrent['downloadLimitMode']:
             self.pad.addstr('d', curses.A_BOLD)
         else:
@@ -716,8 +719,6 @@ class Interface:
 
     def draw_uploadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateUpload_width-1)
-#        if torrent['uploadLimit'] != self.stats['speed-limit-up']/1024:
-#        debug(repr(torrent['uploadLimitMode']) + "\n")
         if torrent['uploadLimitMode']:
             self.pad.addstr('u', curses.A_BOLD)
         else:
@@ -749,7 +750,7 @@ class Interface:
 
         size = "%5s" % scale_bytes(torrent['sizeWhenDone'])
         if torrent['percent_done'] < 100:
-            if torrent['seeders'] <= 0:
+            if torrent['seeders'] <= 0 and torrent['status'] != Transmission.STATUS_CHECK:
                 available = torrent['desiredAvailable'] + torrent['haveValid']
                 size = "%5s / " % scale_bytes(torrent['desiredAvailable'] + torrent['haveValid']) + size
             size = "%5s / " % scale_bytes(torrent['haveValid'] + torrent['haveUnchecked']) + size
@@ -978,8 +979,7 @@ class Interface:
             ypos += 1
 
     def draw_filelist_percent(self, file, ypos):
-        done = str(int(percent(file['length'], file['bytesCompleted']))) + '%'
-        self.pad.addstr(ypos, 4, "%s" % done.rjust(6))
+        self.pad.addstr(ypos, 5, "%6.2f%%" % percent(file['length'], file['bytesCompleted']))
 
     def draw_filelist_size(self, file, ypos):
         self.pad.addstr(ypos, 12, scale_bytes(file['length']).rjust(5))
@@ -1324,12 +1324,13 @@ class Interface:
         else:
             bigstep   = 50
             smallstep = 10
-        height = 6 + message.count("\n")
-        width  = max(max(map(lambda x: len(x), message.split("\n"))), 20) + 4
+        width  = max(max(map(lambda x: len(x), message.split("\n"))), 40) + 4
         width  = min(self.width, width)
 
-        message += "\n" + ("up/down    +/- %3d" % bigstep).rjust(width-4)
-        message += "\n" + ("left/right +/- %3d" % smallstep).rjust(width-4)
+        message += "\n" + ("up/down    +/-%2d" % bigstep).rjust(width-4)
+        message += "\n" + ("0 means unlimited" + ' '*(width-37) + "left/right +/-%2d" % smallstep)
+
+        height = message.count("\n") + 4
 
         win = self.window(height, width, message)
         win.notimeout(True)
@@ -1339,7 +1340,7 @@ class Interface:
         while True:
             win.addstr(height-2, 2, input.ljust(width-4), curses.color_pair(5))
             c = win.getch()
-            if c == 27 or c == curses.KEY_BREAK:
+            if c == 27 or c == ord('q') or c == curses.KEY_BREAK:
                 return -1
             elif c == ord("\n"):
                 if input: return int(input)
@@ -1493,10 +1494,13 @@ def scale_bytes(bytes, type='short'):
 
     # convert to integer if .0
     if int(scaled_bytes) == float(scaled_bytes):
-        return "%d%s" % (int(scaled_bytes), unit)
+        scaled_bytes = str(int(scaled_bytes))
     else:
-        return "%s%s" % (str(scaled_bytes).rstrip('0'), unit)
+        scaled_bytes = str(scaled_bytes).rstrip('0')
     
+    if type == 'blank': return scaled_bytes
+    else:               return scaled_bytes + unit
+
 
 def num2str(num):
     if int(num) == -1:

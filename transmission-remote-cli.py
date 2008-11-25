@@ -116,7 +116,7 @@ class Transmission:
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
                     'sizeWhenDone', 'haveValid', 'haveUnchecked', 'addedDate',
                     'uploadedEver', 'errorString', 'recheckProgress',
-                    'swarmSpeed', 'peersConnected',
+                    'swarmSpeed', 'peersConnected', 'peersFrom',
                     'uploadLimit', 'uploadLimitMode', 'downloadLimit', 'downloadLimitMode' ]
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers', 'webseeds',
@@ -710,32 +710,24 @@ class Interface:
 
     def draw_downloadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateDownload_width-self.rateUpload_width-3)
-        if torrent['downloadLimitMode']:
-            self.pad.addstr('d', curses.A_BOLD)
-        else:
-            self.pad.addstr('D')
+        self.pad.addch(curses.ACS_DARROW, (0,curses.A_BOLD)[torrent['downloadLimitMode']])
         self.pad.addstr(scale_bytes(torrent['rateDownload']).rjust(self.rateDownload_width),
                         curses.color_pair(1) + curses.A_BOLD + curses.A_REVERSE)
-
     def draw_uploadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateUpload_width-1)
-        if torrent['uploadLimitMode']:
-            self.pad.addstr('u', curses.A_BOLD)
-        else:
-            self.pad.addstr('U')
+        self.pad.addch(curses.ACS_UARROW, (0,curses.A_BOLD)[torrent['uploadLimitMode']])
         self.pad.addstr(scale_bytes(torrent['rateUpload']).rjust(self.rateUpload_width),
-                       curses.color_pair(2) + curses.A_BOLD + curses.A_REVERSE)
-
+                        curses.color_pair(2) + curses.A_BOLD + curses.A_REVERSE)
     def draw_ratio(self, torrent, ypos):
-        self.pad.addstr(ypos+1, self.width-self.rateUpload_width-1, "R")
+        self.pad.addch(ypos+1, self.width-self.rateUpload_width-1, curses.ACS_DIAMOND,
+                       (0,curses.A_BOLD)[torrent['uploadRatio'] < 1 and torrent['uploadRatio'] >= 0])
         self.pad.addstr(ypos+1, self.width-self.rateUpload_width,
-                       "%s" % num2str(torrent['uploadRatio']).rjust(self.rateUpload_width),
-                       curses.color_pair(5) + curses.A_BOLD + curses.A_REVERSE)
-
+                        num2str(torrent['uploadRatio']).rjust(self.rateUpload_width),
+                        curses.color_pair(5) + curses.A_BOLD + curses.A_REVERSE)
     def draw_eta(self, torrent, ypos):
-        self.pad.addstr(ypos+1, self.width-self.rateDownload_width-self.rateUpload_width-3, "T")
+        self.pad.addch(ypos+1, self.width-self.rateDownload_width-self.rateUpload_width-3, curses.ACS_PLMINUS)
         self.pad.addstr(ypos+1, self.width-self.rateDownload_width-self.rateUpload_width-2,
-                        "%s" % scale_time(torrent['eta']).rjust(self.rateDownload_width),
+                        scale_time(torrent['eta']).rjust(self.rateDownload_width),
                         curses.color_pair(5) + curses.A_BOLD + curses.A_REVERSE)
 
 
@@ -877,14 +869,14 @@ class Interface:
     def draw_details_overview(self, ypos):
         t = self.torrent_details
         info = []
-        info.append(['Hash', " %s" % t['hashString']])
-        info.append(['ID', " %s" % t['id']])
+        info.append(['Hash: ', "%s" % t['hashString']])
+        info.append(['ID: ',   "%s" % t['id']])
 
-        info.append(['Size', " %s; " % scale_bytes(t['totalSize'], 'long'),
+        info.append(['Size: ', "%s; " % scale_bytes(t['totalSize'], 'long'),
                      "%s wanted" % (scale_bytes(t['sizeWhenDone'], 'long'),'everything') \
                          [t['totalSize']==t['sizeWhenDone']]])
 
-        info.append(['Files', " %d; " % len(t['files'])])
+        info.append(['Files: ', "%d; " % len(t['files'])])
         complete     = map(lambda x: x['bytesCompleted'] == x['length'], t['files']).count(True)
         not_complete = filter(lambda x: x['bytesCompleted'] != x['length'], t['files'])
         partial      = map(lambda x: x['bytesCompleted'] > 0, not_complete).count(True)
@@ -894,11 +886,11 @@ class Interface:
             info[-1].append("%d complete; " % complete)
             info[-1].append("%d commenced" % partial)
 
-        info.append(['Pieces', " %s; " % t['pieceCount'],
+        info.append(['Pieces: ', "%s; " % t['pieceCount'],
                      "%s each" % scale_bytes(t['pieceSize'], 'long')])
 
-        info.append(['Download'])
-        info[-1].append(" %s" % scale_bytes(t['downloadedEver'], 'long') + \
+        info.append(['Download: '])
+        info[-1].append("%s" % scale_bytes(t['downloadedEver'], 'long') + \
                         " (%d%%) received; " % int(percent(t['sizeWhenDone'], t['downloadedEver'])))
         info[-1].append("%s" % scale_bytes(t['haveValid'], 'long') + \
                         " (%d%%) verified; " % int(percent(t['sizeWhenDone'], t['haveValid'])))
@@ -912,7 +904,7 @@ class Interface:
             else:
                 info[-1].append("no reception in progress")
 
-        info.append(['Upload', " %s " % scale_bytes(t['uploadedEver'], 'long') + \
+        info.append(['Upload: ', "%s " % scale_bytes(t['uploadedEver'], 'long') + \
                          "(%.2f copies) distributed; " % (float(t['uploadedEver']) / float(t['sizeWhenDone']))])
         if t['rateUpload']:
             info[-1].append("sending %s per second" % scale_bytes(t['rateUpload'], 'long'))
@@ -921,7 +913,7 @@ class Interface:
         else:
             info[-1].append("no transmission in progress")
 
-        info.append(['Peers', " %d reported by tracker; " % t['peersKnown'],
+        info.append(['Peers: ', "%d reported by tracker; " % t['peersKnown'],
                      "connected to %d; "                  % t['peersConnected'],
                      "downloading from %d; "              % t['peersSendingToUs'],
                      "uploading to %d"                    % t['peersGettingFromUs']])
@@ -953,7 +945,7 @@ class Interface:
     def draw_filelist(self, ypos):
         t = self.torrent_details
         # draw column names
-        column_names = '  # Progress Size Priority Filename'
+        column_names = '  #  Progress  Size  Priority  Filename'
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
 
         start = self.scrollpos_filelist
@@ -979,10 +971,10 @@ class Interface:
             ypos += 1
 
     def draw_filelist_percent(self, file, ypos):
-        self.pad.addstr(ypos, 5, "%6.2f%%" % percent(file['length'], file['bytesCompleted']))
+        self.pad.addstr(ypos, 6, "%5.1f%%" % percent(file['length'], file['bytesCompleted']))
 
     def draw_filelist_size(self, file, ypos):
-        self.pad.addstr(ypos, 12, scale_bytes(file['length']).rjust(5))
+        self.pad.addstr(ypos, 14, scale_bytes(file['length']).rjust(5))
 
     def draw_filelist_priority(self, torrent, index, ypos):
         priority = torrent['priorities'][index]
@@ -990,17 +982,29 @@ class Interface:
         elif priority <= -1: priority = 'low'
         elif priority == 0:  priority = 'normal'
         elif priority >= 1:  priority = 'high'
-        self.pad.addstr(ypos, 18, priority.center(8))
+        self.pad.addstr(ypos, 21, priority.center(8))
 
     def draw_filelist_filename(self, file, ypos):
-        self.pad.addstr(ypos, 27, "%s" % file['name'][0:self.width-27].encode('utf-8'))
+        self.pad.addstr(ypos, 31, "%s" % file['name'][0:self.width-31].encode('utf-8'))
 
 
 
     def draw_peerlist(self, ypos):
+        peer_sources = [["%d connected peers: "           % self.torrent_details['peersConnected'],
+                         "%d from tracker, "              % self.torrent_details['peersFrom']['fromTracker'],
+                         "%d from local cache, "          % self.torrent_details['peersFrom']['fromCache'],
+                         "%d from incoming connections, " % self.torrent_details['peersFrom']['fromIncoming'],
+                         "%d from peer exchange; "        % self.torrent_details['peersFrom']['fromPex'],
+                         "tracker reports %d existing peers" % self.torrent_details['peersKnown']],
+                        ['Active peers: ',
+                         "downloading from %d, " % self.torrent_details['peersSendingToUs'],
+                         "uploading to %d"       % self.torrent_details['peersGettingFromUs']]]
+        ypos, key_width = self.draw_details_list(ypos, peer_sources)
+        ypos += 1
+
         try: self.torrent_details['peers']
         except:
-            self.pad.addstr(ypos, 1, "Peer list is not available in versions below 1.4.")
+            self.pad.addstr(ypos, 1, "Peer list is not available in transmission-daemon versions below 1.4.")
             return
 
         column_names = '       IP       Flags     Down    Up Progress Client'
@@ -1081,13 +1085,13 @@ class Interface:
     def draw_details_list(self, ypos, info):
         key_width = max(map(lambda x: len(x[0]), info))
         for i in info:
-            self.pad.addstr(ypos, 1, i[0].rjust(key_width) + ':') # key
+            self.pad.addstr(ypos, 1, i[0].rjust(key_width)) # key
             # value part may be wrapped if it gets too long
             for v in i[1:]:
                 y, x = self.pad.getyx()
-                if x + len(v) > self.width:
+                if x + len(v) >= self.width:
                     ypos += 1
-                    self.pad.move(ypos, key_width+3)
+                    self.pad.move(ypos, key_width+1)
                 self.pad.addstr(v)
             ypos += 1
         return ypos, key_width
@@ -1178,10 +1182,11 @@ class Interface:
     def draw_global_rates(self):
         rates_width = self.rateDownload_width + self.rateUpload_width + 3
         self.screen.move(self.height-1, self.width-rates_width)
-        self.screen.addstr('D', curses.A_REVERSE)
+        self.screen.addch(curses.ACS_DARROW, curses.A_REVERSE)
         self.screen.addstr(scale_bytes(self.stats['downloadSpeed']).rjust(self.rateDownload_width),
                            curses.A_REVERSE + curses.A_BOLD + curses.color_pair(1))
-        self.screen.addstr(' U', curses.A_REVERSE)
+        self.screen.addch(' ', curses.A_REVERSE)
+        self.screen.addch(curses.ACS_UARROW, curses.A_REVERSE)
         self.screen.insstr(scale_bytes(self.stats['uploadSpeed']).rjust(self.rateUpload_width),
                            curses.A_REVERSE + curses.A_BOLD + curses.color_pair(2))
 
@@ -1195,7 +1200,7 @@ class Interface:
         self.screen.addstr(0, 0, status.encode('utf-8'), curses.A_REVERSE)
 
     def draw_quick_help(self):
-        help = [('?','View Shortcuts')]
+        help = [('?','Show Keybindings')]
 
         if self.selected == -1:
             if self.focus >= 0:
@@ -1214,26 +1219,26 @@ class Interface:
 
 
     def list_key_bindings(self):
-        message = "      F1 / ?  Show this help\n" + \
-            "           p  Pause/Unpause focused torrent\n" + \
-            "           v  Verify focused torrent\n" + \
-            "     DEL / r  Remove focused torrent (and keep it's content)\n" + \
-            "       u / d  Adjust maximum global upload/download rate\n" + \
-            "       U / D  Adjust maximum upload/download rate for focused torrent\n"
+        message = "          F1/?  Show this help\n" + \
+            "             p  Pause/Unpause focused torrent\n" + \
+            "             v  Verify focused torrent\n" + \
+            "         DEL/r  Remove focused torrent (and keep it's content)\n" + \
+            "           u/d  Adjust maximum global upload/download rate\n" + \
+            "           U/D  Adjust maximum upload/download rate for focused torrent\n"
         if self.selected == -1:
-            message +=  "           f  Filter torrent list\n" + \
-                "           s  Sort torrent list\n" \
-                "       Enter  View focused torrent's details\n" + \
-                "     q / ESC  Unfocus/Quit\n\n"
+            message +=  "             f  Filter torrent list\n" + \
+                "             s  Sort torrent list\n" \
+                "         Enter  View focused torrent's details\n" + \
+                "         q/ESC  Unfocus/Quit\n\n"
         else:
-            message += "           o  Jump to overview\n" + \
-                "           f  Jump to file list\n" + \
-                "           e  Jump to peer list\n" + \
-                "           t  Jump to tracker information\n" + \
-                "           w  Jump to webseed list\n" + \
-                "   up / down  Select file/peer (in appropriate view)\n" + \
-                "left / right  Jump to next/previous view\n" + \
-                "     q / ESC  Unfocus/Back to list\n\n"
+            message += "             o  Jump to overview\n" + \
+                "             f  Jump to file list\n" + \
+                "             e  Jump to peer list\n" + \
+                "             t  Jump to tracker information\n" + \
+                "             w  Jump to webseed list\n" + \
+                "       up/down  Select file/peer (in appropriate view)\n" + \
+                "left/right/TAB  Jump to next/previous view\n" + \
+                "         q/ESC  Unfocus/Back to list\n\n"
 
         width  = max(map(lambda x: len(x), message.split("\n"))) + 4
         width  = min(self.width, width)

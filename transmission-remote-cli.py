@@ -433,7 +433,6 @@ class Interface:
         self.torrents_per_page  = self.mainview_height/3
         self.files_per_page = self.height - 8
 
-
         if self.torrents:
             visible_torrents = self.torrents[self.scrollpos/3 : self.scrollpos/3 + self.torrents_per_page + 1]
             self.rateDownload_width = self.get_rateDownload_width(visible_torrents)
@@ -473,9 +472,14 @@ class Interface:
             # update torrentlist
             self.server.update(1)
 
+            try:
+                focused_id = self.torrents[self.focus]['id']
+            except IndexError:
+                focused_id = -1
             self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
             self.stats    = self.server.get_global_stats()
             self.filter_torrent_list()
+            self.follow_list_focus(focused_id)
 
             self.manage_layout()
 
@@ -492,6 +496,7 @@ class Interface:
 
             self.screen.move(0,0)
             self.handle_user_input()
+
 
     def filter_torrent_list(self):
         unfiltered = self.torrents
@@ -514,6 +519,30 @@ class Interface:
         if self.filter_inverse:
             self.torrents = [t for t in unfiltered if t not in self.torrents]
 
+    def follow_list_focus(self, id):
+        if self.focus == -1: return
+        self.focus = min(self.focus, len(self.torrents)-1)
+        if self.torrents[self.focus]['id'] != id:
+            for i,t in enumerate(self.torrents):
+                if id == t['id']:
+                    new_focus = i
+                    break
+            try:
+                self.focus = new_focus
+            except UnboundLocalError:
+                self.focus = -1
+                self.scrollpos = 0
+                return
+
+        # make sure the focus is not above the visible area
+        while self.focus < (self.scrollpos/3):
+            self.scrollpos -= 3
+        # make sure the focus is not below the visible area
+        while self.focus > (self.scrollpos/3) + self.torrents_per_page-1:
+            self.scrollpos += 3
+        # keep min and max bounds bounds
+        self.scrollpos = min(self.scrollpos, (len(self.torrents) - self.torrents_per_page) * 3)
+        self.scrollpos = max(0, self.scrollpos)
 
 
     def handle_user_input(self):
@@ -804,7 +833,8 @@ class Interface:
                 parts.append("%5s swarm rate" % scale_bytes(torrent['swarmSpeed']))
 
             if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 20:
-                parts.append("%4s peers connected" % torrent['peersConnected'])
+                parts.append("%4s peer%s connected" % (torrent['peersConnected'],
+                                                       ('s',' ')[torrent['peersConnected'] == 1]))
 
             
         if focused: tags = curses.A_REVERSE + curses.A_BOLD

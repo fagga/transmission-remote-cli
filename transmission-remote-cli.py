@@ -377,7 +377,7 @@ class Interface:
         self.focus     = -1  # -1: nothing focused; min: 0 (top of list); max: <# of torrents>-1 (bottom of list)
         self.scrollpos = 0   # start of torrentlist
         self.torrents_per_page  = 0
-        self.rateDownload_width = self.rateUpload_width = 0
+        self.rateDownload_width = self.rateUpload_width = 2
 
         self.details_category_focus = 0;
 
@@ -503,9 +503,10 @@ class Interface:
             self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_STOPPED]
         elif self.filter_list == 'seeding':
             self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_SEED]
+        elif self.filter_list == 'incomplete':
+            self.torrents = [t for t in self.torrents if t['percent_done'] < 100]
         elif self.filter_list == 'idle':
-            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_DOWNLOAD \
-                                 and t['rateDownload'] == 0 and t['rateUpload'] == 0]
+            self.torrents = [t for t in self.torrents if t['rateDownload'] == t['rateUpload'] == 0]
         elif self.filter_list == 'verifying':
             self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_CHECK \
                                  or t['status'] == Transmission.STATUS_CHECK_WAIT]
@@ -554,10 +555,10 @@ class Interface:
         elif c == ord('s') and self.selected == -1:
             options = [('name','_Name'), ('addedDate','_Age'), ('percent_done','_Progress'),
                        ('seeders','_Seeds'), ('leechers','Lee_ches'), ('sizeWhenDone', 'Si_ze'),
-                       ('status','S_tatus'), ('uploadedEver','_Uploaded'),
-                       ('rateUpload','Up_load Speed'), ('rateDownload','Do_wnload Speed'),
+                       ('status','S_tatus'), ('uploadedEver','Up_loaded'),
+                       ('rateUpload','_Upload Speed'), ('rateDownload','_Download Speed'),
                        ('swarmSpeed','Swar_m Rate'), ('uploadRatio','Rati_o_'),
-                       ('peersConnected','P_eers'), ('reverse','_Reverse')]
+                       ('peersConnected','P_eers'), ('reverse','Re_verse')]
             choice = self.dialog_menu('Sort order', options,
                                       map(lambda x: x[0]==self.sort_orders[-1], options).index(True)+1)
             if choice == 'reverse':
@@ -569,9 +570,10 @@ class Interface:
 
         # show state filter menu
         elif c == ord('f') and self.selected == -1:
-            options = [('downloading','_Downloading'), ('uploading','_Uploading'),
-                       ('paused','_Paused'), ('seeding','_Seeding'), ('verifying','_Verifying'),
-                       ('idle','_Idle'), ('invert','I_nvert'), ('','_All')]
+            options = [('uploading','_Uploading'), ('downloading','_Downloading'),
+                       ('paused','_Paused'), ('seeding','_Seeding'), ('incomplete','In_complete'),
+                       ('verifying','Verif_ying'), ('idle','_Idle'), ('invert','In_vert'),
+                       ('','_All')]
             choice = self.dialog_menu('Show only', options,
                                       map(lambda x: x[0]==self.filter_list, options).index(True)+1)
             if choice == 'invert':

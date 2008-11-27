@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION=0.1
+VERSION='0.1.1'
 
 
 USERNAME = ''
@@ -251,16 +251,6 @@ class Transmission:
         debug(repr(data)+"\n\n\n")
         request = TransmissionRequest(self.host, self.port, type, 1, data)
         request.send_request()
-
-        # changing global rates doesn't change torrent states automatically, so
-        # we have to do that on our own.
-#         if type == 'session-set':
-#             data['ids'] = []
-#             for t in self.torrent_cache:
-#                 if t['uploadLimit'] == self.status_cache['speed-limit-up']/1024:
-#                     data['ids'].append(t['id'])
-#             request = TransmissionRequest(self.host, self.port, 'torrent-set', 1, data)
-#             request.send_request()
         self.wait_for_torrentlist_update()
 
 
@@ -383,6 +373,8 @@ class Interface:
         self.rateDownload_width = self.rateUpload_width = 2
 
         self.details_category_focus = 0;
+        self.focus_detaillist       = -1;
+        self.scrollpos_detaillist   = 0;
 
         os.environ['ESCDELAY'] = '0' # make escape usable
         curses.wrapper(self.run)
@@ -428,7 +420,8 @@ class Interface:
         self.pad = curses.newpad(self.pad_height, self.width)
         self.mainview_height = self.height - 2
         self.torrents_per_page  = self.mainview_height/3
-        self.files_per_page = self.height - 8
+
+        self.detaillistitems_per_page = self.height - 8
 
         if self.torrents:
             visible_torrents = self.torrents[self.scrollpos/3 : self.scrollpos/3 + self.torrents_per_page + 1]
@@ -493,9 +486,9 @@ class Interface:
 
         # go back or unfocus
         elif c == 27 or c == curses.KEY_BREAK or c == 12:
-            if self.focus_filelist > -1:     # unfocus file
-                self.focus_filelist     = -1
-                self.scrollpos_filelist = 0
+            if self.focus_detaillist > -1:   # unfocus file
+                self.focus_detaillist     = -1
+                self.scrollpos_detaillist = 0
             elif self.selected > -1:         # return from details
                 self.details_category_focus = 0;
                 self.selected = -1
@@ -617,36 +610,54 @@ class Interface:
 
             # file priority OR walk through details
             elif c == curses.KEY_RIGHT:
-                if self.focus_filelist > -1:
-                    self.server.increase_file_priority(self.focus_filelist)
+                if self.details_category_focus == 1 and self.focus_detaillist > -1:
+                    self.server.increase_file_priority(self.focus_detaillist)
                 else:
+                    self.scrollpos_detaillist = 0
                     self.next_details()
             elif c == curses.KEY_LEFT:
-                if self.focus_filelist > -1:
-                    self.server.decrease_file_priority(self.focus_filelist)
+                if self.details_category_focus == 1 and self.focus_detaillist > -1:
+                    self.server.decrease_file_priority(self.focus_detaillist)
                 else:
+                    self.scrollpos_detaillist = 0
                     self.prev_details()
 
-            # file list focus
-            elif c == curses.KEY_UP:
-                self.focus_filelist, self.scrollpos_filelist = \
-                    self.move_up(self.focus_filelist, self.scrollpos_filelist, 1)
-            elif c == curses.KEY_DOWN:
-                self.focus_filelist, self.scrollpos_filelist = \
-                    self.move_down(self.focus_filelist, self.scrollpos_filelist, 1,
-                                   self.files_per_page, len(self.torrent_details['files']))
-            elif c == curses.KEY_PPAGE:
-                self.focus_filelist, self.scrollpos_filelist = \
-                    self.move_page_up(self.focus_filelist, self.scrollpos_filelist, 1, self.files_per_page)
-            elif c == curses.KEY_NPAGE:
-                self.focus_filelist, self.scrollpos_filelist = \
-                    self.move_page_down(self.focus_filelist, self.scrollpos_filelist, 1,
-                                        self.files_per_page, len(self.torrent_details['files']))
-            elif c == curses.KEY_HOME:
-                self.focus_filelist, self.scrollpos_filelist = self.move_to_top()
-            elif c == curses.KEY_END:
-                self.focus_filelist, self.scrollpos_filelist = \
-                    self.move_to_end(1, self.files_per_page, len(self.torrent_details['files']))
+            # file list focus/movement
+            if self.details_category_focus == 1:
+                if c == curses.KEY_UP:
+                    self.focus_detaillist, self.scrollpos_detaillist = \
+                        self.move_up(self.focus_detaillist, self.scrollpos_detaillist, 1)
+                elif c == curses.KEY_DOWN:
+                    self.focus_detaillist, self.scrollpos_detaillist = \
+                        self.move_down(self.focus_detaillist, self.scrollpos_detaillist, 1,
+                                       self.detaillistitems_per_page, len(self.torrent_details['files']))
+                elif c == curses.KEY_PPAGE:
+                    self.focus_detaillist, self.scrollpos_detaillist = \
+                        self.move_page_up(self.focus_detaillist, self.scrollpos_detaillist, 1,
+                                          self.detaillistitems_per_page)
+                elif c == curses.KEY_NPAGE:
+                    self.focus_detaillist, self.scrollpos_detaillist = \
+                        self.move_page_down(self.focus_detaillist, self.scrollpos_detaillist, 1,
+                                            self.detaillistitems_per_page, len(self.torrent_details['files']))
+                elif c == curses.KEY_HOME:
+                    self.focus_detaillist, self.scrollpos_detaillist = self.move_to_top()
+                elif c == curses.KEY_END:
+                    self.focus_detaillist, self.scrollpos_detaillist = \
+                        self.move_to_end(1, self.detaillistitems_per_page, len(self.torrent_details['files']))
+
+            # peer list movement
+            elif self.details_category_focus == 2:
+                list_len = len(self.torrent_details['peers'])
+                if c == curses.KEY_UP:
+                    if self.scrollpos_detaillist > 0:
+                        self.scrollpos_detaillist -= 1
+                elif c == curses.KEY_DOWN:
+                    if self.scrollpos_detaillist < list_len - self.detaillistitems_per_page:
+                        self.scrollpos_detaillist += 1
+                elif c == curses.KEY_HOME:
+                    self.scrollpos_detaillist = 0
+                elif c == curses.KEY_END:
+                    self.scrollpos_detaillist = list_len - self.detaillistitems_per_page
 
 
         else: return # don't recognize key
@@ -881,10 +892,10 @@ class Interface:
             self.pad.addstr(title[1][1:], tags)
             xpos += len(item)+1
 
-        # reset file list focus if not viewing file list
-        if self.details_category_focus != 1:
-            self.focus_filelist     = -1
-            self.scrollpos_filelist = 0
+#        # reset file list focus if not viewing file list
+#        if self.details_category_focus != 1:
+#            self.focus_detaillist     = -1
+#            self.scrollpos_detaillist = 0
         
 
         # which details to display
@@ -984,15 +995,15 @@ class Interface:
         # draw column names
         column_names = '  #  Progress  Size  Priority  Filename'
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
-
-        start = self.scrollpos_filelist
-        end   = self.scrollpos_filelist + self.files_per_page
-
         ypos += 1
+
+        self.detaillistitems_per_page = self.mainview_height - ypos
+        start = self.scrollpos_detaillist
+        end   = self.scrollpos_detaillist + self.detaillistitems_per_page
         for file in t['files'][start:end]:
             index = t['files'].index(file)
 
-            focused = (index == self.focus_filelist)
+            focused = (index == self.focus_detaillist)
             if focused:
                 self.pad.attron(curses.A_REVERSE)
                 self.pad.addstr(ypos, 0, ' '*self.width, curses.A_REVERSE)
@@ -1044,18 +1055,26 @@ class Interface:
             self.pad.addstr(ypos, 1, "Peer list is not available in transmission-daemon versions below 1.4.")
             return
 
-        column_names = '       IP       Flags     Down    Up Progress Client'
+
+        column_names = '  #  Flags   Down     Up  Progress        Address  Client'
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
         ypos += 1
-        for peer in self.torrent_details['peers']:
+
+        self.detaillistitems_per_page = self.mainview_height - ypos
+        start = self.scrollpos_detaillist
+        end   = self.scrollpos_detaillist + self.detaillistitems_per_page
+        for peer in self.torrent_details['peers'][start:end]:
+            index = self.torrent_details['peers'].index(peer) + 1
+
             if peer['rateToPeer'] or peer['rateToClient']:
                 self.pad.attron(curses.A_BOLD)
-            self.pad.addstr(ypos, 0, "%15s" % peer['address'])
-            self.pad.addstr(ypos, 16, "%-7s" % peer['flagStr'])
-            self.pad.addstr(ypos, 25, "%5s" % scale_bytes(peer['rateToClient']))
-            self.pad.addstr(ypos, 31, "%5s" % scale_bytes(peer['rateToPeer']))
-            self.pad.addstr(ypos, 40, "%d%%" % (float(peer['progress'])*100))
-            self.pad.addstr(ypos, 46, peer['clientName'].encode('utf-8'))
+
+            line = "%3d  %-5s  %5s  %5s   %5.1f%% %15s  %s" % \
+                (index, peer['flagStr'], scale_bytes(peer['rateToClient']),
+                 scale_bytes(peer['rateToPeer']), (float(peer['progress'])*100),
+                 peer['address'], peer['clientName'])
+            self.pad.addstr(ypos, 0, line.ljust(self.width).encode('utf-8'))
+
             self.pad.attroff(curses.A_BOLD)
             ypos += 1
 
@@ -1100,7 +1119,6 @@ class Interface:
     def draw_webseedlist(self, ypos):
         self.pad.addstr(ypos, 1, "Feature not implemented yet.")
         debug("webseeds: " + repr(self.torrent_details['webseeds']) + "\n\n\n")
-        
 
 
 
@@ -1128,6 +1146,8 @@ class Interface:
             self.details_category_focus = 0
         else:
             self.details_category_focus += 1
+        self.focus_detaillist     = -1
+        self.scrollpos_detaillist = 0
         self.pad.erase()
 
     def prev_details(self):
@@ -1145,7 +1165,7 @@ class Interface:
         else:
             focus -= 1
             if scrollpos/step_size - focus > 0:
-                scrollpos -= 3
+                scrollpos -= step_size
                 scrollpos = max(0, scrollpos)
             while scrollpos % step_size:
                 scrollpos -= 1
@@ -1236,7 +1256,7 @@ class Interface:
                 help = [('f','Filter'), ('s','Sort')] + help + [('q','Quit')]
         else:
             help = [('Move with','cursor keys'), ('q','Back to List')]
-            if self.focus_filelist > -1:
+            if self.focus_detaillist > -1:
                 help = [('left/right','Decrease/Increase Priority'),
                         ('escape','Unfocus')] + help
 
@@ -1276,9 +1296,13 @@ class Interface:
                     "             e  Jump to peer list\n" + \
                     "             t  Jump to tracker information\n" + \
                     "             w  Jump to webseed list\n" + \
-                    "       up/down  Select file/peer (in appropriate view)\n" + \
-                    "left/right/TAB  Jump to next/previous view\n" + \
-                    "         q/ESC  Unfocus/Back to list\n\n"
+                    "       up/down  Select file/peer (in appropriate view)\n"
+                if self.details_category_focus == 1 and self.focus_detaillist > -1:
+                    message += "           TAB  Jump to next view\n"
+                    message += "    left/right  decrease/increase file priority\n"
+                else:
+                    message += "left/right/TAB  Jump to next/previous view\n"
+                message += "         q/ESC  Unfocus/Back to list\n\n"
 
         width  = max(map(lambda x: len(x), message.split("\n"))) + 4
         width  = min(self.width, width)

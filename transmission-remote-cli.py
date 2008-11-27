@@ -56,7 +56,7 @@ AUTH_ERROR       = 3
 import time
 import simplejson as json
 import urllib2
-
+from operator import itemgetter  # needed for sort
 
 class TransmissionRequest:
     def __init__(self, host, port, method=None, tag=None, arguments=None):
@@ -215,6 +215,8 @@ class Transmission:
 
     def get_torrent_list(self, sort_orders, reverse=False):
         for sort_order in sort_orders:
+#            if isinstance(self.torrent_cache[sort_order], (int, long, float)):
+#            self.torrent_cache.sort(key=itemgetter(sort_order), reverse=reverse)
             self.torrent_cache.sort(cmp=lambda x,y: self.my_cmp(x, y, sort_order), reverse=reverse)
         return self.torrent_cache
 
@@ -327,6 +329,7 @@ class Transmission:
         self.update(0) # send request
         while True:    # wait for response
             if self.update(0, update_id): break
+            time.sleep(0.1)
         debug("delay was %.3f seconds\n\n\n" % (time.time() - start))
         
 
@@ -407,7 +410,6 @@ class Interface:
 
     def get_screen_size(self):
         time.sleep(0.1) # prevents curses.error on rapid resizing
-
         while True:
             curses.endwin()
             self.screen.refresh()
@@ -418,11 +420,6 @@ class Interface:
                 time.sleep(1)
             else:
                 break
-
-#        self.focus     = -1
-#        self.scrollpos = 0
-        self.focus_filelist     = -1
-        self.scrollpos_filelist = 0
         self.manage_layout()
 
 
@@ -469,19 +466,7 @@ class Interface:
         self.draw_torrent_list()
 
         while True:
-            # update torrentlist
             self.server.update(1)
-
-            try:
-                focused_id = self.torrents[self.focus]['id']
-            except IndexError:
-                focused_id = -1
-            self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
-            self.stats    = self.server.get_global_stats()
-            self.filter_torrent_list()
-            self.follow_list_focus(focused_id)
-
-            self.manage_layout()
 
             # display torrentlist
             if self.selected == -1:
@@ -491,59 +476,12 @@ class Interface:
             else:
                 self.draw_details()
 
+            self.stats = self.server.get_global_stats()
             self.draw_title_bar()  # show shortcuts and stuff
             self.draw_stats()      # show global states
 
-            self.screen.move(0,0)
+            self.screen.move(0,0)  # in case cursor can't be invisible
             self.handle_user_input()
-
-
-    def filter_torrent_list(self):
-        unfiltered = self.torrents
-        if self.filter_list == 'downloading':
-            self.torrents = [t for t in self.torrents if t['rateDownload'] > 0]
-        elif self.filter_list == 'uploading':
-            self.torrents = [t for t in self.torrents if t['rateUpload'] > 0]
-        elif self.filter_list == 'paused':
-            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_STOPPED]
-        elif self.filter_list == 'seeding':
-            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_SEED]
-        elif self.filter_list == 'incomplete':
-            self.torrents = [t for t in self.torrents if t['percent_done'] < 100]
-        elif self.filter_list == 'idle':
-            self.torrents = [t for t in self.torrents if t['rateDownload'] == t['rateUpload'] == 0]
-        elif self.filter_list == 'verifying':
-            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_CHECK \
-                                 or t['status'] == Transmission.STATUS_CHECK_WAIT]
-        # invert list?
-        if self.filter_inverse:
-            self.torrents = [t for t in unfiltered if t not in self.torrents]
-
-    def follow_list_focus(self, id):
-        if self.focus == -1: return
-        self.focus = min(self.focus, len(self.torrents)-1)
-        if self.torrents[self.focus]['id'] != id:
-            for i,t in enumerate(self.torrents):
-                if id == t['id']:
-                    new_focus = i
-                    break
-            try:
-                self.focus = new_focus
-            except UnboundLocalError:
-                self.focus = -1
-                self.scrollpos = 0
-                return
-
-        # make sure the focus is not above the visible area
-        while self.focus < (self.scrollpos/3):
-            self.scrollpos -= 3
-        # make sure the focus is not below the visible area
-        while self.focus > (self.scrollpos/3) + self.torrents_per_page-1:
-            self.scrollpos += 3
-        # keep min and max bounds bounds
-        self.scrollpos = min(self.scrollpos, (len(self.torrents) - self.torrents_per_page) * 3)
-        self.scrollpos = max(0, self.scrollpos)
-
 
     def handle_user_input(self):
         c = self.screen.getch()
@@ -601,7 +539,7 @@ class Interface:
         elif c == ord('f') and self.selected == -1:
             options = [('uploading','_Uploading'), ('downloading','_Downloading'),
                        ('paused','_Paused'), ('seeding','_Seeding'), ('incomplete','In_complete'),
-                       ('verifying','Verif_ying'), ('idle','_Idle'), ('invert','In_vert'),
+                       ('verifying','Verif_ying'), ('active','Ac_tive'), ('invert','In_vert'),
                        ('','_All')]
             choice = self.dialog_menu('Show only', options,
                                       map(lambda x: x[0]==self.filter_list, options).index(True)+1)
@@ -697,6 +635,18 @@ class Interface:
                 self.focus_filelist, self.scrollpos_filelist = \
                     self.move_down(self.focus_filelist, self.scrollpos_filelist, 1,
                                    self.files_per_page, len(self.torrent_details['files']))
+            elif c == curses.KEY_PPAGE:
+                self.focus_filelist, self.scrollpos_filelist = \
+                    self.move_page_up(self.focus_filelist, self.scrollpos_filelist, 1, self.files_per_page)
+            elif c == curses.KEY_NPAGE:
+                self.focus_filelist, self.scrollpos_filelist = \
+                    self.move_page_down(self.focus_filelist, self.scrollpos_filelist, 1,
+                                        self.files_per_page, len(self.torrent_details['files']))
+            elif c == curses.KEY_HOME:
+                self.focus_filelist, self.scrollpos_filelist = self.move_to_top()
+            elif c == curses.KEY_END:
+                self.focus_filelist, self.scrollpos_filelist = \
+                    self.move_to_end(1, self.files_per_page, len(self.torrent_details['files']))
 
 
         else: return # don't recognize key
@@ -710,7 +660,62 @@ class Interface:
 
 
 
+    def filter_torrent_list(self):
+        unfiltered = self.torrents
+        if self.filter_list == 'downloading':
+            self.torrents = [t for t in self.torrents if t['rateDownload'] > 0]
+        elif self.filter_list == 'uploading':
+            self.torrents = [t for t in self.torrents if t['rateUpload'] > 0]
+        elif self.filter_list == 'paused':
+            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_STOPPED]
+        elif self.filter_list == 'seeding':
+            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_SEED]
+        elif self.filter_list == 'incomplete':
+            self.torrents = [t for t in self.torrents if t['percent_done'] < 100]
+        elif self.filter_list == 'active':
+            self.torrents = [t for t in self.torrents if not t['rateDownload'] == t['rateUpload'] == 0]
+        elif self.filter_list == 'verifying':
+            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_CHECK \
+                                 or t['status'] == Transmission.STATUS_CHECK_WAIT]
+        # invert list?
+        if self.filter_inverse:
+            self.torrents = [t for t in unfiltered if t not in self.torrents]
+
+    def follow_list_focus(self, id):
+        if self.focus == -1: return
+        self.focus = min(self.focus, len(self.torrents)-1)
+        if self.torrents[self.focus]['id'] != id:
+            for i,t in enumerate(self.torrents):
+                if id == t['id']:
+                    new_focus = i
+                    break
+            try:
+                self.focus = new_focus
+            except UnboundLocalError:
+                self.focus = -1
+                self.scrollpos = 0
+                return
+
+        # make sure the focus is not above the visible area
+        while self.focus < (self.scrollpos/3):
+            self.scrollpos -= 3
+        # make sure the focus is not below the visible area
+        while self.focus > (self.scrollpos/3) + self.torrents_per_page-1:
+            self.scrollpos += 3
+        # keep min and max bounds bounds
+        self.scrollpos = min(self.scrollpos, (len(self.torrents) - self.torrents_per_page) * 3)
+        self.scrollpos = max(0, self.scrollpos)
+
     def draw_torrent_list(self):
+        try:
+            focused_id = self.torrents[self.focus]['id']
+        except IndexError:
+            focused_id = -1
+        self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
+        self.filter_torrent_list()
+        self.follow_list_focus(focused_id)
+        self.manage_layout()
+
         ypos = 0
         for i in range(len(self.torrents)):
             self.draw_torrentlist_item(self.torrents[i], (i == self.focus), ypos)
@@ -1043,26 +1048,16 @@ class Interface:
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
         ypos += 1
         for peer in self.torrent_details['peers']:
-            self.draw_peerlist_address(peer, ypos, 0)
-            self.draw_peerlist_flags(peer, ypos, 16)
-            self.draw_peerlist_download(peer, ypos, 25)
-            self.draw_peerlist_upload(peer, ypos, 31)
-            self.draw_peerlist_progress(peer, ypos, 40)
-            self.draw_peerlist_clientname(peer, ypos, 46)
+            if peer['rateToPeer'] or peer['rateToClient']:
+                self.pad.attron(curses.A_BOLD)
+            self.pad.addstr(ypos, 0, "%15s" % peer['address'])
+            self.pad.addstr(ypos, 16, "%-7s" % peer['flagStr'])
+            self.pad.addstr(ypos, 25, "%5s" % scale_bytes(peer['rateToClient']))
+            self.pad.addstr(ypos, 31, "%5s" % scale_bytes(peer['rateToPeer']))
+            self.pad.addstr(ypos, 40, "%d%%" % (float(peer['progress'])*100))
+            self.pad.addstr(ypos, 46, peer['clientName'].encode('utf-8'))
+            self.pad.attroff(curses.A_BOLD)
             ypos += 1
-    def draw_peerlist_address(self, peer, ypos, xpos):
-        self.pad.addstr(ypos, xpos, "%15s" % peer['address'])
-    def draw_peerlist_download(self, peer, ypos, xpos):
-        self.pad.addstr(ypos, xpos, "%5s" % scale_bytes(peer['rateToClient']))
-    def draw_peerlist_upload(self, peer, ypos, xpos):
-        self.pad.addstr(ypos, xpos, "%5s" % scale_bytes(peer['rateToPeer']))
-    def draw_peerlist_progress(self, peer, ypos, xpos):
-        self.pad.addstr(ypos, xpos, "%d%%" % (float(peer['progress'])*100))
-    def draw_peerlist_clientname(self, peer, ypos, xpos):
-        self.pad.addstr(ypos, xpos, peer['clientName'].encode('utf-8'))
-    def draw_peerlist_flags(self, peer, ypos, xpos):
-        self.pad.addstr(ypos, xpos, "%-7s" % peer['flagStr'])
-
 
     def draw_trackerlist(self, ypos):
         t = self.torrent_details
@@ -1258,19 +1253,32 @@ class Interface:
             "           u/d  Adjust maximum global upload/download rate\n" + \
             "           U/D  Adjust maximum upload/download rate for focused torrent\n"
         if self.selected == -1:
-            message +=  "             f  Filter torrent list\n" + \
+            message += "             f  Filter torrent list\n" + \
                 "             s  Sort torrent list\n" \
                 "         Enter  View focused torrent's details\n" + \
                 "         q/ESC  Unfocus/Quit\n\n"
         else:
-            message += "             o  Jump to overview\n" + \
-                "             f  Jump to file list\n" + \
-                "             e  Jump to peer list\n" + \
-                "             t  Jump to tracker information\n" + \
-                "             w  Jump to webseed list\n" + \
-                "       up/down  Select file/peer (in appropriate view)\n" + \
-                "left/right/TAB  Jump to next/previous view\n" + \
-                "         q/ESC  Unfocus/Back to list\n\n"
+            if self.details_category_focus == 2:
+                message = "Flags:\n" + \
+                    "  O  Optimistic unchoke\n" + \
+                    "  D  Downloading from this peer\n" + \
+                    "  d  We would download from this peer if they'd let us\n" + \
+                    "  U  Uploading to peer\n" + \
+                    "  u  We would upload to this peer if they'd ask\n" + \
+                    "  K  Peer has unchoked us, but we're not interested\n" + \
+                    "  ?  We unchoked this peer, but they're not interested\n" + \
+                    "  E  Encrypted Connection\n" + \
+                    "  X  Peer was discovered through Peer Exchange (PEX)\n" + \
+                    "  I  Peer is an incoming connection \n\n"
+            else:
+                message += "             o  Jump to overview\n" + \
+                    "             f  Jump to file list\n" + \
+                    "             e  Jump to peer list\n" + \
+                    "             t  Jump to tracker information\n" + \
+                    "             w  Jump to webseed list\n" + \
+                    "       up/down  Select file/peer (in appropriate view)\n" + \
+                    "left/right/TAB  Jump to next/previous view\n" + \
+                    "         q/ESC  Unfocus/Back to list\n\n"
 
         width  = max(map(lambda x: len(x), message.split("\n"))) + 4
         width  = min(self.width, width)

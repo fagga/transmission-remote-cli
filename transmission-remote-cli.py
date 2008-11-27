@@ -615,7 +615,7 @@ class Interface:
         # upload/download limits
         elif c == ord('u'):
             limit = self.dialog_input_number("Global upload limit in kilobytes per second",
-                                             self.stats['speed-limit-up']/1024)
+                                             self.stats['speed-limit-up'])
             if limit >= 0: self.server.set_rate_limit('up', limit)
         elif c == ord('U') and self.focus > -1:
             limit = self.dialog_input_number("Upload limit in kilobytes per second for\n%s" % \
@@ -624,7 +624,7 @@ class Interface:
             if limit >= 0: self.server.set_rate_limit('up', limit, self.torrents[self.focus]['id'])
         elif c == ord('d'):
             limit = self.dialog_input_number("Global download limit in kilobytes per second",
-                                             self.stats['speed-limit-down']/1024)
+                                             self.stats['speed-limit-down'])
             if limit >= 0: self.server.set_rate_limit('down', limit)
         elif c == ord('D') and self.focus > -1:
             limit = self.dialog_input_number("Download limit in Kilobytes per second for\n%s" % \

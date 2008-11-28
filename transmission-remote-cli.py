@@ -215,16 +215,13 @@ class Transmission:
 
     def get_torrent_list(self, sort_orders, reverse=False):
         for sort_order in sort_orders:
-#            if isinstance(self.torrent_cache[sort_order], (int, long, float)):
-#            self.torrent_cache.sort(key=itemgetter(sort_order), reverse=reverse)
-            self.torrent_cache.sort(cmp=lambda x,y: self.my_cmp(x, y, sort_order), reverse=reverse)
+            debug(str())
+            if isinstance(self.torrent_cache[0][sort_order], (str, unicode)):
+                self.torrent_cache.sort(key=lambda x: x[sort_order].lower(), reverse=reverse)
+            else:
+                self.torrent_cache.sort(key=lambda x: x[sort_order], reverse=reverse)
         return self.torrent_cache
 
-    def my_cmp(self, x, y, sort_order):
-        if isinstance(x[sort_order], (int, long, float)):
-            return cmp(x[sort_order], y[sort_order])
-        else:
-            return cmp(x[sort_order].lower(), y[sort_order].lower())
 
     def get_torrent_details(self):
         return self.torrent_details_cache
@@ -328,8 +325,6 @@ class Transmission:
             status = 'will verify'
         elif torrent['status'] == Transmission.STATUS_CHECK:
             status = "verifying"
-        elif torrent['errorString']:
-            status = torrent['errorString']
         elif torrent['status'] == Transmission.STATUS_SEED:
             status = 'seeding'
         elif torrent['status'] == Transmission.STATUS_DOWNLOAD:
@@ -531,9 +526,9 @@ class Interface:
         # show state filter menu
         elif c == ord('f') and self.selected == -1:
             options = [('uploading','_Uploading'), ('downloading','_Downloading'),
-                       ('paused','_Paused'), ('seeding','_Seeding'), ('incomplete','In_complete'),
-                       ('verifying','Verif_ying'), ('active','Ac_tive'), ('invert','In_vert'),
-                       ('','_All')]
+                       ('active','Ac_tive'), ('paused','_Paused'), ('seeding','_Seeding'),
+                       ('incomplete','In_complete'), ('verifying','Verif_ying'),
+                       ('invert','In_vert'), ('','_All')]
             choice = self.dialog_menu('Show only', options,
                                       map(lambda x: x[0]==self.filter_list, options).index(True)+1)
             if choice == 'invert':
@@ -713,7 +708,7 @@ class Interface:
         # make sure the focus is not below the visible area
         while self.focus > (self.scrollpos/3) + self.torrents_per_page-1:
             self.scrollpos += 3
-        # keep min and max bounds bounds
+        # keep min and max bounds
         self.scrollpos = min(self.scrollpos, (len(self.torrents) - self.torrents_per_page) * 3)
         self.scrollpos = max(0, self.scrollpos)
 
@@ -830,7 +825,13 @@ class Interface:
         peers = ''
         parts = [self.server.get_status(torrent)]
 
-        if not torrent['errorString']:
+        # show tracker error if appropriate
+        if torrent['errorString'] and\
+                not torrent['status'] == Transmission.STATUS_STOPPED and \
+                not torrent['peersConnected']:
+            parts[0] = torrent['errorString']
+
+        else:
             if torrent['status'] == Transmission.STATUS_CHECK:
                 parts[0] += " (%d%%)" % int(float(torrent['recheckProgress']) * 100)
             elif torrent['status'] == Transmission.STATUS_DOWNLOAD:
@@ -869,7 +870,6 @@ class Interface:
 
     def draw_details(self):
         self.torrent_details = self.server.get_torrent_details()
-#        if not torrent: return
 
         # details could need more space than the torrent list
         self.pad_height = max(50, len(self.torrent_details['files'])+10, (len(self.torrents)+1)*3, self.height)
@@ -892,12 +892,6 @@ class Interface:
             self.pad.addstr(title[1][1:], tags)
             xpos += len(item)+1
 
-#        # reset file list focus if not viewing file list
-#        if self.details_category_focus != 1:
-#            self.focus_detaillist     = -1
-#            self.scrollpos_detaillist = 0
-        
-
         # which details to display
         if self.details_category_focus == 0:
             self.draw_details_overview(5)
@@ -911,7 +905,6 @@ class Interface:
             self.draw_webseedlist(5)
         self.pad.refresh(0,0, 1,0, self.height-2,self.width)
         self.screen.refresh()
-
 
 
     def draw_details_overview(self, ypos):
@@ -1038,45 +1031,33 @@ class Interface:
 
 
     def draw_peerlist(self, ypos):
-        peer_sources = [["%d connected peers: "           % self.torrent_details['peersConnected'],
-                         "%d from tracker, "              % self.torrent_details['peersFrom']['fromTracker'],
-                         "%d from local cache, "          % self.torrent_details['peersFrom']['fromCache'],
-                         "%d from incoming connections, " % self.torrent_details['peersFrom']['fromIncoming'],
-                         "%d from peer exchange; "        % self.torrent_details['peersFrom']['fromPex'],
-                         "tracker reports %d existing peers" % self.torrent_details['peersKnown']],
-                        ['Active peers: ',
-                         "downloading from %d, " % self.torrent_details['peersSendingToUs'],
-                         "uploading to %d"       % self.torrent_details['peersGettingFromUs']]]
-        ypos, key_width = self.draw_details_list(ypos, peer_sources)
-        ypos += 1
-
         try: self.torrent_details['peers']
         except:
             self.pad.addstr(ypos, 1, "Peer list is not available in transmission-daemon versions below 1.4.")
             return
 
-
-        column_names = '  #  Flags   Down     Up  Progress        Address  Client'
+        column_names = "Flags %3d Down %3d Up  Progress        Address  Client" % \
+            (self.torrent_details['peersSendingToUs'], self.torrent_details['peersGettingFromUs'])
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
         ypos += 1
 
         self.detaillistitems_per_page = self.mainview_height - ypos
         start = self.scrollpos_detaillist
         end   = self.scrollpos_detaillist + self.detaillistitems_per_page
-        for peer in self.torrent_details['peers'][start:end]:
-            index = self.torrent_details['peers'].index(peer) + 1
+        for index, peer in enumerate(self.torrent_details['peers'][start:end]):
+            upload_tag = download_tag = line_tag = 0
+            if peer['rateToPeer']:   upload_tag   = curses.A_BOLD
+            if peer['rateToClient']: download_tag = curses.A_BOLD
 
-            if peer['rateToPeer'] or peer['rateToClient']:
-                self.pad.attron(curses.A_BOLD)
-
-            line = "%3d  %-5s  %5s  %5s   %5.1f%% %15s  %s" % \
-                (index, peer['flagStr'], scale_bytes(peer['rateToClient']),
-                 scale_bytes(peer['rateToPeer']), (float(peer['progress'])*100),
-                 peer['address'], peer['clientName'])
-            self.pad.addstr(ypos, 0, line.ljust(self.width).encode('utf-8'))
-
-            self.pad.attroff(curses.A_BOLD)
+            self.pad.move(ypos, 0)
+            self.pad.addstr("%-5s    " % peer['flagStr'])
+            self.pad.addstr("%5s  " % scale_bytes(peer['rateToClient']), download_tag)
+            self.pad.addstr("%5s   " % scale_bytes(peer['rateToPeer']), upload_tag)
+            self.pad.addstr("%5.1f%% " % (float(peer['progress'])*100))
+            self.pad.addstr("%15s  " % peer['address'])
+            self.pad.addstr(peer['clientName'].encode('utf-8'))
             ypos += 1
+
 
     def draw_trackerlist(self, ypos):
         t = self.torrent_details
@@ -1094,12 +1075,13 @@ class Interface:
         self.pad.addstr(ypos+1, 2, "Latest announce:   %s" % timestamp(t['lastAnnounceTime']))
         self.pad.addstr(ypos+2, 2, "Announce response: %s" % t['announceResponse'])
         self.pad.addstr(ypos+3, 2, "Next announce:     %s" % timestamp(t['nextAnnounceTime']))
+        self.pad.addstr(ypos+4, 2, "Error: %s" % t['errorString'])
 
         scrape_width   = max(60, len(active['scrape']))
-        announce_width = max(60, len(active['announce']))
+        announce_width = max(60, len(active['announce']), len(t['errorString'])+9)
         if self.width < announce_width + scrape_width + 2:
             xpos = 0
-            ypos += 5
+            ypos += 6
         else:
             xpos = announce_width + 2
         self.pad.addstr(ypos,   xpos, active['scrape'])
@@ -1107,6 +1089,8 @@ class Interface:
         self.pad.addstr(ypos+2, xpos+2, "Scrape response: %s" % t['scrapeResponse'])
         self.pad.addstr(ypos+3, xpos+2, "Next scrape:     %s" % timestamp(t['nextScrapeTime']))
         ypos += 5
+        if self.width >= announce_width + scrape_width + 2:
+            ypos += 1
         
         if inactive:
             self.pad.addstr(ypos, 0, "Fallback Tracker%s:" % ('','s')[len(inactive)>1])
@@ -1205,26 +1189,27 @@ class Interface:
     def draw_stats(self):
         self.screen.insstr(self.height-1, 0, ' '.center(self.width), curses.A_REVERSE)
         self.draw_torrents_stats()
-        self.draw_current_filter()
         self.draw_global_rates()
 
     def draw_torrents_stats(self):
-        torrents = "%d Torrents: " % self.stats['torrentCount']
-        downloading_torrents = filter(lambda x: x['status']==Transmission.STATUS_DOWNLOAD, self.torrents)
-        torrents += "%d downloading; " % len(downloading_torrents)
-        seeding_torrents = filter(lambda x: x['status']==Transmission.STATUS_SEED, self.torrents)
-        torrents += "%d seeding; " % len(seeding_torrents)
-        torrents += "%d paused" % self.stats['pausedTorrentCount']
-        self.screen.addstr((self.height-1), 0, torrents, curses.A_REVERSE)
+        if self.selected > -1 and self.details_category_focus == 2:
+            line = "%d peers connected:" % self.torrent_details['peersConnected'] + \
+                " Tracker: %-3d" % self.torrent_details['peersFrom']['fromTracker'] + \
+                " PEX: %-3d" % self.torrent_details['peersFrom']['fromPex'] + \
+                " Incoming: %-3d" % self.torrent_details['peersFrom']['fromIncoming'] + \
+                " Cache: %-3d" % self.torrent_details['peersFrom']['fromCache']
+        elif self.filter_list:
+            line = "%d torrent%s " % (len(self.torrents), ('s','')[len(self.torrents)==1])
+            if self.filter_inverse:
+                line += 'not '
+            line += self.filter_list
+        else:
+            line = "%d Torrents: " % self.stats['torrentCount'] + \
+                "%d downloading; " % len(filter(lambda x: x['status']==Transmission.STATUS_DOWNLOAD, self.torrents)) + \
+                "%d seeding; " % len(filter(lambda x: x['status']==Transmission.STATUS_SEED, self.torrents)) + \
+                "%d paused" % self.stats['pausedTorrentCount']
+        self.screen.insstr((self.height-1), 0, line, curses.A_REVERSE)
 
-    def draw_current_filter(self):
-        if not self.filter_list or self.width < 80: return
-        line = self.filter_list
-        if self.filter_inverse: line = '!' + line
-        if self.width >= 100: line = 'Filter: ' + line
-        free_space = self.width - 50 - 15
-        xpos = 45 + (free_space / 2)
-        self.screen.addstr(self.height-1, xpos, line, curses.A_REVERSE)
 
     def draw_global_rates(self):
         rates_width = self.rateDownload_width + self.rateUpload_width + 3

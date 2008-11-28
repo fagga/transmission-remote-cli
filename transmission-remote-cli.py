@@ -119,7 +119,7 @@ class Transmission:
                     'swarmSpeed', 'peersConnected', 'peersFrom',
                     'uploadLimit', 'uploadLimitMode', 'downloadLimit', 'downloadLimitMode' ]
 
-    DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers', 'webseeds',
+    DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
                       'totalSize', 'announceURL', 'announceResponse', 'lastAnnounceTime',
                       'nextAnnounceTime', 'lastScrapeTime', 'nextScrapeTime',
@@ -601,7 +601,6 @@ class Interface:
             elif c == ord('f'): self.details_category_focus = 1
             elif c == ord('e'): self.details_category_focus = 2
             elif c == ord('t'): self.details_category_focus = 3
-            elif c == ord('w'): self.details_category_focus = 4
 
             # file priority OR walk through details
             elif c == curses.KEY_RIGHT:
@@ -879,7 +878,7 @@ class Interface:
         self.draw_torrentlist_item(self.torrent_details, False, 0)
 
         # divider + menu
-        menu_items = ['_Overview', "_Files", 'P_eers', '_Tracker', '_Webseeds' ]
+        menu_items = ['_Overview', "_Files", 'P_eers', '_Tracker' ]
         xpos = int((self.width - sum(map(lambda x: len(x), menu_items))-len(menu_items)) / 2)
         for item in menu_items:
             self.pad.move(3, xpos)
@@ -901,8 +900,7 @@ class Interface:
             self.draw_peerlist(5)
         elif self.details_category_focus == 3:
             self.draw_trackerlist(5)
-        elif self.details_category_focus == 4:
-            self.draw_webseedlist(5)
+
         self.pad.refresh(0,0, 1,0, self.height-2,self.width)
         self.screen.refresh()
 
@@ -1100,11 +1098,6 @@ class Interface:
                 self.pad.addstr(ypos, 2, tracker['announce'])
 
             
-    def draw_webseedlist(self, ypos):
-        self.pad.addstr(ypos, 1, "Feature not implemented yet.")
-        debug("webseeds: " + repr(self.torrent_details['webseeds']) + "\n\n\n")
-
-
 
 
     def draw_hline(self, ypos, width, title):
@@ -1126,7 +1119,7 @@ class Interface:
         return ypos, key_width
 
     def next_details(self):
-        if self.details_category_focus >= 4:
+        if self.details_category_focus >= 3:
             self.details_category_focus = 0
         else:
             self.details_category_focus += 1
@@ -1136,7 +1129,7 @@ class Interface:
 
     def prev_details(self):
         if self.details_category_focus <= 0:
-            self.details_category_focus = 4
+            self.details_category_focus = 3
         else:
             self.details_category_focus -= 1
         self.pad.erase()
@@ -1198,15 +1191,14 @@ class Interface:
                 " PEX: %-3d" % self.torrent_details['peersFrom']['fromPex'] + \
                 " Incoming: %-3d" % self.torrent_details['peersFrom']['fromIncoming'] + \
                 " Cache: %-3d" % self.torrent_details['peersFrom']['fromCache']
-        elif self.filter_list:
-            line = "%d torrent%s " % (len(self.torrents), ('s','')[len(self.torrents)==1])
-            if self.filter_inverse:
-                line += 'not '
-            line += self.filter_list
         else:
-            line = "%d Torrents: " % self.stats['torrentCount'] + \
-                "%d downloading; " % len(filter(lambda x: x['status']==Transmission.STATUS_DOWNLOAD, self.torrents)) + \
-                "%d seeding; " % len(filter(lambda x: x['status']==Transmission.STATUS_SEED, self.torrents)) + \
+            line = "%d torrent%s" % (len(self.torrents), ('s','')[len(self.torrents) == 1])
+            if self.filter_list:
+                line += " %s%s" % (('','not ')[self.filter_inverse], self.filter_list)
+            line += ": %d downloading; " % len(filter(lambda x: x['status']==Transmission.STATUS_DOWNLOAD,
+                                                      self.torrents)) + \
+                "%d seeding; " % len(filter(lambda x: x['status']==Transmission.STATUS_SEED,
+                                            self.torrents)) + \
                 "%d paused" % self.stats['pausedTorrentCount']
         self.screen.insstr((self.height-1), 0, line, curses.A_REVERSE)
 
@@ -1280,7 +1272,6 @@ class Interface:
                     "             f  Jump to file list\n" + \
                     "             e  Jump to peer list\n" + \
                     "             t  Jump to tracker information\n" + \
-                    "             w  Jump to webseed list\n" + \
                     "       up/down  Select file/peer (in appropriate view)\n"
                 if self.details_category_focus == 1 and self.focus_detaillist > -1:
                     message += "           TAB  Jump to next view\n"

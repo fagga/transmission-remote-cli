@@ -116,8 +116,8 @@ class Transmission:
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
                     'sizeWhenDone', 'haveValid', 'haveUnchecked', 'addedDate',
                     'uploadedEver', 'errorString', 'recheckProgress',
-                    'swarmSpeed', 'peersConnected', 'peersFrom',
-                    'uploadLimit', 'uploadLimitMode', 'downloadLimit', 'downloadLimitMode' ]
+                    'swarmSpeed', 'peersConnected', 'uploadLimit', 'uploadLimitMode',
+                    'downloadLimit', 'downloadLimitMode' ]
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
@@ -125,7 +125,8 @@ class Transmission:
                       'nextAnnounceTime', 'lastScrapeTime', 'nextScrapeTime',
                       'scrapeResponse', 'scrapeURL', 'hashString', 'timesCompleted',
                       'pieceCount', 'pieceSize', 'downloadedEver', 'corruptEver',
-                      'peersKnown', 'peersSendingToUs', 'peersGettingFromUs' ] + LIST_FIELDS
+                      'peersFrom', 'peersKnown', 'peersSendingToUs',
+                      'peersGettingFromUs' ] + LIST_FIELDS
 
     def __init__(self, host, port, username, password):
         self.host  = host

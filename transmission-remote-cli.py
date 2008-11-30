@@ -514,7 +514,7 @@ class Interface:
                        ('seeders','_Seeds'), ('leechers','Lee_ches'), ('sizeWhenDone', 'Si_ze'),
                        ('status','S_tatus'), ('uploadedEver','Up_loaded'),
                        ('rateUpload','_Upload Speed'), ('rateDownload','_Download Speed'),
-                       ('swarmSpeed','Swar_m Rate'), ('uploadRatio','Rati_o_'),
+                       ('swarmSpeed','Swar_m Rate'), ('uploadRatio','_Ratio'),
                        ('peersConnected','P_eers'), ('reverse','Re_verse')]
             choice = self.dialog_menu('Sort order', options,
                                       map(lambda x: x[0]==self.sort_orders[-1], options).index(True)+1)
@@ -573,7 +573,7 @@ class Interface:
                 self.server.verify_torrent(self.torrents[self.focus]['id'])
 
         # remove torrent
-        elif c == ord('r') or c == curses.KEY_DC and self.focus > -1:
+        elif self.focus > -1 and (c == ord('r') or c == curses.KEY_DC):
             name = self.torrents[self.focus]['name'][0:self.width - 15]
             if self.dialog_yesno("Remove %s?" % name.encode('utf8')) == True:
                 self.server.remove_torrent(self.torrents[self.focus]['id'])
@@ -1075,7 +1075,8 @@ class Interface:
         self.pad.addstr(ypos+1, 2, "  Latest announce: %s" % timestamp(t['lastAnnounceTime']))
         self.pad.addstr(ypos+2, 2, "Announce response: %s" % t['announceResponse'])
         self.pad.addstr(ypos+3, 2, "    Next announce: %s" % timestamp(t['nextAnnounceTime']))
-        self.pad.addstr(ypos+4, 2, "Error: %s" % t['errorString'])
+        if t['errorString']:
+            self.pad.addstr(ypos+4, 2, "Error: %s" % t['errorString'])
 
         scrape_width   = max(60, len(active['scrape']))
         announce_width = max(60, len(active['announce']))
@@ -1188,7 +1189,8 @@ class Interface:
 
     def draw_torrents_stats(self):
         if self.selected > -1 and self.details_category_focus == 2:
-            line = "%d peers connected:" % self.torrent_details['peersConnected'] + \
+            line = "%d peer%s connected:" % (self.torrent_details['peersConnected'],
+                                             ('s','')[self.torrent_details['peersConnected'] == 1]) + \
                 " Tracker: %-3d" % self.torrent_details['peersFrom']['fromTracker'] + \
                 " PEX: %-3d" % self.torrent_details['peersFrom']['fromPex'] + \
                 " Incoming: %-3d" % self.torrent_details['peersFrom']['fromIncoming'] + \
@@ -1535,7 +1537,7 @@ def scale_bytes(bytes, type='short'):
 
     # add s to unit if necessary
     if type == 'long':
-        if scaled_bytes == 0 and unit == 'Byte':
+        if bytes == 0:
             return 'nothing'
         unit = ' ' + unit + ('s', '')[scaled_bytes == 1]
 

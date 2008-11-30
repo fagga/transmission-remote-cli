@@ -116,17 +116,18 @@ class Transmission:
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
                     'sizeWhenDone', 'haveValid', 'haveUnchecked', 'addedDate',
                     'uploadedEver', 'errorString', 'recheckProgress',
-                    'swarmSpeed', 'peersConnected', 'uploadLimit', 'uploadLimitMode',
-                    'downloadLimit', 'downloadLimitMode' ]
+                    'swarmSpeed', 'peersKnown', 'peersConnected', 'uploadLimit',
+                    'uploadLimitMode', 'downloadLimit', 'downloadLimitMode' ]
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
-                      'totalSize', 'announceURL', 'announceResponse', 'lastAnnounceTime',
+                      'totalSize',
+                      'announceURL', 'announceResponse', 'lastAnnounceTime',
                       'nextAnnounceTime', 'lastScrapeTime', 'nextScrapeTime',
-                      'scrapeResponse', 'scrapeURL', 'hashString', 'timesCompleted',
-                      'pieceCount', 'pieceSize', 'downloadedEver', 'corruptEver',
-                      'peersFrom', 'peersKnown', 'peersSendingToUs',
-                      'peersGettingFromUs' ] + LIST_FIELDS
+                      'scrapeResponse', 'scrapeURL',
+                      'hashString', 'timesCompleted', 'pieceCount', 'pieceSize',
+                      'downloadedEver', 'corruptEver',
+                      'peersFrom', 'peersSendingToUs', 'peersGettingFromUs' ] + LIST_FIELDS
 
     def __init__(self, host, port, username, password):
         self.host  = host
@@ -567,7 +568,7 @@ class Interface:
                 self.server.stop_torrent(self.torrents[self.focus]['id'])
             
         # verify torrent data
-        elif c == ord('v') and self.focus > -1:
+        elif self.focus > -1 and (c == ord('v') or c == ord('y')):
             if self.torrents[self.focus]['status'] != Transmission.STATUS_CHECK:
                 self.server.verify_torrent(self.torrents[self.focus]['id'])
 
@@ -826,9 +827,9 @@ class Interface:
         parts = [self.server.get_status(torrent)]
 
         # show tracker error if appropriate
-        if torrent['errorString'] and\
+        if torrent['errorString'] and \
                 not torrent['status'] == Transmission.STATUS_STOPPED and \
-                not torrent['peersConnected']:
+                torrent['peersKnown'] > 1:
             parts[0] = torrent['errorString']
 
         else:
@@ -970,15 +971,15 @@ class Interface:
         t = self.torrent_details
         self.draw_hline(ypos, self.width, ' Events ') ; ypos += 1
         # dates (started, finished, etc)
-        info = [['Added',    ' ' + timestamp(t['addedDate'])],
-                ['Started',  ' ' + timestamp(t['startDate'])],
-                ['Activity', ' ' + timestamp(t['activityDate'])]]
+        info = [['Added: ',    timestamp(t['addedDate'])],
+                ['Started: ',  timestamp(t['startDate'])],
+                ['Activity: ', timestamp(t['activityDate'])]]
         if t['percent_done'] < 100 and t['eta'] > 0:
-            info.append(['Finished', ' ' + timestamp(time.time() + t['eta'])])
+            info.append(['Finished: ', timestamp(time.time() + t['eta'])])
         elif t['doneDate'] <= 0:
-            info.append(['Finished', ' sometime'])
+            info.append(['Finished: ', 'sometime'])
         else:
-            info.append(['Finished', ' ' + timestamp(t['doneDate'])])
+            info.append(['Finished: ', timestamp(t['doneDate'])])
         return self.draw_details_list(ypos, info)
 
 
@@ -1071,22 +1072,22 @@ class Interface:
 
         # show active tracker
         self.pad.addstr(ypos, 0, active['announce'])
-        self.pad.addstr(ypos+1, 2, "Latest announce:   %s" % timestamp(t['lastAnnounceTime']))
+        self.pad.addstr(ypos+1, 2, "  Latest announce: %s" % timestamp(t['lastAnnounceTime']))
         self.pad.addstr(ypos+2, 2, "Announce response: %s" % t['announceResponse'])
-        self.pad.addstr(ypos+3, 2, "Next announce:     %s" % timestamp(t['nextAnnounceTime']))
+        self.pad.addstr(ypos+3, 2, "    Next announce: %s" % timestamp(t['nextAnnounceTime']))
         self.pad.addstr(ypos+4, 2, "Error: %s" % t['errorString'])
 
         scrape_width   = max(60, len(active['scrape']))
-        announce_width = max(60, len(active['announce']), len(t['errorString'])+9)
+        announce_width = max(60, len(active['announce']))
         if self.width < announce_width + scrape_width + 2:
             xpos = 0
             ypos += 6
         else:
             xpos = announce_width + 2
         self.pad.addstr(ypos,   xpos, active['scrape'])
-        self.pad.addstr(ypos+1, xpos+2, "Latest scrape:   %s" % timestamp(t['lastScrapeTime']))
+        self.pad.addstr(ypos+1, xpos+2, "  Latest scrape: %s" % timestamp(t['lastScrapeTime']))
         self.pad.addstr(ypos+2, xpos+2, "Scrape response: %s" % t['scrapeResponse'])
-        self.pad.addstr(ypos+3, xpos+2, "Next scrape:     %s" % timestamp(t['nextScrapeTime']))
+        self.pad.addstr(ypos+3, xpos+2, "    Next scrape: %s" % timestamp(t['nextScrapeTime']))
         ypos += 5
         if self.width >= announce_width + scrape_width + 2:
             ypos += 1
@@ -1234,9 +1235,11 @@ class Interface:
                 help = [('f','Filter'), ('s','Sort')] + help + [('q','Quit')]
         else:
             help = [('Move with','cursor keys'), ('q','Back to List')]
-            if self.focus_detaillist > -1:
+            if self.details_category_focus == 1 and self.focus_detaillist > -1:
                 help = [('left/right','Decrease/Increase Priority'),
                         ('escape','Unfocus')] + help
+            elif self.details_category_focus == 2:
+                help = [('F1/?','Explain flags')] + help
 
         line = ' | '.join(map(lambda x: "%s %s" % (x[0], x[1]), help))
         line = line[0:self.width]
@@ -1524,9 +1527,7 @@ def scale_bytes(bytes, type='short'):
             scaled_bytes = int(scaled_bytes)
         unit = ('M','Megabyte')[type == 'long']
     elif bytes >= 1024:
-        scaled_bytes = round((bytes / 1024.0), 1)
-        if scaled_bytes >= 10:
-            scaled_bytes = int(scaled_bytes)
+        scaled_bytes = int(bytes / 1024)
         unit = ('K','Kilobyte')[type == 'long']
     else:
         scaled_bytes = bytes

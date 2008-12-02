@@ -502,7 +502,8 @@ class Interface:
                 self.details_category_focus = 0;
 
         # select torrent for detailed view
-        elif c == ord("\n") and self.focus > -1 and self.selected == -1:
+        elif (c == ord("\n") or c == curses.KEY_RIGHT) \
+                and self.focus > -1 and self.selected == -1:
             self.screen.clear()
             self.selected = self.focus
             self.server.set_torrent_details_id(self.torrents[self.focus]['id'])
@@ -1258,7 +1259,7 @@ class Interface:
         if self.selected == -1:
             message += "             f  Filter torrent list\n" + \
                 "             s  Sort torrent list\n" \
-                "         Enter  View focused torrent's details\n" + \
+                "   Enter/right  View focused torrent's details\n" + \
                 "         q/ESC  Unfocus/Quit\n\n"
         else:
             if self.details_category_focus == 2:

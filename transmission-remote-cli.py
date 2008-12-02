@@ -489,13 +489,20 @@ class Interface:
             elif self.selected > -1:         # return from details
                 self.details_category_focus = 0;
                 self.selected = -1
-            else:                            # unfocus main list
-                self.scrollpos = 0
-                self.focus     = -1
+            else:
+                if self.focus > -1:
+                    self.scrollpos = 0    # unfocus main list
+                    self.focus     = -1
+                elif self.filter_list:
+                    self.filter_list = '' # reset filter
 
         # go back or quit on q
         elif c == ord('q'):
-            if self.selected == -1: quit()  # exit
+            if self.selected == -1:
+                if self.filter_list:
+                    self.filter_list = '' # reset filter
+                else:
+                    quit() # exit
             else:                           # return to list view
                 self.server.set_torrent_details_id(-1)
                 self.selected = -1
@@ -830,7 +837,7 @@ class Interface:
         # show tracker error if appropriate
         if torrent['errorString'] and \
                 not torrent['status'] == Transmission.STATUS_STOPPED and \
-                torrent['peersKnown'] > 1:
+                torrent['peersKnown'] == 0:
             parts[0] = torrent['errorString']
 
         else:

@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.1.1'
+VERSION='0.1.2'
 
 
 USERNAME = ''
@@ -539,7 +539,7 @@ class Interface:
                        ('active','Ac_tive'), ('paused','_Paused'), ('seeding','_Seeding'),
                        ('incomplete','In_complete'), ('verifying','Verif_ying'),
                        ('invert','In_vert'), ('','_All')]
-            choice = self.dialog_menu('Show only', options,
+            choice = self.dialog_menu(('Show only','Filter all')[self.filter_inverse], options,
                                       map(lambda x: x[0]==self.filter_list, options).index(True)+1)
             if choice == 'invert':
                 self.filter_inverse = not self.filter_inverse
@@ -1543,11 +1543,16 @@ def scale_bytes(bytes, type='short'):
         scaled_bytes = bytes
         unit = ('B','Byte')[type == 'long']
 
-    # add s to unit if necessary
+    # add plural s to unit if necessary
     if type == 'long':
-        if bytes == 0:
-            return 'nothing'
         unit = ' ' + unit + ('s', '')[scaled_bytes == 1]
+
+    # handle 0 bytes special
+    if bytes == 0:
+        if type == 'long':
+            return 'nothing'
+        else:
+            return ''
 
     # convert to integer if .0
     if int(scaled_bytes) == float(scaled_bytes):

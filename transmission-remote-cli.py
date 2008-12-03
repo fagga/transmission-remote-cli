@@ -496,11 +496,18 @@ class Interface:
                 elif self.filter_list:
                     self.filter_list = '' # reset filter
 
+        # immediately leave details
+        elif c == curses.KEY_BACKSPACE and self.selected > -1:
+            self.server.set_torrent_details_id(-1)
+            self.selected = -1
+            self.details_category_focus = 0;
+
         # go back or quit on q
         elif c == ord('q'):
             if self.selected == -1:
                 if self.filter_list:
                     self.filter_list = '' # reset filter
+                    self.filter_inverse = False
                 else:
                     quit() # exit
             else:                           # return to list view
@@ -845,20 +852,22 @@ class Interface:
                 parts[0] += " (%d%%)" % int(float(torrent['recheckProgress']) * 100)
             elif torrent['status'] == Transmission.STATUS_DOWNLOAD:
                 parts[0] += " (%d%%)" % torrent['percent_done']
-            parts[0] = parts[0].ljust(18)
+            parts[0] = parts[0].ljust(20)
 
             # seeds and leeches will be appended right justified later
             peers  = "%4s seed%s " % (num2str(torrent['seeders']), ('s', ' ')[torrent['seeders']==1])
             peers += "%4s leech%s" % (num2str(torrent['leechers']), ('es', '  ')[torrent['leechers']==1])
 
             # show additional information if enough room
-            if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 15:
-                parts.append("%5s uploaded" % scale_bytes(torrent['uploadedEver']))
+            if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 18:
+                uploaded = scale_bytes(torrent['uploadedEver'])
+                parts.append("%7s uploaded" % ('nothing',uploaded)[uploaded != ''])
 
             if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 18:
-                parts.append("%5s swarm rate" % scale_bytes(torrent['swarmSpeed']))
+                swarm_rate = scale_bytes(torrent['swarmSpeed'])
+                parts.append("%5s swarm rate" % ('no',swarm_rate)[swarm_rate != ''])
 
-            if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 20:
+            if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 22:
                 parts.append("%4s peer%s connected" % (torrent['peersConnected'],
                                                        ('s',' ')[torrent['peersConnected'] == 1]))
 
@@ -1267,7 +1276,8 @@ class Interface:
             message += "             f  Filter torrent list\n" + \
                 "             s  Sort torrent list\n" \
                 "   Enter/right  View focused torrent's details\n" + \
-                "         q/ESC  Unfocus/Quit\n\n"
+                "           ESC  Unfocus\n" + \
+                "             q  Quit\n\n"
         else:
             if self.details_category_focus == 2:
                 message = "Flags:\n" + \
@@ -1290,9 +1300,10 @@ class Interface:
                 if self.details_category_focus == 1 and self.focus_detaillist > -1:
                     message += "           TAB  Jump to next view\n"
                     message += "    left/right  decrease/increase file priority\n"
+                    message += "           ESC  Unfocus\n"
                 else:
                     message += "left/right/TAB  Jump to next/previous view\n"
-                message += "         q/ESC  Unfocus/Back to list\n\n"
+                message += "   q/backspace  Back to list\n\n"
 
         width  = max(map(lambda x: len(x), message.split("\n"))) + 4
         width  = min(self.width, width)

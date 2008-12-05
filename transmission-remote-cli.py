@@ -1521,9 +1521,16 @@ def percent(full, part):
 
 
 def scale_time(seconds, type='short'):
+    minute_in_sec = float(60)
+    hour_in_sec   = float(3600)
+    day_in_sec    = float(86400)
+    month_in_sec  = 27.321661 * day_in_sec # from wikipedia
+    year_in_sec   = 365.25    * day_in_sec # from wikipedia
+
     if seconds < 0:
         return ('?', 'some time')[type=='long']
-    elif seconds < 60:
+
+    elif seconds < minute_in_sec:
         if type == 'long':
             if seconds < 5:
                 return 'now'
@@ -1531,24 +1538,43 @@ def scale_time(seconds, type='short'):
                 return "%s second%s" % (seconds, ('', 's')[seconds>1])
         else:
             return "%ss" % seconds
-    elif seconds < 3600:
-        minutes = int(seconds / 60)
+
+    elif seconds < hour_in_sec:
+        minutes = round(seconds / minute_in_sec, 0)
         if type == 'long':
             return "%d minute%s" % (minutes, ('', 's')[minutes>1])
         else:
             return "%dm" % minutes
-    elif seconds < 86400:
-        hours = int(seconds / 3600)
+
+    elif seconds < day_in_sec:
+        hours = round(seconds / hour_in_sec, 0)
         if type == 'long':
             return "%d hour%s" % (hours, ('', 's')[hours>1])
         else:
             return "%dh" % hours
-    else:
-        days = int(seconds / 86400)
+
+    elif seconds < month_in_sec:
+        days = round(seconds / day_in_sec, 0)
+
         if type == 'long':
             return "%d day%s" % (days, ('', 's')[days>1])
         else:
             return "%dd" % days
+
+    elif seconds < year_in_sec:
+        months = round(seconds / month_in_sec, 0)
+        if type == 'long':
+            return "%d month%s" % (months, ('', 's')[months>1])
+        else:
+            return "%dM" % months
+
+    else:
+        years = round(seconds / year_in_sec, 0)
+        if type == 'long':
+            return "%d year%s" % (years, ('', 's')[years>1])
+        else:
+            return "%dy" % years
+
 
 def timestamp(timestamp):
     if timestamp <= 1:

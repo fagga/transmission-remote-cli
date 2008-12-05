@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.1.2'
+VERSION='0.1.3'
 
 
 USERNAME = ''
@@ -121,7 +121,7 @@ class Transmission:
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
-                      'totalSize',
+                      'totalSize', 'comment',
                       'announceURL', 'announceResponse', 'lastAnnounceTime',
                       'nextAnnounceTime', 'lastScrapeTime', 'nextScrapeTime',
                       'scrapeResponse', 'scrapeURL',
@@ -345,6 +345,7 @@ class Transmission:
 
 # User Interface
 import curses
+from textwrap import wrap
 import os
 import signal
 import locale
@@ -364,14 +365,14 @@ class Interface:
         self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
         self.stats    = self.server.get_global_stats()
 
-        self.focus     = -1  # -1: nothing focused; min: 0 (top of list); max: <# of torrents>-1 (bottom of list)
+        self.focus     = -1  # -1: nothing focused; 0: top of list; <# of torrents>-1: bottom of list
         self.scrollpos = 0   # start of torrentlist
-        self.torrents_per_page  = 0
+        self.torrents_per_page  = 0 # will be set by manage_layout()
         self.rateDownload_width = self.rateUpload_width = 2
 
-        self.details_category_focus = 0;
-        self.focus_detaillist       = -1;
-        self.scrollpos_detaillist   = 0;
+        self.details_category_focus = 0  # overview/files/peers/tracker in details
+        self.focus_detaillist       = -1 # same as focus but for details
+        self.scrollpos_detaillist   = 0  # same as scrollpos but for details
 
         os.environ['ESCDELAY'] = '0' # make escape usable
         curses.wrapper(self.run)
@@ -380,7 +381,7 @@ class Interface:
     def init_screen(self):
         curses.halfdelay(10)      # STDIN timeout
         try: curses.curs_set(0)   # hide cursor
-        except curses.error: pass
+        except curses.error: pass # some terminals seem to have problem with that
 
         curses.init_pair(1, curses.COLOR_BLACK,   curses.COLOR_BLUE)  # download rate
         curses.init_pair(2, curses.COLOR_BLACK,   curses.COLOR_RED)   # upload rate
@@ -591,7 +592,12 @@ class Interface:
         elif self.focus > -1 and (c == ord('r') or c == curses.KEY_DC):
             name = self.torrents[self.focus]['name'][0:self.width - 15]
             if self.dialog_yesno("Remove %s?" % name.encode('utf8')) == True:
+                if self.selected > -1:  # leave details
+                    self.server.set_torrent_details_id(-1)
+                    self.selected = -1
+                    self.details_category_focus = 0;
                 self.server.remove_torrent(self.torrents[self.focus]['id'])
+
 
         # movement in torrent list
         elif self.selected == -1:
@@ -704,7 +710,12 @@ class Interface:
             self.torrents = [t for t in unfiltered if t not in self.torrents]
 
     def follow_list_focus(self, id):
-        if self.focus == -1: return
+        if self.focus == -1:
+            return
+        elif len(self.torrents) == 0:
+            self.focus, self.scrollpos = -1, 0
+            return
+
         self.focus = min(self.focus, len(self.torrents)-1)
         if self.torrents[self.focus]['id'] != id:
             for i,t in enumerate(self.torrents):
@@ -714,8 +725,7 @@ class Interface:
             try:
                 self.focus = new_focus
             except UnboundLocalError:
-                self.focus = -1
-                self.scrollpos = 0
+                self.focus, self.scrollpos = -1, 0
                 return
 
         # make sure the focus is not above the visible area
@@ -976,7 +986,7 @@ class Interface:
                      "downloading from %d; "              % t['peersSendingToUs'],
                      "uploading to %d"                    % t['peersGettingFromUs']])
 
-        ypos, key_width = self.draw_details_list(ypos, info)
+        ypos = self.draw_details_list(ypos, info)
 
         self.pad.addstr(ypos, 1, "Tracker has seen %s clients completing this torrent." \
                             % num2str(t['timesCompleted']))
@@ -986,18 +996,35 @@ class Interface:
 
     def draw_details_eventdates(self, ypos):
         t = self.torrent_details
-        self.draw_hline(ypos, self.width, ' Events ') ; ypos += 1
-        # dates (started, finished, etc)
-        info = [['Added: ',    timestamp(t['addedDate'])],
-                ['Started: ',  timestamp(t['startDate'])],
-                ['Activity: ', timestamp(t['activityDate'])]]
+
+        self.pad.addstr(ypos,   1, ' Created: ' + timestamp(t['dateCreated']))
+        self.pad.addstr(ypos+1, 1, '   Added: ' + timestamp(t['addedDate']))
+        self.pad.addstr(ypos+2, 1, ' Started: ' + timestamp(t['startDate']))
+        self.pad.addstr(ypos+3, 1, 'Activity: ' + timestamp(t['activityDate']))
+
         if t['percent_done'] < 100 and t['eta'] > 0:
-            info.append(['Finished: ', timestamp(time.time() + t['eta'])])
+            self.pad.addstr(ypos+4, 1, 'Finished: ' + timestamp(time.time() + t['eta']))
         elif t['doneDate'] <= 0:
-            info.append(['Finished: ', 'sometime'])
+            self.pad.addstr(ypos+4, 1, 'Finished: sometime')
         else:
-            info.append(['Finished: ', timestamp(t['doneDate'])])
-        return self.draw_details_list(ypos, info)
+            self.pad.addstr(ypos+4, 1, 'Finished: ' + timestamp(t['doneDate']))
+
+#         info = [['Added: ',    timestamp(t['addedDate'])],
+#                 ['Started: ',  timestamp(t['startDate'])],
+#                 ['Activity: ', timestamp(t['activityDate'])]]
+#         if t['percent_done'] < 100 and t['eta'] > 0:
+#             info.append(['Finished: ', timestamp(time.time() + t['eta'])])
+#         elif t['doneDate'] <= 0:
+#             info.append(['Finished: ', 'sometime'])
+#         else:
+#             info.append(['Finished: ', timestamp(t['doneDate'])])
+#         self.draw_details_list(ypos, info)
+
+        if self.width >= 75 and t['comment']:
+            width = self.width - 50
+            comment = wrap('Comment: ' + t['comment'], width)
+            for i, line in enumerate(comment):
+                self.pad.addstr(ypos+i, 50, line)
 
 
     def draw_filelist(self, ypos):
@@ -1058,7 +1085,7 @@ class Interface:
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
         ypos += 1
 
-        self.detaillistitems_per_page = self.mainview_height - ypos
+#        self.detaillistitems_per_page = self.mainview_height - ypos
         start = self.scrollpos_detaillist
         end   = self.scrollpos_detaillist + self.detaillistitems_per_page
         for index, peer in enumerate(self.torrent_details['peers'][start:end]):
@@ -1136,7 +1163,7 @@ class Interface:
                     self.pad.move(ypos, key_width+1)
                 self.pad.addstr(v)
             ypos += 1
-        return ypos, key_width
+        return ypos
 
     def next_details(self):
         if self.details_category_focus >= 3:

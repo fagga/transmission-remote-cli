@@ -24,6 +24,17 @@ PASSWORD = ''
 HOST = 'localhost'
 PORT = 9091
 
+import time
+import simplejson as json
+import urllib2
+
+import os
+import signal
+import locale
+locale.setlocale(locale.LC_ALL, '')
+import curses
+from textwrap import wrap
+
 from optparse import OptionParser
 parser = OptionParser(usage="Usage: %prog [[USERNAME:PASSWORD@]HOST[:PORT]]",
                       version="%%prog %s" % VERSION)
@@ -53,11 +64,6 @@ AUTH_ERROR       = 3
 
 
 # Handle communication with Transmission server.
-import time
-import simplejson as json
-import urllib2
-from operator import itemgetter  # needed for sort
-
 class TransmissionRequest:
     def __init__(self, host, port, method=None, tag=None, arguments=None):
         self.url = 'http://%s:%d/transmission/rpc' % (host, port)
@@ -69,6 +75,7 @@ class TransmissionRequest:
     def set_request_data(self, method, tag, arguments=None):
         request_data = {'method':method, 'tag':tag}
         if arguments: request_data['arguments'] = arguments
+        debug(repr(request_data) + "\n\n")
         self.http_request = urllib2.Request(url=self.url, data=json.dumps(request_data))
 
     def send_request(self):
@@ -217,7 +224,6 @@ class Transmission:
 
     def get_torrent_list(self, sort_orders, reverse=False):
         for sort_order in sort_orders:
-            debug(str())
             if isinstance(self.torrent_cache[0][sort_order], (str, unicode)):
                 self.torrent_cache.sort(key=lambda x: x[sort_order].lower(), reverse=reverse)
             else:
@@ -234,6 +240,13 @@ class Transmission:
             self.requests['torrent-details'].set_request_data('torrent-get', 77,
                                                               {'ids':id, 'fields': self.DETAIL_FIELDS})
 
+
+    def set_option(self, option_name, option_value):
+        request = TransmissionRequest(self.host, self.port, 'session-set', 1, {option_name: option_value})
+        request.send_request()
+        self.wait_for_status_update()
+
+
     def set_rate_limit(self, direction, new_limit, torrent_id=-1):
         data = dict()
         type = 'session-set'
@@ -247,7 +260,6 @@ class Transmission:
         else:
             data['speed-limit-'+direction+'-enabled'] = 0
 
-        debug(repr(data)+"\n\n\n")
         request = TransmissionRequest(self.host, self.port, type, 1, data)
         request.send_request()
         self.wait_for_torrentlist_update()
@@ -313,13 +325,15 @@ class Transmission:
         self.wait_for_update(7)
     def wait_for_details_update(self):
         self.wait_for_update(77)
+    def wait_for_status_update(self):
+        self.wait_for_update(22)
     def wait_for_update(self, update_id):
         start = time.time()
         self.update(0) # send request
         while True:    # wait for response
             if self.update(0, update_id): break
             time.sleep(0.1)
-        debug("delay was %.3f seconds\n\n\n" % (time.time() - start))
+        debug("delay was %dms\n\n\n" % ((time.time() - start) * 1000))
         
 
     def get_status(self, torrent):
@@ -344,13 +358,6 @@ class Transmission:
     
 
 # User Interface
-import curses
-from textwrap import wrap
-import os
-import signal
-import locale
-locale.setlocale(locale.LC_ALL, '')
-
 class Interface:
     def __init__(self, server):
         self.server = server
@@ -516,6 +523,12 @@ class Interface:
                 self.selected = -1
                 self.details_category_focus = 0;
 
+
+        # show options window
+        elif self.selected == -1 and c == ord('o'):
+            self.draw_options_dialog()
+
+
         # select torrent for detailed view
         elif (c == ord("\n") or c == curses.KEY_RIGHT) \
                 and self.focus > -1 and self.selected == -1:
@@ -616,6 +629,7 @@ class Interface:
                 self.focus, self.scrollpos = self.move_to_top()
             elif c == curses.KEY_END:
                 self.focus, self.scrollpos = self.move_to_end(3, self.torrents_per_page, len(self.torrents))
+
 
         # torrent details
         elif self.selected > -1:
@@ -779,12 +793,14 @@ class Interface:
     def draw_downloadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateDownload_width-self.rateUpload_width-3)
         self.pad.addch(curses.ACS_DARROW, (0,curses.A_BOLD)[torrent['downloadLimitMode']])
-        self.pad.addstr(scale_bytes(torrent['rateDownload']).rjust(self.rateDownload_width),
+        rate = ('',scale_bytes(torrent['rateDownload']))[torrent['rateDownload']>0]
+        self.pad.addstr(rate.rjust(self.rateDownload_width),
                         curses.color_pair(1) + curses.A_BOLD + curses.A_REVERSE)
     def draw_uploadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateUpload_width-1)
         self.pad.addch(curses.ACS_UARROW, (0,curses.A_BOLD)[torrent['uploadLimitMode']])
-        self.pad.addstr(scale_bytes(torrent['rateUpload']).rjust(self.rateUpload_width),
+        rate = ('',scale_bytes(torrent['rateUpload']))[torrent['rateUpload']>0]
+        self.pad.addstr(rate.rjust(self.rateUpload_width),
                         curses.color_pair(2) + curses.A_BOLD + curses.A_REVERSE)
     def draw_ratio(self, torrent, ypos):
         self.pad.addch(ypos+1, self.width-self.rateUpload_width-1, curses.ACS_DIAMOND,
@@ -871,7 +887,7 @@ class Interface:
             # show additional information if enough room
             if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 18:
                 uploaded = scale_bytes(torrent['uploadedEver'])
-                parts.append("%7s uploaded" % ('nothing',uploaded)[uploaded != ''])
+                parts.append("%7s uploaded" % ('nothing',uploaded)[uploaded != '0B'])
 
             if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 18:
                 swarm_rate = scale_bytes(torrent['swarmSpeed'])
@@ -1336,10 +1352,12 @@ class Interface:
         width  = min(self.width, width)
         message += "Hit any key to close".center(width-4)
         height = min(self.height, message.count("\n")+3)
-        win = self.window(height, width, message)
+        win = self.window(height, width, message=message)
         win.notimeout(True)
         win.keypad(True)
         win.getch()
+
+
 
 
     def window(self, height, width, message=''):
@@ -1363,7 +1381,7 @@ class Interface:
     def dialog_message(self, message):
         height = 5 + message.count("\n")
         width  = len(message)+4
-        win = self.window(height, width, message)
+        win = self.window(height, width, message=message)
         win.addstr(height-2, (width/2) - 6, 'Press any key')
         win.notimeout(True)
         win.getch()
@@ -1371,7 +1389,7 @@ class Interface:
     def dialog_yesno(self, message):
         height = 5 + message.count("\n")
         width  = len(message)+4
-        win = self.window(height, width, message)
+        win = self.window(height, width, message=message)
         win.notimeout(True)
         win.keypad(True)
 
@@ -1429,7 +1447,7 @@ class Interface:
 
         height = message.count("\n") + 4
 
-        win = self.window(height, width, message)
+        win = self.window(height, width, message=message)
         win.notimeout(True)
         win.keypad(True)
 
@@ -1508,6 +1526,41 @@ class Interface:
             keys[title[1][0].lower()] = i-1
             i+=1
         return keys
+
+
+    def draw_options_dialog(self):
+        while True:
+            win = self.window(6, 27)
+            win.addstr(0, 2, 'Global Options');
+
+            win.move(1, 11)
+            win.addstr('P', curses.A_UNDERLINE); win.addstr('ort: ');
+            win.addstr("%d" % self.stats['port'])
+
+            win.move(2, 3)
+            win.addstr('UP'); win.addstr('n', curses.A_UNDERLINE); win.addstr('P/');
+            win.addstr('N', curses.A_UNDERLINE); win.addstr('AT-PMP: ');
+            win.addstr(('disabled','enabled ')[self.stats['port-forwarding-enabled']])
+
+            win.move(3, 2)
+            win.addstr('Peer E'); win.addstr('x', curses.A_UNDERLINE); win.addstr('change: ');
+            win.addstr(('disabled','enabled ')[self.stats['pex-allowed']])
+
+            win.notimeout(True)
+            c = win.getch()
+            if c == 27 or c == ord('q') or c == ord("\n"):
+                return
+
+            elif c == ord('p'):
+                port = self.dialog_input_number("Port for incoming connections", self.stats['port'])
+                if port >= 0: self.server.set_option('port', port)
+
+            elif c == ord('n'):
+                self.server.set_option('port-forwarding-enabled',
+                                       (1,0)[self.stats['port-forwarding-enabled']])
+
+            elif c == ord('x'):
+                self.server.set_option('pex-allowed', (1,0)[self.stats['pex-allowed']])
 
 
 # End of class Interface
@@ -1612,11 +1665,8 @@ def scale_bytes(bytes, type='short'):
         unit = ' ' + unit + ('s', '')[scaled_bytes == 1]
 
     # handle 0 bytes special
-    if bytes == 0:
-        if type == 'long':
-            return 'nothing'
-        else:
-            return ''
+    if bytes == 0 and type == 'long':
+        return 'nothing'
 
     # convert to integer if .0
     if int(scaled_bytes) == float(scaled_bytes):
@@ -1644,7 +1694,6 @@ def debug(data):
         file.close
     
 
-import sys
 def quit(msg='', exitcode=0):
     try:
         curses.nocbreak()

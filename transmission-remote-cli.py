@@ -1489,7 +1489,7 @@ class Interface:
 
     def dialog_menu(self, title, options, focus=1):
         height = len(options) + 2
-        width  = max(max(map(lambda x: len(x[1])+4, options)), len(title)+3)
+        width  = max(max(map(lambda x: len(x[1])+3, options)), len(title)+3)
         win = self.window(height, width)
 
         win.addstr(0,1, title)
@@ -1528,7 +1528,7 @@ class Interface:
             win.addstr(i,2, title[0], tag)
             win.addstr(title[1][0], tag + curses.A_UNDERLINE)
             win.addstr(title[1][1:], tag)
-            win.addstr(''.ljust(width - len(option[1]) - 4), tag)
+            win.addstr(''.ljust(width - len(option[1]) - 3), tag)
 
             keys[title[1][0].lower()] = i-1
             i+=1
@@ -1536,8 +1536,9 @@ class Interface:
 
 
     def draw_options_dialog(self):
+        enc_options = [('required','_required'), ('preferred','_preferred'), ('tolerated','_tolerated')]
         while True:
-            win = self.window(6, 27)
+            win = self.window(7, 28)
             win.addstr(0, 2, 'Global Options');
 
             win.move(1, 6)
@@ -1557,6 +1558,10 @@ class Interface:
             win.addstr('Peer '); win.addstr('L', curses.A_UNDERLINE); win.addstr('imit: ');
             win.addstr("%d" % self.stats['peer-limit'])
 
+            win.move(5, 5)
+            win.addstr('En'); win.addstr('c', curses.A_UNDERLINE); win.addstr('ryption: ');
+            win.addstr("%s" % self.stats['encryption'])
+
             win.notimeout(True)
             c = win.getch()
             if c == 27 or c == ord('q') or c == ord("\n"):
@@ -1575,6 +1580,11 @@ class Interface:
                 limit = self.dialog_input_number("Maximum number of connected peers",
                                                  self.stats['peer-limit'], cursorkeys=False)
                 if limit >= 0: self.server.set_option('peer-limit', limit)
+            elif c == ord('c'):
+                choice = self.dialog_menu('Encryption', enc_options,
+                                          map(lambda x: x[0]==self.stats['encryption'],
+                                              enc_options).index(True)+1)
+                self.server.set_option('encryption', choice)
 
             self.draw_torrent_list()
 

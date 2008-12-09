@@ -827,8 +827,8 @@ class Interface:
         size = "%5s" % scale_bytes(torrent['sizeWhenDone'])
         if torrent['percent_done'] < 100:
             if torrent['seeders'] <= 0 and torrent['status'] != Transmission.STATUS_CHECK:
-                available = torrent['desiredAvailable'] + torrent['haveValid']
-                size = "%5s / " % scale_bytes(torrent['desiredAvailable'] + torrent['haveValid']) + size
+                available = torrent['desiredAvailable'] + torrent['haveValid'] + torrent['haveUnchecked']
+                size = "%5s / " % scale_bytes(available) + size
             size = "%5s / " % scale_bytes(torrent['haveValid'] + torrent['haveUnchecked']) + size
         size = '| ' + size
         title = title[:-len(size)] + size
@@ -1294,7 +1294,7 @@ class Interface:
             if self.focus >= 0:
                 help = [('enter','View Details'), ('p','Pause/Unpause'), ('r','Remove'), ('v','Verify')]
             else:
-                help = [('f','Filter'), ('s','Sort')] + help + [('q','Quit')]
+                help = [('f','Filter'), ('s','Sort')] + help + [('o','Options'), ('q','Quit')]
         else:
             help = [('Move with','cursor keys'), ('q','Back to List')]
             if self.details_category_focus == 1 and self.focus_detaillist > -1:
@@ -1320,6 +1320,7 @@ class Interface:
                 "             s  Sort torrent list\n" \
                 "   Enter/right  View focused torrent's details\n" + \
                 "           ESC  Unfocus\n" + \
+                "             o  Configuration options\n" + \
                 "             q  Quit\n\n"
         else:
             if self.details_category_focus == 2:
@@ -1429,23 +1430,10 @@ class Interface:
                 return -1
 
 
-    def dialog_input_number(self, message, current_value):
-        if current_value < 20:
-            bigstep   = 5
-            smallstep = 1
-        elif current_value < 50:
-            bigstep   = 10
-            smallstep = 5
-        else:
-            bigstep   = 50
-            smallstep = 10
+    def dialog_input_number(self, message, current_value, cursorkeys=True):
         width  = max(max(map(lambda x: len(x), message.split("\n"))), 40) + 4
         width  = min(self.width, width)
-
-        message += "\n" + ("up/down    +/-%2d" % bigstep).rjust(width-4)
-        message += "\n" + ("0 means unlimited" + ' '*(width-37) + "left/right +/-%2d" % smallstep)
-
-        height = message.count("\n") + 4
+        height = message.count("\n") + (4,6)[cursorkeys]
 
         win = self.window(height, width, message=message)
         win.notimeout(True)
@@ -1453,6 +1441,26 @@ class Interface:
 
         input = str(current_value)
         while True:
+            if cursorkeys and input:
+                if int(input) < 50:
+                    bigstep   = 10
+                    smallstep = 1
+                elif int(input) < 100:
+                    bigstep   = 50
+                    smallstep = 5
+                elif int(input) < 500:
+                    bigstep   = 100
+                    smallstep = 10
+                elif int(input) < 1000:
+                    bigstep   = 500
+                    smallstep = 50
+                else:
+                    bigstep   = 1000
+                    smallstep = 100
+                win.addstr(height-4, 2, ("up/down    +/-%3d" % bigstep).rjust(width-4))
+                win.addstr(height-3, 2, ("0 means unlimited" + ' '*(width-38) \
+                                             + "left/right +/-%3d" % smallstep))
+
             win.addstr(height-2, 2, input.ljust(width-4), curses.color_pair(5))
             c = win.getch()
             if c == 27 or c == ord('q') or c == curses.KEY_BREAK:
@@ -1463,21 +1471,20 @@ class Interface:
                 
             elif c == curses.KEY_BACKSPACE or c == curses.KEY_DC or c == 127 or c == 8:
                 input = input[:-1]
-                if input == '': input = '0'
             elif len(input) >= width-4:
                 curses.beep()
             elif c >= ord('0') and c <= ord('9'):
                 input += chr(c)
 
-            elif c == curses.KEY_LEFT:
-                input = str(int(input) - smallstep)
-            elif c == curses.KEY_RIGHT:
-                input = str(int(input) + smallstep)
-            elif c == curses.KEY_DOWN:
-                input = str(int(input) - bigstep)
-            elif c == curses.KEY_UP:
-                input = str(int(input) + bigstep)
-            if int(input) < 0: input = '0'
+            elif cursorkeys:
+                try: number = int(input)
+                except ValueError: number = 0
+                if c == curses.KEY_LEFT:    number -= smallstep
+                elif c == curses.KEY_RIGHT: number += smallstep
+                elif c == curses.KEY_DOWN:  number -= bigstep
+                elif c == curses.KEY_UP:    number += bigstep
+                if number < 0: number = 0
+                input = str(number)
 
 
     def dialog_menu(self, title, options, focus=1):
@@ -1533,8 +1540,8 @@ class Interface:
             win = self.window(6, 27)
             win.addstr(0, 2, 'Global Options');
 
-            win.move(1, 11)
-            win.addstr('P', curses.A_UNDERLINE); win.addstr('ort: ');
+            win.move(1, 6)
+            win.addstr('Peer '); win.addstr('P', curses.A_UNDERLINE); win.addstr('ort: ');
             win.addstr("%d" % self.stats['port'])
 
             win.move(2, 3)
@@ -1546,22 +1553,30 @@ class Interface:
             win.addstr('Peer E'); win.addstr('x', curses.A_UNDERLINE); win.addstr('change: ');
             win.addstr(('disabled','enabled ')[self.stats['pex-allowed']])
 
+            win.move(4, 5)
+            win.addstr('Peer '); win.addstr('L', curses.A_UNDERLINE); win.addstr('imit: ');
+            win.addstr("%d" % self.stats['peer-limit'])
+
             win.notimeout(True)
             c = win.getch()
             if c == 27 or c == ord('q') or c == ord("\n"):
                 return
 
             elif c == ord('p'):
-                port = self.dialog_input_number("Port for incoming connections", self.stats['port'])
+                port = self.dialog_input_number("Port for incoming connections",
+                                                self.stats['port'], cursorkeys=False)
                 if port >= 0: self.server.set_option('port', port)
-
             elif c == ord('n'):
                 self.server.set_option('port-forwarding-enabled',
                                        (1,0)[self.stats['port-forwarding-enabled']])
-
             elif c == ord('x'):
                 self.server.set_option('pex-allowed', (1,0)[self.stats['pex-allowed']])
+            elif c == ord('l'):
+                limit = self.dialog_input_number("Maximum number of connected peers",
+                                                 self.stats['peer-limit'], cursorkeys=False)
+                if limit >= 0: self.server.set_option('peer-limit', limit)
 
+            self.draw_torrent_list()
 
 # End of class Interface
 

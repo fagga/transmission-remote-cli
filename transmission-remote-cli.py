@@ -1062,7 +1062,10 @@ class Interface:
         return filelist
 
     def create_filelist_line(self, index):
-        file = self.torrent_details['files'][index]
+        try:
+            file = self.torrent_details['files'][index]
+        except IndexError:
+            return ''
         line = str(index+1).rjust(3) + \
             "  %6.1f%%" % percent(file['length'], file['bytesCompleted']) + \
             '  '+scale_bytes(file['length']).rjust(5) + \

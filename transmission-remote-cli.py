@@ -60,7 +60,6 @@ if connection:
 # error codes
 CONNECTION_ERROR = 1
 JSON_ERROR       = 2
-AUTH_ERROR       = 3
 
 
 # Handle communication with Transmission server.
@@ -319,6 +318,14 @@ class Transmission:
         request = TransmissionRequest(self.host, self.port, 'torrent-set', 1, request_data)
         request.send_request()
         self.wait_for_details_update()
+
+    def get_priority(self, torrent_id, file_num):
+        priority = self.torrent_details_cache['priorities'][file_num]
+        if not self.torrent_details_cache['wanted'][file_num]: return 'off'
+        elif priority <= -1: return 'low'
+        elif priority == 0:  return 'normal'
+        elif priority >= 1:  return 'high'
+        return '?'
 
 
     def wait_for_torrentlist_update(self):
@@ -1025,17 +1032,6 @@ class Interface:
         else:
             self.pad.addstr(ypos+4, 1, 'Finished: ' + timestamp(t['doneDate']))
 
-#         info = [['Added: ',    timestamp(t['addedDate'])],
-#                 ['Started: ',  timestamp(t['startDate'])],
-#                 ['Activity: ', timestamp(t['activityDate'])]]
-#         if t['percent_done'] < 100 and t['eta'] > 0:
-#             info.append(['Finished: ', timestamp(time.time() + t['eta'])])
-#         elif t['doneDate'] <= 0:
-#             info.append(['Finished: ', 'sometime'])
-#         else:
-#             info.append(['Finished: ', timestamp(t['doneDate'])])
-#         self.draw_details_list(ypos, info)
-
         if self.width >= 75 and t['comment']:
             width = self.width - 50
             comment = wrap('Comment: ' + t['comment'], width)
@@ -1044,50 +1040,37 @@ class Interface:
 
 
     def draw_filelist(self, ypos):
-        t = self.torrent_details
-        # draw column names
         column_names = '  #  Progress  Size  Priority  Filename'
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
         ypos += 1
 
-        self.detaillistitems_per_page = self.mainview_height - ypos
-        start = self.scrollpos_detaillist
-        end   = self.scrollpos_detaillist + self.detaillistitems_per_page
-        for file in t['files'][start:end]:
-            index = t['files'].index(file)
-
-            focused = (index == self.focus_detaillist)
-            if focused:
-                self.pad.attron(curses.A_REVERSE)
-                self.pad.addstr(ypos, 0, ' '*self.width, curses.A_REVERSE)
-
-            self.pad.addstr(ypos, 0, str(index+1).rjust(3))
-            self.draw_filelist_percent(file, ypos)
-            self.draw_filelist_size(file, ypos)
-            self.draw_filelist_priority(t, index, ypos)
-            self.draw_filelist_filename(file, ypos)
-
-            if focused:
-                self.pad.attroff(curses.A_REVERSE)
+        for line in self.create_filelist():
+            curses_tags = 0
+            if line.startswith('__FOCUSED__'):
+                curses_tags = curses.A_REVERSE + curses.A_BOLD
+                self.pad.addstr(ypos, 0, ' '*self.width, curses_tags)
+                line = line[11:]
+            self.pad.addstr(ypos, 0, line, curses_tags)
             ypos += 1
 
-    def draw_filelist_percent(self, file, ypos):
-        self.pad.addstr(ypos, 6, "%5.1f%%" % percent(file['length'], file['bytesCompleted']))
+    def create_filelist(self):
+        filelist = []
+        start = self.scrollpos_detaillist
+        end   = self.scrollpos_detaillist + self.detaillistitems_per_page
+        for index in range(start, end):
+            filelist.append(self.create_filelist_line(index))
+        return filelist
 
-    def draw_filelist_size(self, file, ypos):
-        self.pad.addstr(ypos, 14, scale_bytes(file['length']).rjust(5))
-
-    def draw_filelist_priority(self, torrent, index, ypos):
-        priority = torrent['priorities'][index]
-        if not torrent['wanted'][index]: priority = 'off'
-        elif priority <= -1: priority = 'low'
-        elif priority == 0:  priority = 'normal'
-        elif priority >= 1:  priority = 'high'
-        self.pad.addstr(ypos, 21, priority.center(8))
-
-    def draw_filelist_filename(self, file, ypos):
-        self.pad.addstr(ypos, 31, "%s" % file['name'][0:self.width-31].encode('utf-8'))
-
+    def create_filelist_line(self, index):
+        file = self.torrent_details['files'][index]
+        line = str(index+1).rjust(3) + \
+            "  %6.1f%%" % percent(file['length'], file['bytesCompleted']) + \
+            '  '+scale_bytes(file['length']).rjust(5) + \
+            '  '+self.server.get_priority(self.torrent_details['id'], index).center(8) + \
+            "  %s" % file['name'][0:self.width-31].encode('utf-8')
+        if index == self.focus_detaillist:
+            line = '__FOCUSED__' + line
+        return line
 
 
     def draw_peerlist(self, ypos):
@@ -1096,12 +1079,11 @@ class Interface:
             self.pad.addstr(ypos, 1, "Peer list is not available in transmission-daemon versions below 1.4.")
             return
 
-        column_names = "Flags %3d Down %3d Up  Progress        Address  Client" % \
+        column_names = "Flags %3d Down %3d Up  Progress         Address  Client" % \
             (self.torrent_details['peersSendingToUs'], self.torrent_details['peersGettingFromUs'])
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
         ypos += 1
 
-#        self.detaillistitems_per_page = self.mainview_height - ypos
         start = self.scrollpos_detaillist
         end   = self.scrollpos_detaillist + self.detaillistitems_per_page
         for index, peer in enumerate(self.torrent_details['peers'][start:end]):
@@ -1113,7 +1095,7 @@ class Interface:
             self.pad.addstr("%-5s    " % peer['flagStr'])
             self.pad.addstr("%5s  " % scale_bytes(peer['rateToClient']), download_tag)
             self.pad.addstr("%5s   " % scale_bytes(peer['rateToPeer']), upload_tag)
-            self.pad.addstr("%5.1f%% " % (float(peer['progress'])*100))
+            self.pad.addstr("%5.1f%%  " % (float(peer['progress'])*100))
             self.pad.addstr("%15s  " % peer['address'])
             self.pad.addstr(peer['clientName'].encode('utf-8'))
             ypos += 1

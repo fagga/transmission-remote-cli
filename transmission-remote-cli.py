@@ -74,7 +74,7 @@ class TransmissionRequest:
     def set_request_data(self, method, tag, arguments=None):
         request_data = {'method':method, 'tag':tag}
         if arguments: request_data['arguments'] = arguments
-        debug(repr(request_data) + "\n\n")
+        debug(repr(request_data) + "\n")
         self.http_request = urllib2.Request(url=self.url, data=json.dumps(request_data))
 
     def send_request(self):
@@ -286,35 +286,33 @@ class Transmission:
 
 
 
-    def increase_file_priority(self, file_num):
-        current_priority = self.torrent_details_cache['priorities'][file_num]
-        if not self.torrent_details_cache['wanted'][file_num]:
-            self.set_priority(self.torrent_details_cache['id'], file_num, 'low')
-        elif current_priority == -1:
-            self.set_priority(self.torrent_details_cache['id'], file_num, 'normal')
-        elif current_priority == 0:
-            self.set_priority(self.torrent_details_cache['id'], file_num, 'high')
-        else:
-            return
+    def increase_file_priority(self, file_nums):
+        for num in file_nums:
+            current_priority = self.torrent_details_cache['priorities'][num]
+            if not self.torrent_details_cache['wanted'][num]:
+                self.set_priority(self.torrent_details_cache['id'], [num], 'low')
+            elif current_priority == -1:
+                self.set_priority(self.torrent_details_cache['id'], [num], 'normal')
+            elif current_priority == 0:
+                self.set_priority(self.torrent_details_cache['id'], [num], 'high')
 
-    def decrease_file_priority(self, file_num):
-        current_priority = self.torrent_details_cache['priorities'][file_num]
-        if current_priority >= 1:
-            self.set_priority(self.torrent_details_cache['id'], file_num, 'normal')
-        elif current_priority == 0:
-            self.set_priority(self.torrent_details_cache['id'], file_num, 'low')
-        elif current_priority == -1:
-            self.set_priority(self.torrent_details_cache['id'], file_num, 'off')
-        else:
-            return
+    def decrease_file_priority(self, file_nums):
+        for num in file_nums:
+            current_priority = self.torrent_details_cache['priorities'][num]
+            if current_priority >= 1:
+                self.set_priority(self.torrent_details_cache['id'], [num], 'normal')
+            elif current_priority == 0:
+                self.set_priority(self.torrent_details_cache['id'], [num], 'low')
+            elif current_priority == -1:
+                self.set_priority(self.torrent_details_cache['id'], [num], 'off')
 
-    def set_priority(self, torrent_id, file_num, priority):
+    def set_priority(self, torrent_id, file_nums, priority):
         request_data = {'ids': [torrent_id]}
         if priority == 'off':
-            request_data['files-unwanted'] = [file_num]
+            request_data['files-unwanted'] = file_nums
         else:
-            request_data['files-wanted'] = [file_num]
-            request_data['priority-' + priority] = [file_num]
+            request_data['files-wanted'] = file_nums
+            request_data['priority-' + priority] = file_nums
         request = TransmissionRequest(self.host, self.port, 'torrent-set', 1, request_data)
         request.send_request()
         self.wait_for_details_update()
@@ -340,7 +338,7 @@ class Transmission:
         while True:    # wait for response
             if self.update(0, update_id): break
             time.sleep(0.1)
-        debug("delay was %dms\n\n\n" % ((time.time() - start) * 1000))
+        debug("delay was %dms\n\n" % ((time.time() - start) * 1000))
         
 
     def get_status(self, torrent):
@@ -375,7 +373,7 @@ class Interface:
         self.sort_orders  = ['name']
         self.sort_reverse = False
 
-        self.selected = -1  # changes to >-1 when focus >-1 & user hits return
+        self.selected_torrent = -1  # changes to >-1 when focus >-1 & user hits return
         self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
         self.stats    = self.server.get_global_stats()
 
@@ -386,6 +384,7 @@ class Interface:
 
         self.details_category_focus = 0  # overview/files/peers/tracker in details
         self.focus_detaillist       = -1 # same as focus but for details
+        self.selected_files         = [] # marked files in details
         self.scrollpos_detaillist   = 0  # same as scrollpos but for details
 
         os.environ['ESCDELAY'] = '0' # make escape usable
@@ -474,7 +473,7 @@ class Interface:
             self.server.update(1)
 
             # display torrentlist
-            if self.selected == -1:
+            if self.selected_torrent == -1:
                 self.draw_torrent_list()
 
             # display some torrent's details
@@ -498,12 +497,13 @@ class Interface:
 
         # go back or unfocus
         elif c == 27 or c == curses.KEY_BREAK or c == 12:
-            if self.focus_detaillist > -1:   # unfocus file
+            if self.focus_detaillist > -1:   # unfocus and deselect file
                 self.focus_detaillist     = -1
                 self.scrollpos_detaillist = 0
-            elif self.selected > -1:         # return from details
+                self.selected_files       = []
+            elif self.selected_torrent > -1: # return from details
                 self.details_category_focus = 0;
-                self.selected = -1
+                self.selected_torrent = -1
             else:
                 if self.focus > -1:
                     self.scrollpos = 0    # unfocus main list
@@ -512,40 +512,43 @@ class Interface:
                     self.filter_list = '' # reset filter
 
         # immediately leave details
-        elif c == curses.KEY_BACKSPACE and self.selected > -1:
+        elif c == curses.KEY_BACKSPACE and self.selected_torrent > -1:
             self.server.set_torrent_details_id(-1)
-            self.selected = -1
+            self.selected_torrent = -1
             self.details_category_focus = 0;
 
         # go back or quit on q
         elif c == ord('q'):
-            if self.selected == -1:
+            if self.selected_torrent == -1:
                 if self.filter_list:
                     self.filter_list = '' # reset filter
                     self.filter_inverse = False
                 else:
                     quit() # exit
-            else:                           # return to list view
+            else: # return to list view
                 self.server.set_torrent_details_id(-1)
-                self.selected = -1
+                self.selected_torrent = -1
                 self.details_category_focus = 0;
+                self.focus_detaillist     = -1
+                self.scrollpos_detaillist = 0
+                self.selected_files       = []
 
 
         # show options window
-        elif self.selected == -1 and c == ord('o'):
+        elif self.selected_torrent == -1 and c == ord('o'):
             self.draw_options_dialog()
 
 
         # select torrent for detailed view
         elif (c == ord("\n") or c == curses.KEY_RIGHT) \
-                and self.focus > -1 and self.selected == -1:
+                and self.focus > -1 and self.selected_torrent == -1:
             self.screen.clear()
-            self.selected = self.focus
+            self.selected_torrent = self.focus
             self.server.set_torrent_details_id(self.torrents[self.focus]['id'])
             self.server.wait_for_details_update()
 
         # show sort order menu
-        elif c == ord('s') and self.selected == -1:
+        elif c == ord('s') and self.selected_torrent == -1:
             options = [('name','_Name'), ('addedDate','_Age'), ('percent_done','_Progress'),
                        ('seeders','_Seeds'), ('leechers','Lee_ches'), ('sizeWhenDone', 'Si_ze'),
                        ('status','S_tatus'), ('uploadedEver','Up_loaded'),
@@ -562,7 +565,7 @@ class Interface:
                     self.sort_orders.pop(0)
 
         # show state filter menu
-        elif c == ord('f') and self.selected == -1:
+        elif c == ord('f') and self.selected_torrent == -1:
             options = [('uploading','_Uploading'), ('downloading','_Downloading'),
                        ('active','Ac_tive'), ('paused','_Paused'), ('seeding','_Seeding'),
                        ('incomplete','In_complete'), ('verifying','Verif_ying'),
@@ -612,15 +615,15 @@ class Interface:
         elif self.focus > -1 and (c == ord('r') or c == curses.KEY_DC):
             name = self.torrents[self.focus]['name'][0:self.width - 15]
             if self.dialog_yesno("Remove %s?" % name.encode('utf8')) == True:
-                if self.selected > -1:  # leave details
+                if self.selected_torrent > -1:  # leave details
                     self.server.set_torrent_details_id(-1)
-                    self.selected = -1
+                    self.selected_torrent = -1
                     self.details_category_focus = 0;
                 self.server.remove_torrent(self.torrents[self.focus]['id'])
 
 
         # movement in torrent list
-        elif self.selected == -1:
+        elif self.selected_torrent == -1:
             if   c == curses.KEY_UP:
                 self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, 3)
             elif c == curses.KEY_DOWN:
@@ -639,7 +642,7 @@ class Interface:
 
 
         # torrent details
-        elif self.selected > -1:
+        elif self.selected_torrent > -1:
             if c == ord("\t"): self.next_details()
             elif c == ord('o'): self.details_category_focus = 0
             elif c == ord('f'): self.details_category_focus = 1
@@ -648,20 +651,39 @@ class Interface:
 
             # file priority OR walk through details
             elif c == curses.KEY_RIGHT:
-                if self.details_category_focus == 1 and self.focus_detaillist > -1:
-                    self.server.increase_file_priority(self.focus_detaillist)
+                if self.details_category_focus == 1 and \
+                        (self.selected_files or self.focus_detaillist > -1):
+                    if self.selected_files:
+                        files = set(self.selected_files + [self.focus_detaillist])
+                        self.server.increase_file_priority(files)
+                    elif self.focus_detaillist > -1:
+                        self.server.increase_file_priority([self.focus_detaillist])
                 else:
                     self.scrollpos_detaillist = 0
                     self.next_details()
             elif c == curses.KEY_LEFT:
-                if self.details_category_focus == 1 and self.focus_detaillist > -1:
-                    self.server.decrease_file_priority(self.focus_detaillist)
+                if self.details_category_focus == 1 and \
+                        (self.selected_files or self.focus_detaillist > -1):
+                    if self.selected_files:
+                        files = set(self.selected_files + [self.focus_detaillist])
+                        self.server.decrease_file_priority(files)
+                    elif self.focus_detaillist > -1:
+                        self.server.decrease_file_priority([self.focus_detaillist])
                 else:
                     self.scrollpos_detaillist = 0
                     self.prev_details()
 
-            # file list focus/movement
+            # file list
             if self.details_category_focus == 1:
+                # file selection with space
+                if c == ord(' '):
+                    try:
+                        self.selected_files.pop(self.selected_files.index(self.focus_detaillist))
+                    except ValueError:
+                        self.selected_files.append(self.focus_detaillist)
+                    curses.ungetch(curses.KEY_DOWN)
+
+                # focus/movement
                 if c == curses.KEY_UP:
                     self.focus_detaillist, self.scrollpos_detaillist = \
                         self.move_up(self.focus_detaillist, self.scrollpos_detaillist, 1)
@@ -701,7 +723,7 @@ class Interface:
         else: return # don't recognize key
 
         # update view
-        if self.selected == -1:
+        if self.selected_torrent == -1:
             self.draw_torrent_list()
         else:
             self.draw_details()
@@ -1046,10 +1068,11 @@ class Interface:
 
         for line in self.create_filelist():
             curses_tags = 0
-            if line.startswith('__FOCUSED__'):
-                curses_tags = curses.A_REVERSE + curses.A_BOLD
+            while line.startswith('_'):
+                if line[1] == 'F': curses_tags = curses.A_BOLD + curses.A_REVERSE
+                elif line[1] == 'S': curses_tags = curses.A_REVERSE
                 self.pad.addstr(ypos, 0, ' '*self.width, curses_tags)
-                line = line[11:]
+                line = line[2:]
             self.pad.addstr(ypos, 0, line, curses_tags)
             ypos += 1
 
@@ -1072,7 +1095,9 @@ class Interface:
             '  '+self.server.get_priority(self.torrent_details['id'], index).center(8) + \
             "  %s" % file['name'][0:self.width-31].encode('utf-8')
         if index == self.focus_detaillist:
-            line = '__FOCUSED__' + line
+            line = '_F' + line
+        if index in self.selected_files:
+            line = '_S' + line
         return line
 
 
@@ -1233,7 +1258,7 @@ class Interface:
         self.draw_global_rates()
 
     def draw_torrents_stats(self):
-        if self.selected > -1 and self.details_category_focus == 2:
+        if self.selected_torrent > -1 and self.details_category_focus == 2:
             line = "%d peer%s connected:" % (self.torrent_details['peersConnected'],
                                              ('s','')[self.torrent_details['peersConnected'] == 1]) + \
                 " Tracker: %-3d" % self.torrent_details['peersFrom']['fromTracker'] + \
@@ -1275,7 +1300,7 @@ class Interface:
     def draw_quick_help(self):
         help = [('?','Show Keybindings')]
 
-        if self.selected == -1:
+        if self.selected_torrent == -1:
             if self.focus >= 0:
                 help = [('enter','View Details'), ('p','Pause/Unpause'), ('r','Remove'), ('v','Verify')]
             else:
@@ -1300,7 +1325,7 @@ class Interface:
             "         DEL/r  Remove focused torrent (and keep it's content)\n" + \
             "           u/d  Adjust maximum global upload/download rate\n" + \
             "           U/D  Adjust maximum upload/download rate for focused torrent\n"
-        if self.selected == -1:
+        if self.selected_torrent == -1:
             message += "             f  Filter torrent list\n" + \
                 "             s  Sort torrent list\n" \
                 "   Enter/right  View focused torrent's details\n" + \

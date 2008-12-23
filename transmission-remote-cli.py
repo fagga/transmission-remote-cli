@@ -1308,8 +1308,9 @@ class Interface:
         else:
             help = [('Move with','cursor keys'), ('q','Back to List')]
             if self.details_category_focus == 1 and self.focus_detaillist > -1:
-                help = [('left/right','Decrease/Increase Priority'),
-                        ('escape','Unfocus')] + help
+                help = [('space','(De)Select File'),
+                        ('left/right','De-/Increase Priority'),
+                        ('escape','Unfocus/-select')] + help
             elif self.details_category_focus == 2:
                 help = [('F1/?','Explain flags')] + help
 

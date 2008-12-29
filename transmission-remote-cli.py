@@ -1120,7 +1120,7 @@ class Interface:
             if peer['rateToClient']: download_tag = curses.A_BOLD
 
             self.pad.move(ypos, 0)
-            self.pad.addstr("%-5s    " % peer['flagStr'])
+            self.pad.addstr("%-6s   " % peer['flagStr'])
             self.pad.addstr("%5s  " % scale_bytes(peer['rateToClient']), download_tag)
             self.pad.addstr("%5s   " % scale_bytes(peer['rateToPeer']), upload_tag)
             self.pad.addstr("%5.1f%%  " % (float(peer['progress'])*100))
@@ -1354,7 +1354,8 @@ class Interface:
                     "       up/down  Select file/peer (in appropriate view)\n"
                 if self.details_category_focus == 1 and self.focus_detaillist > -1:
                     message += "           TAB  Jump to next view\n"
-                    message += "    left/right  decrease/increase file priority\n"
+                    message += "    left/right  Decrease/Increase file priority\n"
+                    message += "         SPACE  Select/Deselect focused file\n"
                     message += "           ESC  Unfocus\n"
                 else:
                     message += "left/right/TAB  Jump to next/previous view\n"

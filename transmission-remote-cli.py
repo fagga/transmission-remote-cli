@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.1.3'
+VERSION='0.2'
 
 
 USERNAME = ''
@@ -1366,10 +1366,8 @@ class Interface:
         message += "Hit any key to close".center(width-4)
         height = min(self.height, message.count("\n")+3)
         win = self.window(height, width, message=message)
-        win.notimeout(True)
-        win.keypad(True)
-        win.getch()
-
+        while True:
+            if win.getch() >= 0: return
 
 
 
@@ -1391,19 +1389,10 @@ class Interface:
         return win
 
 
-    def dialog_message(self, message):
-        height = 5 + message.count("\n")
-        width  = len(message)+4
-        win = self.window(height, width, message=message)
-        win.addstr(height-2, (width/2) - 6, 'Press any key')
-        win.notimeout(True)
-        win.getch()
-
     def dialog_yesno(self, message):
         height = 5 + message.count("\n")
         width  = len(message)+4
         win = self.window(height, width, message=message)
-        win.notimeout(True)
         win.keypad(True)
 
         focus_tags   = curses.color_pair(9)
@@ -1443,36 +1432,28 @@ class Interface:
 
 
     def dialog_input_number(self, message, current_value, cursorkeys=True):
+
         width  = max(max(map(lambda x: len(x), message.split("\n"))), 40) + 4
         width  = min(self.width, width)
         height = message.count("\n") + (4,6)[cursorkeys]
 
         win = self.window(height, width, message=message)
-        win.notimeout(True)
         win.keypad(True)
-
         input = str(current_value)
+        if cursorkeys:
+            if int(input) < 100:
+                bigstep   = 10
+                smallstep = 1
+            elif int(input) < 1000:
+                bigstep   = 100
+                smallstep = 10
+            else:
+                bigstep   = 1000
+                smallstep = 100
+            win.addstr(height-4, 2, ("up/down    +/-%3d" % bigstep).rjust(width-4))
+            win.addstr(height-3, 2, ("0 means unlimited" + ' '*(width-38) \
+                                         + "left/right +/-%3d" % smallstep))
         while True:
-            if cursorkeys and input:
-                if int(input) < 50:
-                    bigstep   = 10
-                    smallstep = 1
-                elif int(input) < 100:
-                    bigstep   = 50
-                    smallstep = 5
-                elif int(input) < 500:
-                    bigstep   = 100
-                    smallstep = 10
-                elif int(input) < 1000:
-                    bigstep   = 500
-                    smallstep = 50
-                else:
-                    bigstep   = 1000
-                    smallstep = 100
-                win.addstr(height-4, 2, ("up/down    +/-%3d" % bigstep).rjust(width-4))
-                win.addstr(height-3, 2, ("0 means unlimited" + ' '*(width-38) \
-                                             + "left/right +/-%3d" % smallstep))
-
             win.addstr(height-2, 2, input.ljust(width-4), curses.color_pair(5))
             c = win.getch()
             if c == 27 or c == ord('q') or c == curses.KEY_BREAK:
@@ -1505,7 +1486,6 @@ class Interface:
         win = self.window(height, width)
 
         win.addstr(0,1, title)
-        win.notimeout(True)
         win.keypad(True)
 
         old_focus = focus
@@ -1550,31 +1530,32 @@ class Interface:
     def draw_options_dialog(self):
         enc_options = [('required','_required'), ('preferred','_preferred'), ('tolerated','_tolerated')]
         while True:
-            win = self.window(7, 28)
+            win = self.window(9, 35)
             win.addstr(0, 2, 'Global Options');
 
-            win.move(1, 6)
+            win.move(1, 9)
             win.addstr('Peer '); win.addstr('P', curses.A_UNDERLINE); win.addstr('ort: ');
             win.addstr("%d" % self.stats['port'])
 
-            win.move(2, 3)
+            win.move(2, 6)
             win.addstr('UP'); win.addstr('n', curses.A_UNDERLINE); win.addstr('P/');
             win.addstr('N', curses.A_UNDERLINE); win.addstr('AT-PMP: ');
             win.addstr(('disabled','enabled ')[self.stats['port-forwarding-enabled']])
 
-            win.move(3, 2)
+            win.move(3, 5)
             win.addstr('Peer E'); win.addstr('x', curses.A_UNDERLINE); win.addstr('change: ');
             win.addstr(('disabled','enabled ')[self.stats['pex-allowed']])
 
-            win.move(4, 5)
+            win.move(4, 8)
             win.addstr('Peer '); win.addstr('L', curses.A_UNDERLINE); win.addstr('imit: ');
             win.addstr("%d" % self.stats['peer-limit'])
 
-            win.move(5, 5)
+            win.move(5, 8)
             win.addstr('En'); win.addstr('c', curses.A_UNDERLINE); win.addstr('ryption: ');
             win.addstr("%s" % self.stats['encryption'])
 
-            win.notimeout(True)
+            win.addstr(7, 8, "Hit escape to return")
+
             c = win.getch()
             if c == 27 or c == ord('q') or c == ord("\n"):
                 return

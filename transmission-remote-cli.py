@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.2'
+VERSION='0.2.1'
 
 
 USERNAME = ''
@@ -1069,10 +1069,13 @@ class Interface:
         for line in self.create_filelist():
             curses_tags = 0
             while line.startswith('_'):
-                if line[1] == 'F': curses_tags = curses.A_BOLD + curses.A_REVERSE
-                elif line[1] == 'S': curses_tags = curses.A_REVERSE
+                if line[1] == 'S':
+                    curses_tags  = curses.A_BOLD
+                    line = line[2:]
+                if line[1] == 'F':
+                    curses_tags += curses.A_REVERSE
+                    line = line[2:]
                 self.pad.addstr(ypos, 0, ' '*self.width, curses_tags)
-                line = line[2:]
             self.pad.addstr(ypos, 0, line, curses_tags)
             ypos += 1
 
@@ -1171,11 +1174,6 @@ class Interface:
                 self.pad.addstr(ypos, 2, tracker['announce'])
 
             
-
-
-    def draw_hline(self, ypos, width, title):
-        self.pad.hline(ypos, 0, curses.ACS_HLINE, width)
-        self.pad.addstr(ypos, width-(width-2), title, curses.A_REVERSE)
 
     def draw_details_list(self, ypos, info):
         key_width = max(map(lambda x: len(x[0]), info))

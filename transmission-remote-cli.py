@@ -287,24 +287,38 @@ class Transmission:
 
 
     def increase_file_priority(self, file_nums):
+        file_nums = list(file_nums)
+        ref_num = file_nums[0]
         for num in file_nums:
-            current_priority = self.torrent_details_cache['priorities'][num]
             if not self.torrent_details_cache['wanted'][num]:
-                self.set_priority(self.torrent_details_cache['id'], [num], 'low')
-            elif current_priority == -1:
-                self.set_priority(self.torrent_details_cache['id'], [num], 'normal')
-            elif current_priority == 0:
-                self.set_priority(self.torrent_details_cache['id'], [num], 'high')
+                ref_num = num
+                break
+            elif self.torrent_details_cache['priorities'][num] < \
+                    self.torrent_details_cache['priorities'][ref_num]:
+                ref_num = num
+        current_priority = self.torrent_details_cache['priorities'][ref_num]
+        if not self.torrent_details_cache['wanted'][ref_num]:
+            self.set_priority(self.torrent_details_cache['id'], file_nums, 'low')
+        elif current_priority == -1:
+            self.set_priority(self.torrent_details_cache['id'], file_nums, 'normal')
+        elif current_priority == 0:
+            self.set_priority(self.torrent_details_cache['id'], file_nums, 'high')
 
     def decrease_file_priority(self, file_nums):
+        file_nums = list(file_nums)
+        ref_num = file_nums[0]
         for num in file_nums:
-            current_priority = self.torrent_details_cache['priorities'][num]
-            if current_priority >= 1:
-                self.set_priority(self.torrent_details_cache['id'], [num], 'normal')
-            elif current_priority == 0:
-                self.set_priority(self.torrent_details_cache['id'], [num], 'low')
-            elif current_priority == -1:
-                self.set_priority(self.torrent_details_cache['id'], [num], 'off')
+            if self.torrent_details_cache['priorities'][num] > \
+                    self.torrent_details_cache['priorities'][ref_num]:
+                ref_num = num
+        current_priority = self.torrent_details_cache['priorities'][ref_num]
+        if current_priority >= 1:
+            self.set_priority(self.torrent_details_cache['id'], file_nums, 'normal')
+        elif current_priority == 0:
+            self.set_priority(self.torrent_details_cache['id'], file_nums, 'low')
+        elif current_priority == -1:
+            self.set_priority(self.torrent_details_cache['id'], file_nums, 'off')
+
 
     def set_priority(self, torrent_id, file_nums, priority):
         request_data = {'ids': [torrent_id]}
@@ -502,8 +516,9 @@ class Interface:
                 self.scrollpos_detaillist = 0
                 self.selected_files       = []
             elif self.selected_torrent > -1: # return from details
-                self.details_category_focus = 0;
+                self.details_category_focus = 0
                 self.selected_torrent = -1
+                self.selected_files   = []
             else:
                 if self.focus > -1:
                     self.scrollpos = 0    # unfocus main list
@@ -654,7 +669,7 @@ class Interface:
                 if self.details_category_focus == 1 and \
                         (self.selected_files or self.focus_detaillist > -1):
                     if self.selected_files:
-                        files = set(self.selected_files + [self.focus_detaillist])
+                        files = set(self.selected_files)
                         self.server.increase_file_priority(files)
                     elif self.focus_detaillist > -1:
                         self.server.increase_file_priority([self.focus_detaillist])
@@ -665,7 +680,7 @@ class Interface:
                 if self.details_category_focus == 1 and \
                         (self.selected_files or self.focus_detaillist > -1):
                     if self.selected_files:
-                        files = set(self.selected_files + [self.focus_detaillist])
+                        files = set(self.selected_files)
                         self.server.decrease_file_priority(files)
                     elif self.focus_detaillist > -1:
                         self.server.decrease_file_priority([self.focus_detaillist])
@@ -681,10 +696,16 @@ class Interface:
                         self.selected_files.pop(self.selected_files.index(self.focus_detaillist))
                     except ValueError:
                         self.selected_files.append(self.focus_detaillist)
-                    curses.ungetch(curses.KEY_DOWN)
+                    curses.ungetch(curses.KEY_DOWN) # move down
+                # (un)select all files
+                elif c == ord('a'):
+                    if self.selected_files:
+                        self.selected_files = []
+                    else:
+                        self.selected_files = range(0, len(self.torrent_details['files']))
 
                 # focus/movement
-                if c == curses.KEY_UP:
+                elif c == curses.KEY_UP:
                     self.focus_detaillist, self.scrollpos_detaillist = \
                         self.move_up(self.focus_detaillist, self.scrollpos_detaillist, 1)
                 elif c == curses.KEY_DOWN:
@@ -1348,12 +1369,14 @@ class Interface:
                 message += "             o  Jump to overview\n" + \
                     "             f  Jump to file list\n" + \
                     "             e  Jump to peer list\n" + \
-                    "             t  Jump to tracker information\n" + \
-                    "       up/down  Select file/peer (in appropriate view)\n"
-                if self.details_category_focus == 1 and self.focus_detaillist > -1:
-                    message += "           TAB  Jump to next view\n"
-                    message += "    left/right  Decrease/Increase file priority\n"
+                    "             t  Jump to tracker information\n"
+                if self.details_category_focus == 1:
+                    if self.focus_detaillist > -1:
+                        message += "           TAB  Jump to next view\n"
+                        message += "    left/right  Decrease/Increase file priority\n"
+                    message += "       up/down  Select file\n"
                     message += "         SPACE  Select/Deselect focused file\n"
+                    message += "             a  Select/Deselect all files\n"
                     message += "           ESC  Unfocus\n"
                 else:
                     message += "left/right/TAB  Jump to next/previous view\n"

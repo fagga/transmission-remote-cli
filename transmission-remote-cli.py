@@ -1172,6 +1172,9 @@ class Interface:
         if t['errorString']:
             self.pad.addstr(ypos+4, 2, "Error: %s" % t['errorString'])
 
+        if not active['scrape']:
+            active['scrape'] = "No scrape URL announced"
+
         scrape_width   = max(60, len(active['scrape']))
         announce_width = max(60, len(active['announce']))
         if self.width < announce_width + scrape_width + 2:

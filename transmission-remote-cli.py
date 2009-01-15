@@ -1166,7 +1166,10 @@ class Interface:
         end   = self.scrollpos_detaillist + self.detaillistitems_per_page
         peers = self.torrent_details['peers'][start:end]
 
-        clientname_width = max(map(lambda x: len(x['clientName']), peers))
+        clientname_width = 0
+        for peer in peers:
+            if len(peer['clientName']) > clientname_width:
+                clientname_width = len(peer['clientName'])
         
         column_names = "Flags %3d Down %3d Up  Progress  " % \
             (self.torrent_details['peersSendingToUs'], self.torrent_details['peersGettingFromUs'])

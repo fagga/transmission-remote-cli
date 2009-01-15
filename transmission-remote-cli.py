@@ -229,6 +229,8 @@ class Transmission:
                             self.hosts_cache[ip] = self.resolver.submit_reverse(ip, adns.rr.PTR)
                         if features['geoip'] and not self.geo_ips_cache.has_key(ip):
                             self.geo_ips_cache[ip] = self.geo_ip.country_code_by_addr(ip)
+                            if self.geo_ips_cache[ip] == None:
+                                self.geo_ips_cache[ip] = '?'
 
         # response is a reply to session-stats
         elif response['tag'] == 21:

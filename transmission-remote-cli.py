@@ -35,6 +35,18 @@ locale.setlocale(locale.LC_ALL, '')
 import curses
 from textwrap import wrap
 
+
+# optional features provided by non-standard modules
+features = {}
+try:   import adns; features['dns'] = True     # resolve IP to host name
+except ImportError: features['dns'] = False
+
+try:   import GeoIP; features['geoip'] = True  # show country peer seems to be in
+except ImportError:  features['geoip'] = False
+
+features['geoip'] = True
+features['dns'] = True
+
 from optparse import OptionParser
 parser = OptionParser(usage="Usage: %prog [[USERNAME:PASSWORD@]HOST[:PORT]]",
                       version="%%prog %s" % VERSION)
@@ -161,6 +173,10 @@ class Transmission:
         self.torrent_cache = []
         self.status_cache  = dict()
         self.torrent_details_cache = dict()
+        self.hosts_cache   = dict()
+        self.geo_ips_cache = dict()
+        if features['dns']:   self.resolver = adns.init()
+        if features['geoip']: self.geo_ip = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
 
         # make sure there are no undefined values
         self.wait_for_torrentlist_update()
@@ -203,8 +219,16 @@ class Transmission:
 
             if response['tag'] == 7:
                 self.torrent_cache = response['arguments']['torrents']
+
             elif response['tag'] == 77:
                 self.torrent_details_cache = response['arguments']['torrents'][0]
+                if features['dns'] or features['geoip']:
+                    for peer in self.torrent_details_cache['peers']:
+                        ip = peer['address']
+                        if features['dns'] and not self.hosts_cache.has_key(ip):
+                            self.hosts_cache[ip] = self.resolver.submit_reverse(ip, adns.rr.PTR)
+                        if features['geoip'] and not self.geo_ips_cache.has_key(ip):
+                            self.geo_ips_cache[ip] = self.geo_ip.country_code_by_addr(ip)
 
         # response is a reply to session-stats
         elif response['tag'] == 21:
@@ -239,6 +263,11 @@ class Transmission:
             self.requests['torrent-details'].set_request_data('torrent-get', 77,
                                                               {'ids':id, 'fields': self.DETAIL_FIELDS})
 
+    def get_hosts(self):
+        return self.hosts_cache
+
+    def get_geo_ips(self):
+        return self.geo_ips_cache
 
     def set_option(self, option_name, option_value):
         request = TransmissionRequest(self.host, self.port, 'session-set', 1, {option_name: option_value})
@@ -1131,14 +1160,42 @@ class Interface:
             self.pad.addstr(ypos, 1, "Peer list is not available in transmission-daemon versions below 1.4.")
             return
 
-        column_names = "Flags %3d Down %3d Up  Progress         Address  Client" % \
+        start = self.scrollpos_detaillist
+        end   = self.scrollpos_detaillist + self.detaillistitems_per_page
+        peers = self.torrent_details['peers'][start:end]
+
+        clientname_width = max(map(lambda x: len(x['clientName']), peers))
+        
+        column_names = "Flags %3d Down %3d Up  Progress  " % \
             (self.torrent_details['peersSendingToUs'], self.torrent_details['peersGettingFromUs'])
+        column_names += 'Client'.ljust(clientname_width) + "         Address"
+        if features['geoip']: column_names += "  Country"
+        if features['dns']: column_names += "  Host"
+
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
         ypos += 1
 
-        start = self.scrollpos_detaillist
-        end   = self.scrollpos_detaillist + self.detaillistitems_per_page
-        for index, peer in enumerate(self.torrent_details['peers'][start:end]):
+
+        hosts = self.server.get_hosts()
+        geo_ips = self.server.get_geo_ips()
+
+        for index, peer in enumerate(peers):
+            if features['dns']:
+                try:
+                    host = hosts[peer['address']].check()
+                    try:
+                        host_name = host[3][0]
+                    except IndexError:
+                        host_name = "<not resolvable>"
+                except adns.NotReady:
+                    host_name = "<resolving>"
+                except adns.Error, msg:
+                    host_name = msg
+
+            clientname = peer['clientName']
+            if len(clientname) > clientname_width:
+                clientname = middlecut(peer['clientName'], clientname_width)
+
             upload_tag = download_tag = line_tag = 0
             if peer['rateToPeer']:   upload_tag   = curses.A_BOLD
             if peer['rateToClient']: download_tag = curses.A_BOLD
@@ -1147,9 +1204,13 @@ class Interface:
             self.pad.addstr("%-6s   " % peer['flagStr'])
             self.pad.addstr("%5s  " % scale_bytes(peer['rateToClient']), download_tag)
             self.pad.addstr("%5s   " % scale_bytes(peer['rateToPeer']), upload_tag)
-            self.pad.addstr("%5.1f%%  " % (float(peer['progress'])*100))
-            self.pad.addstr("%15s  " % peer['address'])
-            self.pad.addstr(peer['clientName'].encode('utf-8'))
+            self.pad.addstr("%5.1f%%   " % (float(peer['progress'])*100))
+            self.pad.addstr(clientname.ljust(clientname_width).encode('utf-8'))
+            self.pad.addstr(" %15s  " % peer['address'])
+            if features['geoip']:
+                self.pad.addstr("  %2s     " % geo_ips[peer['address']])
+            if features['dns']:
+                self.pad.addstr(host_name.encode('utf-8'), curses.A_DIM)
             ypos += 1
 
 
@@ -1727,6 +1788,10 @@ def num2str(num):
         return 'oo'
     else:
         return str(num)
+
+
+def middlecut(string, width):
+    return string[0:(width/2)-2] + '..' + string[len(string) - (width/2) :]
 
 
 def debug(data):

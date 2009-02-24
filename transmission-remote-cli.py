@@ -148,15 +148,14 @@ class Transmission:
                       'peersFrom', 'peersSendingToUs', 'peersGettingFromUs' ] + LIST_FIELDS
 
     def __init__(self, host, port, username, password):
-        self.host  = host
-        self.port  = port
-        self.username = username
-        self.password = password
+        self.host = host
+        self.port = port
 
         if username and password:
+            password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
             url = 'http://%s:%d/transmission/rpc' % (host, port)
-            authhandler = urllib2.HTTPDigestAuthHandler()
-            authhandler.add_password('Transmission RPC Server', url, username, password)
+            password_mgr.add_password(None, url, username, password)
+            authhandler = urllib2.HTTPBasicAuthHandler(password_mgr)
             opener = urllib2.build_opener(authhandler)
             urllib2.install_opener(opener)
 
@@ -1173,7 +1172,7 @@ class Interface:
         
         column_names = "Flags %3d Down %3d Up  Progress  " % \
             (self.torrent_details['peersSendingToUs'], self.torrent_details['peersGettingFromUs'])
-        column_names += 'Client'.ljust(clientname_width) + "         Address"
+        column_names += 'Client'.ljust(clientname_width) + "          Address"
         if features['geoip']: column_names += "  Country"
         if features['dns']: column_names += "  Host"
 
@@ -1211,7 +1210,7 @@ class Interface:
             self.pad.addstr("%5s   " % scale_bytes(peer['rateToPeer']), upload_tag)
             self.pad.addstr("%5.1f%%   " % (float(peer['progress'])*100))
             self.pad.addstr(clientname.ljust(clientname_width).encode('utf-8'))
-            self.pad.addstr(" %15s  " % peer['address'])
+            self.pad.addstr("  %15s  " % peer['address'])
             if features['geoip']:
                 self.pad.addstr("  %2s     " % geo_ips[peer['address']])
             if features['dns']:

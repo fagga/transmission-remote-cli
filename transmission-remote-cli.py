@@ -37,16 +37,15 @@ from textwrap import wrap
 
 
 # optional features provided by non-standard modules
-features = {}
+features = {'dns':False, 'geoip':False}
 try:   import adns; features['dns'] = True     # resolve IP to host name
 except ImportError: features['dns'] = False
 
 try:   import GeoIP; features['geoip'] = True  # show country peer seems to be in
 except ImportError:  features['geoip'] = False
 
-features['geoip'] = True
-features['dns'] = True
 
+# command line parameters
 from optparse import OptionParser
 parser = OptionParser(usage="Usage: %prog [[USERNAME:PASSWORD@]HOST[:PORT]]",
                       version="%%prog %s" % VERSION)
@@ -55,7 +54,7 @@ parser.add_option("--debug", action="store_true", dest="DEBUG", default=False,
 (options, connection) = parser.parse_args()
 
 
-# parse connection data
+# find username, password, host and port
 if connection:
     if connection[0].find('@') >= 0:
         auth, connection[0] = connection[0].split('@')

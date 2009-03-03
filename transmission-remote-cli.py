@@ -232,7 +232,12 @@ class Transmission:
 
         # response is a reply to session-stats
         elif response['tag'] == 21:
-            self.status_cache.update(response['arguments']['session-stats'])
+            # daemon version 1.40 and below
+            try:
+                self.status_cache.update(response['arguments']['session-stats'])
+            # daemon version 1.50 and above
+            except KeyError:
+                self.status_cache.update(response['arguments'])
 
         # response is a reply to session-get
         elif response['tag'] == 22:

@@ -26,8 +26,12 @@ PORT = 9091
 
 import time
 import simplejson as json
+import httplib
 import urllib2
+import socket
+socket.setdefaulttimeout(5)
 
+import sys
 import os
 import signal
 import locale
@@ -93,15 +97,21 @@ class TransmissionRequest:
 
         try:
             self.open_request = urllib2.urlopen(self.http_request)
+        except httplib.BadStatusLine, msg:
+            # server sends something httplib doesn't understand.
+            # (happens sometimes with high cpu load [?])
+            return  
         except AttributeError:
+            # request data (http_request) isn't specified yet
             return
         except urllib2.HTTPError, msg:
-            quit(str(msg), CONNECTION_ERROR)
+            quit(str(msg) + "\n", CONNECTION_ERROR)
         except urllib2.URLError, msg:
-            if msg.reason[0] == 4:
-                return
-            else:
-                quit("Cannot connect to %s: %s" % (self.http_request.host, msg.reason[1]), CONNECTION_ERROR)
+            try:
+                reason = msg.reason[1]
+            except IndexError:
+                reason = str(msg.reason)
+            quit("Cannot connect to %s: %s\n" % (self.http_request.host, reason), CONNECTION_ERROR)
 
     def get_response(self):
         """Get response to previously sent request."""
@@ -113,7 +123,7 @@ class TransmissionRequest:
         try:
             data = json.loads(response)
         except ValueError:
-            quit("Cannot not parse response: %s" % response, JSON_ERROR)
+            quit("Cannot not parse response: %s\n" % response, JSON_ERROR)
         self.open_request = None
         return data
 
@@ -190,15 +200,21 @@ class Transmission:
             if time.time() - request.last_update >= delay:
                 request.last_update = time.time()
 
+                debug("GETTING RESPONSE ...\n")
                 response = request.get_response()
+                debug("DONE\n")
 
                 if response['result'] == 'no open request':
+                    debug("SENDING REQUEST ...\n")
                     request.send_request()
+                    debug("DONE\n")
 
                 elif response['result'] == 'success':
+                    debug("WAITING FOR TAG ...\n")
                     tag = self.parse_response(response)
                     if tag == tag_waiting_for:
                         tag_waiting_for_occurred = True
+                    debug("DONE\n")
 
         if tag_waiting_for:
             return tag_waiting_for_occurred
@@ -384,6 +400,7 @@ class Transmission:
         start = time.time()
         self.update(0) # send request
         while True:    # wait for response
+            debug("still waiting for %d\n" % update_id)
             if self.update(0, update_id): break
             time.sleep(0.1)
         debug("delay was %dms\n\n" % ((time.time() - start) * 1000))
@@ -435,28 +452,50 @@ class Interface:
         self.selected_files         = [] # marked files in details
         self.scrollpos_detaillist   = 0  # same as scrollpos but for details
 
-        os.environ['ESCDELAY'] = '0' # make escape usable
-        curses.wrapper(self.run)
+
+        try:
+            self.init_screen()
+            self.run()
+        except:
+            self.restore_screen()
+            (exc_type, exc_value, exc_traceback) = sys.exc_info()
+            raise exc_type, exc_value, exc_traceback
+        else:
+            self.restore_screen()
 
 
     def init_screen(self):
-        curses.halfdelay(10)      # STDIN timeout
-        try: curses.curs_set(0)   # hide cursor
-        except curses.error: pass # some terminals seem to have problem with that
+        self.screen = curses.initscr()
+        curses.noecho() ; curses.cbreak() ; self.screen.keypad(1)
+        curses.halfdelay(10) # STDIN timeout
+        
+        try: curses.curs_set(0)   # hide cursor if possible
+        except curses.error: pass # some terminals seem to have problems with that
 
-        curses.init_pair(1, curses.COLOR_BLACK,   curses.COLOR_BLUE)  # download rate
-        curses.init_pair(2, curses.COLOR_BLACK,   curses.COLOR_RED)   # upload rate
-        curses.init_pair(3, curses.COLOR_BLUE,    curses.COLOR_BLACK) # unfinished progress
-        curses.init_pair(4, curses.COLOR_GREEN,   curses.COLOR_BLACK) # finished progress
-        curses.init_pair(5, curses.COLOR_BLACK,   curses.COLOR_WHITE) # eta/ratio
-        curses.init_pair(6, curses.COLOR_CYAN,    curses.COLOR_BLACK) # idle progress
-        curses.init_pair(7, curses.COLOR_MAGENTA, curses.COLOR_BLACK) # verifying
-
-        curses.init_pair(8, curses.COLOR_WHITE, curses.COLOR_BLACK) # button
-        curses.init_pair(9, curses.COLOR_BLACK, curses.COLOR_WHITE) # focused button
+        # enable colors if available
+        try:
+            curses.start_color()
+            curses.init_pair(1, curses.COLOR_BLACK,   curses.COLOR_BLUE)  # download rate
+            curses.init_pair(2, curses.COLOR_BLACK,   curses.COLOR_RED)   # upload rate
+            curses.init_pair(3, curses.COLOR_BLUE,    curses.COLOR_BLACK) # unfinished progress
+            curses.init_pair(4, curses.COLOR_GREEN,   curses.COLOR_BLACK) # finished progress
+            curses.init_pair(5, curses.COLOR_BLACK,   curses.COLOR_WHITE) # eta/ratio
+            curses.init_pair(6, curses.COLOR_CYAN,    curses.COLOR_BLACK) # idle progress
+            curses.init_pair(7, curses.COLOR_MAGENTA, curses.COLOR_BLACK) # verifying
+            curses.init_pair(8, curses.COLOR_WHITE,   curses.COLOR_BLACK) # button
+            curses.init_pair(9, curses.COLOR_BLACK,   curses.COLOR_WHITE) # focused button
+        except:
+            pass
 
         signal.signal(signal.SIGWINCH, lambda y,frame: self.get_screen_size())
         self.get_screen_size()
+
+    def restore_screen(self):
+#        self.screen.keypad(0)
+#        curses.echo()
+#        curses.nocbreak()
+        curses.endwin()
+
 
 
     def get_screen_size(self):
@@ -509,16 +548,15 @@ class Interface:
         return new_width
 
 
-    def run(self, screen):
-        self.screen = screen
-        self.init_screen()
-
+    def run(self):
         self.draw_title_bar()
         self.draw_stats()
         self.draw_torrent_list()
 
         while True:
+            debug("GETTING UPDATE ...\n")
             self.server.update(1)
+            debug("DONE\n")
 
             # display torrentlist
             if self.selected_torrent == -1:
@@ -533,18 +571,27 @@ class Interface:
             self.draw_stats()      # show global states
 
             self.screen.move(0,0)  # in case cursor can't be invisible
+            debug("HANDLING USER INPUT ...\n")
             self.handle_user_input()
+            debug("DONE HANDLING USER INPUT.\n")
 
     def handle_user_input(self):
+        debug("get input key ...\n")
         c = self.screen.getch()
-        if c == -1: return
+        debug("done\n")
+        if c == -1:
+            debug("input is -1 -- returning\n")
+            return
 
         # list all currently available key bindings
         elif c == ord('?') or c == curses.KEY_F1:
+            debug("list key bindings ...\n")
             self.list_key_bindings()
+            debug("done\n")
 
         # go back or unfocus
         elif c == 27 or c == curses.KEY_BREAK or c == 12:
+            debug("back or unfocus ...\n")
             if self.focus_detaillist > -1:   # unfocus and deselect file
                 self.focus_detaillist     = -1
                 self.scrollpos_detaillist = 0
@@ -559,15 +606,19 @@ class Interface:
                     self.focus     = -1
                 elif self.filter_list:
                     self.filter_list = '' # reset filter
+            debug("done\n")
 
-        # immediately leave details
+        # leave details
         elif c == curses.KEY_BACKSPACE and self.selected_torrent > -1:
+            debug("leave details ...\n")
             self.server.set_torrent_details_id(-1)
             self.selected_torrent = -1
             self.details_category_focus = 0;
+            debug("done\n")
 
         # go back or quit on q
         elif c == ord('q'):
+            debug("back or quit ...\n")
             if self.selected_torrent == -1:
                 if self.filter_list:
                     self.filter_list = '' # reset filter
@@ -581,23 +632,28 @@ class Interface:
                 self.focus_detaillist     = -1
                 self.scrollpos_detaillist = 0
                 self.selected_files       = []
+            debug("done\n")
 
 
         # show options window
         elif self.selected_torrent == -1 and c == ord('o'):
+            debug("show options ...\n")
             self.draw_options_dialog()
+            debug("done\n")
 
 
         # select torrent for detailed view
-        elif (c == ord("\n") or c == curses.KEY_RIGHT) \
-                and self.focus > -1 and self.selected_torrent == -1:
+        elif (c == ord("\n") or c == curses.KEY_RIGHT) and self.focus > -1 and self.selected_torrent == -1:
+            debug("select torrent ...\n")
             self.screen.clear()
             self.selected_torrent = self.focus
             self.server.set_torrent_details_id(self.torrents[self.focus]['id'])
             self.server.wait_for_details_update()
+            debug("done\n")
 
         # show sort order menu
         elif c == ord('s') and self.selected_torrent == -1:
+            debug("show sort menu ...\n")
             options = [('name','_Name'), ('addedDate','_Age'), ('percent_done','_Progress'),
                        ('seeders','_Seeds'), ('leechers','Lee_ches'), ('sizeWhenDone', 'Si_ze'),
                        ('status','S_tatus'), ('uploadedEver','Up_loaded'),
@@ -612,9 +668,11 @@ class Interface:
                 self.sort_orders.append(choice)
                 while len(self.sort_orders) > 2:
                     self.sort_orders.pop(0)
+            debug("done\n")
 
         # show state filter menu
         elif c == ord('f') and self.selected_torrent == -1:
+            debug("show filter menu ...\n")
             options = [('uploading','_Uploading'), ('downloading','_Downloading'),
                        ('active','Ac_tive'), ('paused','_Paused'), ('seeding','_Seeding'),
                        ('incomplete','In_complete'), ('verifying','Verif_ying'),
@@ -626,42 +684,56 @@ class Interface:
             else:
                 if choice == '': self.filter_inverse = False
                 self.filter_list = choice
+            debug("done\n")
 
 
         # upload/download limits
         elif c == ord('u'):
+            debug("show upload limit ...\n")
             limit = self.dialog_input_number("Global upload limit in kilobytes per second",
                                              self.stats['speed-limit-up'])
             if limit >= 0: self.server.set_rate_limit('up', limit)
+            debug("done\n")
         elif c == ord('U') and self.focus > -1:
+            debug("show upload limit for torrent ...\n")
             limit = self.dialog_input_number("Upload limit in kilobytes per second for\n%s" % \
                                                  self.torrents[self.focus]['name'],
                                              self.torrents[self.focus]['uploadLimit'])
             if limit >= 0: self.server.set_rate_limit('up', limit, self.torrents[self.focus]['id'])
+            debug("done\n")
         elif c == ord('d'):
+            debug("show download limit ...\n")
             limit = self.dialog_input_number("Global download limit in kilobytes per second",
                                              self.stats['speed-limit-down'])
             if limit >= 0: self.server.set_rate_limit('down', limit)
+            debug("done\n")
         elif c == ord('D') and self.focus > -1:
+            debug("show download limit for torrent ...\n")
             limit = self.dialog_input_number("Download limit in Kilobytes per second for\n%s" % \
                                                  self.torrents[self.focus]['name'],
                                              self.torrents[self.focus]['downloadLimit'])
             if limit >= 0: self.server.set_rate_limit('down', limit, self.torrents[self.focus]['id'])
+            debug("done\n")
 
         # pause/unpause torrent
         elif c == ord('p') and self.focus > -1:
+            debug("pause torrent ...\n")
             if self.torrents[self.focus]['status'] == Transmission.STATUS_STOPPED:
                 self.server.start_torrent(self.torrents[self.focus]['id'])
             else:
                 self.server.stop_torrent(self.torrents[self.focus]['id'])
+            debug("done\n")
             
         # verify torrent data
         elif self.focus > -1 and (c == ord('v') or c == ord('y')):
+            debug("verify torrent ...\n")
             if self.torrents[self.focus]['status'] != Transmission.STATUS_CHECK:
                 self.server.verify_torrent(self.torrents[self.focus]['id'])
+            debug("done\n")
 
         # remove torrent
         elif self.focus > -1 and (c == ord('r') or c == curses.KEY_DC):
+            debug("remove torrent ...\n")
             name = self.torrents[self.focus]['name'][0:self.width - 15]
             if self.dialog_yesno("Remove %s?" % name.encode('utf8')) == True:
                 if self.selected_torrent > -1:  # leave details
@@ -669,10 +741,12 @@ class Interface:
                     self.selected_torrent = -1
                     self.details_category_focus = 0;
                 self.server.remove_torrent(self.torrents[self.focus]['id'])
+            debug("done\n")
 
 
         # movement in torrent list
         elif self.selected_torrent == -1:
+            debug("moving focus ...\n")
             if   c == curses.KEY_UP:
                 self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, 3)
             elif c == curses.KEY_DOWN:
@@ -688,10 +762,12 @@ class Interface:
                 self.focus, self.scrollpos = self.move_to_top()
             elif c == curses.KEY_END:
                 self.focus, self.scrollpos = self.move_to_end(3, self.torrents_per_page, len(self.torrents))
+            debug("done\n")
 
 
         # torrent details
         elif self.selected_torrent > -1:
+            debug("show details ...\n")
             if c == ord("\t"): self.next_details()
             elif c == ord('o'): self.details_category_focus = 0
             elif c == ord('f'): self.details_category_focus = 1
@@ -773,16 +849,23 @@ class Interface:
                     self.scrollpos_detaillist = 0
                 elif c == curses.KEY_END:
                     self.scrollpos_detaillist = list_len - self.detaillistitems_per_page
+            debug("done\n")
 
-
-        else: return # don't recognize key
+        else:
+            debug("unknown key pressed\n")
+            return # don't recognize key
 
         # update view
         if self.selected_torrent == -1:
+            debug("torrent list ...\n")
             self.draw_torrent_list()
+            debug("done\n")
         else:
+            debug("torrent details ...\n")
             self.draw_details()
-
+            debug("done\n")
+            
+        debug("end of handle_user_input reached\n")
 
 
 
@@ -1811,15 +1894,14 @@ def debug(data):
 
 def quit(msg='', exitcode=0):
     try:
-        curses.nocbreak()
-        curses.echo()
-        curses.noraw()
+#        curses.echo()
+#        curses.nocbreak()
         curses.endwin()
     except curses.error:
         pass
 
-    print msg
-    exit(exitcode)
+    print >> sys.stderr, msg,
+    os._exit(exitcode)
 
 
 

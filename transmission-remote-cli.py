@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.3.0'
+VERSION='0.3.1'
 
 
 USERNAME = ''
@@ -1546,8 +1546,7 @@ class Interface:
                 return -1
 
 
-    def dialog_input_number(self, message, current_value, cursorkeys=True):
-
+    def dialog_input_number(self, message, current_value, cursorkeys=True, floating_point=False):
         width  = max(max(map(lambda x: len(x), message.split("\n"))), 40) + 4
         width  = min(self.width, width)
         height = message.count("\n") + (4,6)[cursorkeys]
@@ -1556,18 +1555,16 @@ class Interface:
         win.keypad(True)
         input = str(current_value)
         if cursorkeys:
-            if int(input) < 100:
-                bigstep   = 10
-                smallstep = 1
-            elif int(input) < 1000:
+            if floating_point:
+                bigstep   = 1
+                smallstep = 0.1
+            else:
                 bigstep   = 100
                 smallstep = 10
-            else:
-                bigstep   = 1000
-                smallstep = 100
-            win.addstr(height-4, 2, ("up/down    +/-%3d" % bigstep).rjust(width-4))
-            win.addstr(height-3, 2, ("0 means unlimited" + ' '*(width-38) \
-                                         + "left/right +/-%3d" % smallstep))
+            win.addstr(height-4, 2, ("   up/down +/- %-3s" % bigstep).rjust(width-4))
+            win.addstr(height-3, 2, ("left/right +/- %3s" % smallstep).rjust(width-4))
+            win.addstr(height-3, 2, "0 means unlimited")
+
         while True:
             win.addstr(height-2, 2, input.ljust(width-4), curses.color_pair(5))
             win.addch(height-2, len(input)+2, ' ')
@@ -1575,19 +1572,21 @@ class Interface:
             if c == 27 or c == ord('q') or c == curses.KEY_BREAK:
                 return -1
             elif c == ord("\n"):
-                if input: return int(input)
-                else:     return -1
-                
+                if floating_point: return float(input)
+                else:              return int(input)                
+
             elif c == curses.KEY_BACKSPACE or c == curses.KEY_DC or c == 127 or c == 8:
                 input = input[:-1]
-            elif len(input) >= width-4:
+            elif len(input) >= width-5:
                 curses.beep()
             elif c >= ord('0') and c <= ord('9'):
                 input += chr(c)
+            elif c == ord('.') and floating_point:
+                input += chr(c)
 
             elif cursorkeys:
-                try: number = int(input)
-                except ValueError: number = 0
+                if floating_point: number = float(input)
+                else:              number = int(input)                
                 if c == curses.KEY_LEFT:    number -= smallstep
                 elif c == curses.KEY_RIGHT: number += smallstep
                 elif c == curses.KEY_DOWN:  number -= bigstep
@@ -1645,32 +1644,31 @@ class Interface:
 
     def draw_options_dialog(self):
         enc_options = [('required','_required'), ('preferred','_preferred'), ('tolerated','_tolerated')]
+
         while True:
-            win = self.window(9, 35)
+            options = [('Peer _Port', "%d" % self.stats['peer-port']),
+                       ('UP_nP/NAT-PMP', ('disabled','enabled ')[self.stats['port-forwarding-enabled']]),
+                       ('Peer E_xchange', ('disabled','enabled ')[self.stats['pex-enabled']]),
+                       ('Global Peer _Limit', "%d" % self.stats['peer-limit-global']),
+                       ('Peer Limit per _Torrent', "%d" % self.stats['peer-limit-per-torrent']),
+                       ('Protocol En_cryption', "%s" % self.stats['encryption']),
+                       ('_Seed Ratio Limit', "%f" % (0,self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']])]
+            max_len = max([sum([len(re.sub('_', '', x)) for x in y[0]]) for y in options])
+            win = self.window(len(options)+4, max_len+15)
             win.addstr(0, 2, 'Global Options')
 
-            win.move(1, 9)
-            win.addstr('Peer '); win.addstr('P', curses.A_UNDERLINE); win.addstr('ort: ')
-            win.addstr("%d" % self.stats['peer-port'])
+            line_num = 1
+            for option in options:
+                parts = re.split('_', option[0])
+                parts_len = sum([len(x) for x in parts])
 
-            win.move(2, 6)
-            win.addstr('UP'); win.addstr('n', curses.A_UNDERLINE); win.addstr('P/')
-            win.addstr('N', curses.A_UNDERLINE); win.addstr('AT-PMP: ')
-            win.addstr(('disabled','enabled ')[self.stats['port-forwarding-enabled']])
-
-            win.move(3, 5)
-            win.addstr('Peer E'); win.addstr('x', curses.A_UNDERLINE); win.addstr('change: ')
-            win.addstr(('disabled','enabled ')[self.stats['pex-enabled']])
-
-            win.move(4, 8)
-            win.addstr('Peer '); win.addstr('L', curses.A_UNDERLINE); win.addstr('imit: ')
-            win.addstr("%d" % self.stats['peer-limit-global'])
-
-            win.move(5, 8)
-            win.addstr('En'); win.addstr('c', curses.A_UNDERLINE); win.addstr('ryption: ')
-            win.addstr("%s" % self.stats['encryption'])
-
-            win.addstr(7, 8, "Hit escape to return")
+                win.addstr(line_num, max_len-parts_len+2, parts.pop(0))
+                for part in parts:
+                    win.addstr(part[0], curses.A_UNDERLINE)
+                    win.addstr(part[1:] + ': ' + option[1])
+                line_num += 1
+                
+            win.addstr(line_num+1, int((max_len+15)/2) - 10, "Hit escape to return")
 
             c = win.getch()
             if c == 27 or c == ord('q') or c == ord("\n"):
@@ -1687,12 +1685,24 @@ class Interface:
                 self.server.set_option('pex-enabled', (1,0)[self.stats['pex-enabled']])
             elif c == ord('l'):
                 limit = self.dialog_input_number("Maximum number of connected peers",
-                                                 self.stats['peer-limit-global'], cursorkeys=False)
+                                                 self.stats['peer-limit-global'])
                 if limit >= 0: self.server.set_option('peer-limit-global', limit)
+            elif c == ord('t'):
+                limit = self.dialog_input_number("Maximum number of connected peers per torrent",
+                                                 self.stats['peer-limit-per-torrent'])
+                if limit >= 0: self.server.set_option('peer-limit-per-torrent', limit)
+            elif c == ord('s'):
+                limit = self.dialog_input_number('Stop seeding with upload/download ratio',
+                                                 (0,self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']],
+                                                 floating_point=True)
+                if limit > 0:
+                    self.server.set_option('seedRatioLimit', limit)
+                    self.server.set_option('seedRatioLimited', True)
+                else:
+                    self.server.set_option('seedRatioLimited', False)
             elif c == ord('c'):
                 choice = self.dialog_menu('Encryption', enc_options,
-                                          map(lambda x: x[0]==self.stats['encryption'],
-                                              enc_options).index(True)+1)
+                                          map(lambda x: x[0]==self.stats['encryption'], enc_options).index(True)+1)
                 self.server.set_option('encryption', choice)
 
             self.draw_torrent_list()

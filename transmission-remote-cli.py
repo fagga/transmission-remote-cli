@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.2.1'
+VERSION='0.3.0'
 
 
 USERNAME = ''
@@ -25,6 +25,7 @@ HOST = 'localhost'
 PORT = 9091
 
 import time
+import re
 import simplejson as json
 import httplib
 import urllib2
@@ -54,7 +55,7 @@ from optparse import OptionParser
 parser = OptionParser(usage="Usage: %prog [[USERNAME:PASSWORD@]HOST[:PORT]]",
                       version="%%prog %s" % VERSION)
 parser.add_option("--debug", action="store_true", dest="DEBUG", default=False,
-                  help="Create file debug.log in current directory and put alienese messages in it.")
+                  help="Create file debug.log in current directory and put messages in it.")
 (options, connection) = parser.parse_args()
 
 
@@ -97,15 +98,23 @@ class TransmissionRequest:
 
         try:
             self.open_request = urllib2.urlopen(self.http_request)
-        except httplib.BadStatusLine, msg:
-            # server sends something httplib doesn't understand.
-            # (happens sometimes with high cpu load [?])
-            return  
         except AttributeError:
             # request data (http_request) isn't specified yet
             return
+
+        except httplib.BadStatusLine, msg:
+            # server sends something httplib doesn't understand.
+            # (happens sometimes with high cpu load[?])
+            return  
         except urllib2.HTTPError, msg:
-            quit(str(msg) + "\n", CONNECTION_ERROR)
+            msg = html2text(str(msg.read()))
+            m = re.search('X-Transmission-Session-Id:\s*(\w+)', msg)
+            try: # extract session id and send request again
+                self.http_request.add_header('X-Transmission-Session-Id', m.group(1))
+                debug("resending request\n")
+                self.send_request()
+            except AttributeError: # a real error occurred
+                quit(str(msg) + "\n", CONNECTION_ERROR)
         except urllib2.URLError, msg:
             try:
                 reason = msg.reason[1]
@@ -142,9 +151,8 @@ class Transmission:
     LIST_FIELDS = [ 'id', 'name', 'status', 'seeders', 'leechers', 'desiredAvailable',
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
                     'sizeWhenDone', 'haveValid', 'haveUnchecked', 'addedDate',
-                    'uploadedEver', 'errorString', 'recheckProgress',
-                    'swarmSpeed', 'peersKnown', 'peersConnected', 'uploadLimit',
-                    'uploadLimitMode', 'downloadLimit', 'downloadLimitMode' ]
+                    'uploadedEver', 'errorString', 'recheckProgress', 'swarmSpeed',
+                    'peersKnown', 'peersConnected', 'uploadLimit', 'downloadLimit' ]
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
@@ -199,22 +207,15 @@ class Transmission:
         for request in self.requests.values():
             if time.time() - request.last_update >= delay:
                 request.last_update = time.time()
-
-                debug("GETTING RESPONSE ...\n")
                 response = request.get_response()
-                debug("DONE\n")
 
                 if response['result'] == 'no open request':
-                    debug("SENDING REQUEST ...\n")
                     request.send_request()
-                    debug("DONE\n")
 
                 elif response['result'] == 'success':
-                    debug("WAITING FOR TAG ...\n")
                     tag = self.parse_response(response)
                     if tag == tag_waiting_for:
                         tag_waiting_for_occurred = True
-                    debug("DONE\n")
 
         if tag_waiting_for:
             return tag_waiting_for_occurred
@@ -248,12 +249,7 @@ class Transmission:
 
         # response is a reply to session-stats
         elif response['tag'] == 21:
-            # daemon version 1.40 and below
-            try:
-                self.status_cache.update(response['arguments']['session-stats'])
-            # daemon version 1.50 and above
-            except KeyError:
-                self.status_cache.update(response['arguments'])
+            self.status_cache.update(response['arguments'])
 
         # response is a reply to session-get
         elif response['tag'] == 22:
@@ -267,11 +263,14 @@ class Transmission:
         return self.status_cache
 
     def get_torrent_list(self, sort_orders, reverse=False):
-        for sort_order in sort_orders:
-            if isinstance(self.torrent_cache[0][sort_order], (str, unicode)):
-                self.torrent_cache.sort(key=lambda x: x[sort_order].lower(), reverse=reverse)
-            else:
-                self.torrent_cache.sort(key=lambda x: x[sort_order], reverse=reverse)
+        try:
+            for sort_order in sort_orders:
+                if isinstance(self.torrent_cache[0][sort_order], (str, unicode)):
+                    self.torrent_cache.sort(key=lambda x: x[sort_order].lower(), reverse=reverse)
+                else:
+                    self.torrent_cache.sort(key=lambda x: x[sort_order], reverse=reverse)
+        except IndexError:
+            return []
         return self.torrent_cache
 
 
@@ -296,20 +295,15 @@ class Transmission:
         self.wait_for_status_update()
 
 
-    def set_rate_limit(self, direction, new_limit, torrent_id=-1):
+    def set_rate_limit(self, direction, new_limit):
         data = dict()
-        type = 'session-set'
-        if torrent_id >= 0:
-            type = 'torrent-set'
-            data['ids'] = [torrent_id]
-            
         if new_limit > 0:
-            data['speed-limit-'+direction] = int(new_limit)
-            data['speed-limit-'+direction+'-enabled'] = 1
+            data[direction+'loadLimit']   = int(new_limit)
+            data[direction+'loadLimited'] = 1
         else:
-            data['speed-limit-'+direction+'-enabled'] = 0
+            data[direction+'loadLimited'] = 0
 
-        request = TransmissionRequest(self.host, self.port, type, 1, data)
+        request = TransmissionRequest(self.host, self.port, 'session-set', 1, data)
         request.send_request()
         self.wait_for_torrentlist_update()
 
@@ -465,6 +459,7 @@ class Interface:
 
 
     def init_screen(self):
+        os.environ['ESCDELAY'] = '0' # make escape usable
         self.screen = curses.initscr()
         curses.noecho() ; curses.cbreak() ; self.screen.keypad(1)
         curses.halfdelay(10) # STDIN timeout
@@ -554,9 +549,7 @@ class Interface:
         self.draw_torrent_list()
 
         while True:
-            debug("GETTING UPDATE ...\n")
             self.server.update(1)
-            debug("DONE\n")
 
             # display torrentlist
             if self.selected_torrent == -1:
@@ -571,27 +564,19 @@ class Interface:
             self.draw_stats()      # show global states
 
             self.screen.move(0,0)  # in case cursor can't be invisible
-            debug("HANDLING USER INPUT ...\n")
             self.handle_user_input()
-            debug("DONE HANDLING USER INPUT.\n")
 
     def handle_user_input(self):
-        debug("get input key ...\n")
         c = self.screen.getch()
-        debug("done\n")
         if c == -1:
-            debug("input is -1 -- returning\n")
             return
 
         # list all currently available key bindings
         elif c == ord('?') or c == curses.KEY_F1:
-            debug("list key bindings ...\n")
             self.list_key_bindings()
-            debug("done\n")
 
         # go back or unfocus
         elif c == 27 or c == curses.KEY_BREAK or c == 12:
-            debug("back or unfocus ...\n")
             if self.focus_detaillist > -1:   # unfocus and deselect file
                 self.focus_detaillist     = -1
                 self.scrollpos_detaillist = 0
@@ -606,19 +591,15 @@ class Interface:
                     self.focus     = -1
                 elif self.filter_list:
                     self.filter_list = '' # reset filter
-            debug("done\n")
 
         # leave details
         elif c == curses.KEY_BACKSPACE and self.selected_torrent > -1:
-            debug("leave details ...\n")
             self.server.set_torrent_details_id(-1)
             self.selected_torrent = -1
             self.details_category_focus = 0;
-            debug("done\n")
 
         # go back or quit on q
         elif c == ord('q'):
-            debug("back or quit ...\n")
             if self.selected_torrent == -1:
                 if self.filter_list:
                     self.filter_list = '' # reset filter
@@ -632,28 +613,22 @@ class Interface:
                 self.focus_detaillist     = -1
                 self.scrollpos_detaillist = 0
                 self.selected_files       = []
-            debug("done\n")
 
 
         # show options window
         elif self.selected_torrent == -1 and c == ord('o'):
-            debug("show options ...\n")
             self.draw_options_dialog()
-            debug("done\n")
 
 
         # select torrent for detailed view
         elif (c == ord("\n") or c == curses.KEY_RIGHT) and self.focus > -1 and self.selected_torrent == -1:
-            debug("select torrent ...\n")
             self.screen.clear()
             self.selected_torrent = self.focus
             self.server.set_torrent_details_id(self.torrents[self.focus]['id'])
             self.server.wait_for_details_update()
-            debug("done\n")
 
         # show sort order menu
         elif c == ord('s') and self.selected_torrent == -1:
-            debug("show sort menu ...\n")
             options = [('name','_Name'), ('addedDate','_Age'), ('percent_done','_Progress'),
                        ('seeders','_Seeds'), ('leechers','Lee_ches'), ('sizeWhenDone', 'Si_ze'),
                        ('status','S_tatus'), ('uploadedEver','Up_loaded'),
@@ -668,11 +643,9 @@ class Interface:
                 self.sort_orders.append(choice)
                 while len(self.sort_orders) > 2:
                     self.sort_orders.pop(0)
-            debug("done\n")
 
         # show state filter menu
         elif c == ord('f') and self.selected_torrent == -1:
-            debug("show filter menu ...\n")
             options = [('uploading','_Uploading'), ('downloading','_Downloading'),
                        ('active','Ac_tive'), ('paused','_Paused'), ('seeding','_Seeding'),
                        ('incomplete','In_complete'), ('verifying','Verif_ying'),
@@ -684,56 +657,44 @@ class Interface:
             else:
                 if choice == '': self.filter_inverse = False
                 self.filter_list = choice
-            debug("done\n")
 
 
         # upload/download limits
         elif c == ord('u'):
-            debug("show upload limit ...\n")
             limit = self.dialog_input_number("Global upload limit in kilobytes per second",
                                              self.stats['speed-limit-up'])
             if limit >= 0: self.server.set_rate_limit('up', limit)
-            debug("done\n")
-        elif c == ord('U') and self.focus > -1:
-            debug("show upload limit for torrent ...\n")
-            limit = self.dialog_input_number("Upload limit in kilobytes per second for\n%s" % \
-                                                 self.torrents[self.focus]['name'],
-                                             self.torrents[self.focus]['uploadLimit'])
-            if limit >= 0: self.server.set_rate_limit('up', limit, self.torrents[self.focus]['id'])
-            debug("done\n")
+            self.server.set_rate_limit('up', limit)
+#        elif c == ord('U') and self.focus > -1:
+#            limit = self.dialog_input_number("Upload limit in kilobytes per second for\n%s" % \
+#                                                 self.torrents[self.focus]['name'],
+#                                             self.torrents[self.focus]['uploadLimit'])
+#            if limit >= 0: self.server.set_rate_limit('up', limit, self.torrents[self.focus]['id'])
         elif c == ord('d'):
-            debug("show download limit ...\n")
             limit = self.dialog_input_number("Global download limit in kilobytes per second",
                                              self.stats['speed-limit-down'])
-            if limit >= 0: self.server.set_rate_limit('down', limit)
-            debug("done\n")
-        elif c == ord('D') and self.focus > -1:
-            debug("show download limit for torrent ...\n")
-            limit = self.dialog_input_number("Download limit in Kilobytes per second for\n%s" % \
-                                                 self.torrents[self.focus]['name'],
-                                             self.torrents[self.focus]['downloadLimit'])
-            if limit >= 0: self.server.set_rate_limit('down', limit, self.torrents[self.focus]['id'])
-            debug("done\n")
+#            if limit >= 0: self.server.set_rate_limit('down', limit)
+            self.server.set_rate_limit('down', limit)
+#        elif c == ord('D') and self.focus > -1:
+#            limit = self.dialog_input_number("Download limit in Kilobytes per second for\n%s" % \
+#                                                 self.torrents[self.focus]['name'],
+#                                             self.torrents[self.focus]['downloadLimit'])
+#            self.server.set_rate_limit('down', limit, self.torrents[self.focus]['id'])
 
         # pause/unpause torrent
         elif c == ord('p') and self.focus > -1:
-            debug("pause torrent ...\n")
             if self.torrents[self.focus]['status'] == Transmission.STATUS_STOPPED:
                 self.server.start_torrent(self.torrents[self.focus]['id'])
             else:
                 self.server.stop_torrent(self.torrents[self.focus]['id'])
-            debug("done\n")
             
         # verify torrent data
         elif self.focus > -1 and (c == ord('v') or c == ord('y')):
-            debug("verify torrent ...\n")
             if self.torrents[self.focus]['status'] != Transmission.STATUS_CHECK:
                 self.server.verify_torrent(self.torrents[self.focus]['id'])
-            debug("done\n")
 
         # remove torrent
         elif self.focus > -1 and (c == ord('r') or c == curses.KEY_DC):
-            debug("remove torrent ...\n")
             name = self.torrents[self.focus]['name'][0:self.width - 15]
             if self.dialog_yesno("Remove %s?" % name.encode('utf8')) == True:
                 if self.selected_torrent > -1:  # leave details
@@ -741,12 +702,10 @@ class Interface:
                     self.selected_torrent = -1
                     self.details_category_focus = 0;
                 self.server.remove_torrent(self.torrents[self.focus]['id'])
-            debug("done\n")
 
 
         # movement in torrent list
         elif self.selected_torrent == -1:
-            debug("moving focus ...\n")
             if   c == curses.KEY_UP:
                 self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, 3)
             elif c == curses.KEY_DOWN:
@@ -762,12 +721,10 @@ class Interface:
                 self.focus, self.scrollpos = self.move_to_top()
             elif c == curses.KEY_END:
                 self.focus, self.scrollpos = self.move_to_end(3, self.torrents_per_page, len(self.torrents))
-            debug("done\n")
 
 
         # torrent details
         elif self.selected_torrent > -1:
-            debug("show details ...\n")
             if c == ord("\t"): self.next_details()
             elif c == ord('o'): self.details_category_focus = 0
             elif c == ord('f'): self.details_category_focus = 1
@@ -849,23 +806,15 @@ class Interface:
                     self.scrollpos_detaillist = 0
                 elif c == curses.KEY_END:
                     self.scrollpos_detaillist = list_len - self.detaillistitems_per_page
-            debug("done\n")
 
         else:
-            debug("unknown key pressed\n")
             return # don't recognize key
 
         # update view
         if self.selected_torrent == -1:
-            debug("torrent list ...\n")
             self.draw_torrent_list()
-            debug("done\n")
         else:
-            debug("torrent details ...\n")
             self.draw_details()
-            debug("done\n")
-            
-        debug("end of handle_user_input reached\n")
 
 
 
@@ -959,13 +908,13 @@ class Interface:
 
     def draw_downloadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateDownload_width-self.rateUpload_width-3)
-        self.pad.addch(curses.ACS_DARROW, (0,curses.A_BOLD)[torrent['downloadLimitMode']])
+        self.pad.addch(curses.ACS_DARROW)
         rate = ('',scale_bytes(torrent['rateDownload']))[torrent['rateDownload']>0]
         self.pad.addstr(rate.rjust(self.rateDownload_width),
                         curses.color_pair(1) + curses.A_BOLD + curses.A_REVERSE)
     def draw_uploadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateUpload_width-1)
-        self.pad.addch(curses.ACS_UARROW, (0,curses.A_BOLD)[torrent['uploadLimitMode']])
+        self.pad.addch(curses.ACS_UARROW)
         rate = ('',scale_bytes(torrent['rateUpload']))[torrent['rateUpload']>0]
         self.pad.addstr(rate.rjust(self.rateUpload_width),
                         curses.color_pair(2) + curses.A_BOLD + curses.A_REVERSE)
@@ -1150,8 +1099,6 @@ class Interface:
             info[-1][-1] += '; '
             if t['rateDownload']:
                 info[-1].append("receiving %s per second" % scale_bytes(t['rateDownload'], 'long'))
-                if t['downloadLimitMode']:
-                    info[-1][-1] += " (throttled to %s)" % scale_bytes(t['downloadLimit']*1024, 'long')
             else:
                 info[-1].append("no reception in progress")
 
@@ -1159,8 +1106,6 @@ class Interface:
                          "(%.2f copies) distributed; " % (float(t['uploadedEver']) / float(t['sizeWhenDone']))])
         if t['rateUpload']:
             info[-1].append("sending %s per second" % scale_bytes(t['rateUpload'], 'long'))
-            if t['uploadLimitMode']:
-                info[-1][-1] += " (throttled to %s)" % scale_bytes(t['uploadLimit']*1024, 'long')
         else:
             info[-1].append("no transmission in progress")
 
@@ -1243,11 +1188,6 @@ class Interface:
 
 
     def draw_peerlist(self, ypos):
-        try: self.torrent_details['peers']
-        except:
-            self.pad.addstr(ypos, 1, "Peer list is not available in transmission-daemon versions below 1.4.")
-            return
-
         start = self.scrollpos_detaillist
         end   = self.scrollpos_detaillist + self.detaillistitems_per_page
         peers = self.torrent_details['peers'][start:end]
@@ -1711,7 +1651,7 @@ class Interface:
 
             win.move(1, 9)
             win.addstr('Peer '); win.addstr('P', curses.A_UNDERLINE); win.addstr('ort: ');
-            win.addstr("%d" % self.stats['port'])
+            win.addstr("%d" % self.stats['peer-port'])
 
             win.move(2, 6)
             win.addstr('UP'); win.addstr('n', curses.A_UNDERLINE); win.addstr('P/');
@@ -1720,11 +1660,11 @@ class Interface:
 
             win.move(3, 5)
             win.addstr('Peer E'); win.addstr('x', curses.A_UNDERLINE); win.addstr('change: ');
-            win.addstr(('disabled','enabled ')[self.stats['pex-allowed']])
+            win.addstr(('disabled','enabled ')[self.stats['pex-enabled']])
 
             win.move(4, 8)
             win.addstr('Peer '); win.addstr('L', curses.A_UNDERLINE); win.addstr('imit: ');
-            win.addstr("%d" % self.stats['peer-limit'])
+            win.addstr("%d" % self.stats['peer-limit-global'])
 
             win.move(5, 8)
             win.addstr('En'); win.addstr('c', curses.A_UNDERLINE); win.addstr('ryption: ');
@@ -1738,17 +1678,17 @@ class Interface:
 
             elif c == ord('p'):
                 port = self.dialog_input_number("Port for incoming connections",
-                                                self.stats['port'], cursorkeys=False)
-                if port >= 0: self.server.set_option('port', port)
+                                                self.stats['peer-port'], cursorkeys=False)
+                if port >= 0: self.server.set_option('peer-port', port)
             elif c == ord('n'):
                 self.server.set_option('port-forwarding-enabled',
                                        (1,0)[self.stats['port-forwarding-enabled']])
             elif c == ord('x'):
-                self.server.set_option('pex-allowed', (1,0)[self.stats['pex-allowed']])
+                self.server.set_option('pex-enabled', (1,0)[self.stats['pex-enabled']])
             elif c == ord('l'):
                 limit = self.dialog_input_number("Maximum number of connected peers",
-                                                 self.stats['peer-limit'], cursorkeys=False)
-                if limit >= 0: self.server.set_option('peer-limit', limit)
+                                                 self.stats['peer-limit-global'], cursorkeys=False)
+                if limit >= 0: self.server.set_option('peer-limit-global', limit)
             elif c == ord('c'):
                 choice = self.dialog_menu('Encryption', enc_options,
                                           map(lambda x: x[0]==self.stats['encryption'],
@@ -1872,6 +1812,12 @@ def scale_bytes(bytes, type='short'):
     else:               return scaled_bytes + unit
 
 
+def html2text(str):
+    str = re.sub(r'</h\d+>', "\n", str)
+    str = re.sub(r'</p>', ' ', str)
+    str = re.sub(r'<[^>]*?>', '', str)
+    return str
+
 def num2str(num):
     if int(num) == -1:
         return '?'
@@ -1879,7 +1825,6 @@ def num2str(num):
         return 'oo'
     else:
         return str(num)
-
 
 def middlecut(string, width):
     return string[0:(width/2)-2] + '..' + string[len(string) - (width/2) :]

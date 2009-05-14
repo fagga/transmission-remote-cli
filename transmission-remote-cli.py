@@ -303,11 +303,8 @@ class Transmission:
             data['speed-limit-' + direction + '-enabled'] = 1
         else:
             data['speed-limit-' + direction + '-enabled'] = 0
-
         request = TransmissionRequest(self.host, self.port, 'session-set', 1, data)
-        debug("sending data " + repr(data) + "\n---\n\n")
         request.send_request()
-        debug(str(request.get_response()) + "\n----\n\n")
         self.wait_for_torrentlist_update()
 
 
@@ -664,20 +661,19 @@ class Interface:
 
         # upload/download limits
         elif c == ord('u'):
-            limit = self.dialog_input_number("Global upload limit in kilobytes per second",
-                                             self.stats['speed-limit-up'])
-            if limit >= 0: self.server.set_rate_limit('up', limit)
+            current_limit = (0,self.stats['speed-limit-up'])[self.stats['speed-limit-up-enabled']]
+            limit = self.dialog_input_number("Global upload limit in kilobytes per second", current_limit)
             self.server.set_rate_limit('up', limit)
+        elif c == ord('d'):
+            current_limit = (0,self.stats['speed-limit-down'])[self.stats['speed-limit-down-enabled']]
+            limit = self.dialog_input_number("Global download limit in kilobytes per second", current_limit)
+            self.server.set_rate_limit('down', limit)
+
 #        elif c == ord('U') and self.focus > -1:
 #            limit = self.dialog_input_number("Upload limit in kilobytes per second for\n%s" % \
 #                                                 self.torrents[self.focus]['name'],
 #                                             self.torrents[self.focus]['uploadLimit'])
 #            if limit >= 0: self.server.set_rate_limit('up', limit, self.torrents[self.focus]['id'])
-        elif c == ord('d'):
-            limit = self.dialog_input_number("Global download limit in kilobytes per second",
-                                             self.stats['speed-limit-down'])
-#            if limit >= 0: self.server.set_rate_limit('down', limit)
-            self.server.set_rate_limit('down', limit)
 #        elif c == ord('D') and self.focus > -1:
 #            limit = self.dialog_input_number("Download limit in Kilobytes per second for\n%s" % \
 #                                                 self.torrents[self.focus]['name'],
@@ -1574,6 +1570,7 @@ class Interface:
                                          + "left/right +/-%3d" % smallstep))
         while True:
             win.addstr(height-2, 2, input.ljust(width-4), curses.color_pair(5))
+            win.addch(height-2, len(input)+2, ' ')
             c = win.getch()
             if c == 27 or c == ord('q') or c == curses.KEY_BREAK:
                 return -1

@@ -90,7 +90,7 @@ class TransmissionRequest:
     def set_request_data(self, method, tag, arguments=None):
         request_data = {'method':method, 'tag':tag}
         if arguments: request_data['arguments'] = arguments
-        debug(repr(request_data) + "\n")
+#        debug(repr(request_data) + "\n")
         self.http_request = urllib2.Request(url=self.url, data=json.dumps(request_data))
 
     def send_request(self):
@@ -99,19 +99,17 @@ class TransmissionRequest:
         try:
             self.open_request = urllib2.urlopen(self.http_request)
         except AttributeError:
-            # request data (http_request) isn't specified yet
-            return
-
+            # request data (http_request) isn't specified yet -- data will be available on next call
+            pass
         except httplib.BadStatusLine, msg:
             # server sends something httplib doesn't understand.
             # (happens sometimes with high cpu load[?])
-            return  
+            pass  
         except urllib2.HTTPError, msg:
             msg = html2text(str(msg.read()))
             m = re.search('X-Transmission-Session-Id:\s*(\w+)', msg)
             try: # extract session id and send request again
                 self.http_request.add_header('X-Transmission-Session-Id', m.group(1))
-                debug("resending request\n")
                 self.send_request()
             except AttributeError: # a real error occurred
                 quit(str(msg) + "\n", CONNECTION_ERROR)
@@ -127,7 +125,6 @@ class TransmissionRequest:
 
         if self.open_request == None:
             return {'result': 'no open request'}
-
         response = self.open_request.read()
         try:
             data = json.loads(response)
@@ -147,6 +144,11 @@ class Transmission:
     STATUS_DOWNLOAD   = 1 << 2
     STATUS_SEED       = 1 << 3
     STATUS_STOPPED    = 1 << 4
+
+    TAG_TORRENT_LIST    = 7
+    TAG_TORRENT_DETAILS = 77
+    TAG_SESSION_STATS   = 21
+    TAG_SESSION_GET     = 22
 
     LIST_FIELDS = [ 'id', 'name', 'status', 'seeders', 'leechers', 'desiredAvailable',
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
@@ -177,11 +179,11 @@ class Transmission:
             urllib2.install_opener(opener)
 
         self.requests = {'torrent-list':
-                             TransmissionRequest(host, port, 'torrent-get', 7, {'fields': self.LIST_FIELDS}),
+                             TransmissionRequest(host, port, 'torrent-get', self.TAG_TORRENT_LIST, {'fields': self.LIST_FIELDS}),
                          'session-stats':
-                             TransmissionRequest(host, port, 'session-stats', 21),
+                             TransmissionRequest(host, port, 'session-stats', self.TAG_SESSION_STATS, 21),
                          'session-get':
-                             TransmissionRequest(host, port, 'session-get', 22),
+                             TransmissionRequest(host, port, 'session-get', self.TAG_SESSION_GET),
                          'torrent-details':
                              TransmissionRequest(host, port)}
 
@@ -226,16 +228,16 @@ class Transmission:
 
     def parse_response(self, response):
         # response is a reply to torrent-get
-        if response['tag'] == 7 or response['tag'] == 77:
+        if response['tag'] == self.TAG_TORRENT_LIST or response['tag'] == self.TAG_TORRENT_DETAILS:
             for t in response['arguments']['torrents']:
                 t['uploadRatio'] = round(float(t['uploadRatio']), 1)
                 t['percent_done'] = percent(float(t['sizeWhenDone']),
                                             float(t['haveValid'] + t['haveUnchecked']))
 
-            if response['tag'] == 7:
+            if response['tag'] == self.TAG_TORRENT_LIST:
                 self.torrent_cache = response['arguments']['torrents']
 
-            elif response['tag'] == 77:
+            elif response['tag'] == self.TAG_TORRENT_DETAILS:
                 self.torrent_details_cache = response['arguments']['torrents'][0]
                 if features['dns'] or features['geoip']:
                     for peer in self.torrent_details_cache['peers']:
@@ -247,12 +249,11 @@ class Transmission:
                             if self.geo_ips_cache[ip] == None:
                                 self.geo_ips_cache[ip] = '?'
 
-        # response is a reply to session-stats
-        elif response['tag'] == 21:
+        elif response['tag'] == self.TAG_SESSION_STATS:
             self.status_cache.update(response['arguments'])
+            debug("new stats: " + repr(self.status_cache) + "\n----\n\n")
 
-        # response is a reply to session-get
-        elif response['tag'] == 22:
+        elif response['tag'] == self.TAG_SESSION_GET:
             self.status_cache.update(response['arguments'])
 
         return response['tag']
@@ -280,7 +281,7 @@ class Transmission:
         if id < 0:
             self.requests['torrent-details'] = TransmissionRequest(self.host, self.port)
         else:
-            self.requests['torrent-details'].set_request_data('torrent-get', 77,
+            self.requests['torrent-details'].set_request_data('torrent-get', self.TAG_TORRENT_DETAILS,
                                                               {'ids':id, 'fields': self.DETAIL_FIELDS})
 
     def get_hosts(self):
@@ -298,13 +299,15 @@ class Transmission:
     def set_rate_limit(self, direction, new_limit):
         data = dict()
         if new_limit > 0:
-            data[direction+'loadLimit']   = int(new_limit)
-            data[direction+'loadLimited'] = 1
+            data['speed-limit-' + direction]   = int(new_limit)
+            data['speed-limit-' + direction + '-enabled'] = 1
         else:
-            data[direction+'loadLimited'] = 0
+            data['speed-limit-' + direction + '-enabled'] = 0
 
         request = TransmissionRequest(self.host, self.port, 'session-set', 1, data)
+        debug("sending data " + repr(data) + "\n---\n\n")
         request.send_request()
+        debug(str(request.get_response()) + "\n----\n\n")
         self.wait_for_torrentlist_update()
 
 
@@ -596,7 +599,7 @@ class Interface:
         elif c == curses.KEY_BACKSPACE and self.selected_torrent > -1:
             self.server.set_torrent_details_id(-1)
             self.selected_torrent = -1
-            self.details_category_focus = 0;
+            self.details_category_focus = 0
 
         # go back or quit on q
         elif c == ord('q'):
@@ -609,7 +612,7 @@ class Interface:
             else: # return to list view
                 self.server.set_torrent_details_id(-1)
                 self.selected_torrent = -1
-                self.details_category_focus = 0;
+                self.details_category_focus = 0
                 self.focus_detaillist     = -1
                 self.scrollpos_detaillist = 0
                 self.selected_files       = []
@@ -700,7 +703,7 @@ class Interface:
                 if self.selected_torrent > -1:  # leave details
                     self.server.set_torrent_details_id(-1)
                     self.selected_torrent = -1
-                    self.details_category_focus = 0;
+                    self.details_category_focus = 0
                 self.server.remove_torrent(self.torrents[self.focus]['id'])
 
 
@@ -1647,27 +1650,27 @@ class Interface:
         enc_options = [('required','_required'), ('preferred','_preferred'), ('tolerated','_tolerated')]
         while True:
             win = self.window(9, 35)
-            win.addstr(0, 2, 'Global Options');
+            win.addstr(0, 2, 'Global Options')
 
             win.move(1, 9)
-            win.addstr('Peer '); win.addstr('P', curses.A_UNDERLINE); win.addstr('ort: ');
+            win.addstr('Peer '); win.addstr('P', curses.A_UNDERLINE); win.addstr('ort: ')
             win.addstr("%d" % self.stats['peer-port'])
 
             win.move(2, 6)
-            win.addstr('UP'); win.addstr('n', curses.A_UNDERLINE); win.addstr('P/');
-            win.addstr('N', curses.A_UNDERLINE); win.addstr('AT-PMP: ');
+            win.addstr('UP'); win.addstr('n', curses.A_UNDERLINE); win.addstr('P/')
+            win.addstr('N', curses.A_UNDERLINE); win.addstr('AT-PMP: ')
             win.addstr(('disabled','enabled ')[self.stats['port-forwarding-enabled']])
 
             win.move(3, 5)
-            win.addstr('Peer E'); win.addstr('x', curses.A_UNDERLINE); win.addstr('change: ');
+            win.addstr('Peer E'); win.addstr('x', curses.A_UNDERLINE); win.addstr('change: ')
             win.addstr(('disabled','enabled ')[self.stats['pex-enabled']])
 
             win.move(4, 8)
-            win.addstr('Peer '); win.addstr('L', curses.A_UNDERLINE); win.addstr('imit: ');
+            win.addstr('Peer '); win.addstr('L', curses.A_UNDERLINE); win.addstr('imit: ')
             win.addstr("%d" % self.stats['peer-limit-global'])
 
             win.move(5, 8)
-            win.addstr('En'); win.addstr('c', curses.A_UNDERLINE); win.addstr('ryption: ');
+            win.addstr('En'); win.addstr('c', curses.A_UNDERLINE); win.addstr('ryption: ')
             win.addstr("%s" % self.stats['encryption'])
 
             win.addstr(7, 8, "Hit escape to return")

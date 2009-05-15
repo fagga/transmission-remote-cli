@@ -1572,8 +1572,11 @@ class Interface:
             if c == 27 or c == ord('q') or c == curses.KEY_BREAK:
                 return -1
             elif c == ord("\n"):
-                if floating_point: return float(input)
-                else:              return int(input)                
+                try:
+                    if floating_point: return float(input)
+                    else:              return int(input)
+                except ValueError:
+                    return -1
 
             elif c == curses.KEY_BACKSPACE or c == curses.KEY_DC or c == 127 or c == 8:
                 input = input[:-1]
@@ -1584,15 +1587,19 @@ class Interface:
             elif c == ord('.') and floating_point:
                 input += chr(c)
 
-            elif cursorkeys:
-                if floating_point: number = float(input)
-                else:              number = int(input)                
-                if c == curses.KEY_LEFT:    number -= smallstep
-                elif c == curses.KEY_RIGHT: number += smallstep
-                elif c == curses.KEY_DOWN:  number -= bigstep
-                elif c == curses.KEY_UP:    number += bigstep
-                if number < 0: number = 0
-                input = str(number)
+            elif cursorkeys and c != -1:
+                try:
+                    if floating_point: number = float(input)
+                    else:              number = int(input)
+                    if number <= 0: number = 0
+                    if c == curses.KEY_LEFT:    number -= smallstep
+                    elif c == curses.KEY_RIGHT: number += smallstep
+                    elif c == curses.KEY_DOWN:  number -= bigstep
+                    elif c == curses.KEY_UP:    number += bigstep
+                    if number <= 0: number = 0
+                    input = str(number)
+                except ValueError:
+                    pass
 
 
     def dialog_menu(self, title, options, focus=1):
@@ -1652,7 +1659,7 @@ class Interface:
                        ('Global Peer _Limit', "%d" % self.stats['peer-limit-global']),
                        ('Peer Limit per _Torrent', "%d" % self.stats['peer-limit-per-torrent']),
                        ('Protocol En_cryption', "%s" % self.stats['encryption']),
-                       ('_Seed Ratio Limit', "%f" % (0,self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']])]
+                       ('_Seed Ratio Limit', "%s" % ('unlimited',self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']])]
             max_len = max([sum([len(re.sub('_', '', x)) for x in y[0]]) for y in options])
             win = self.window(len(options)+4, max_len+15)
             win.addstr(0, 2, 'Global Options')
@@ -1668,7 +1675,7 @@ class Interface:
                     win.addstr(part[1:] + ': ' + option[1])
                 line_num += 1
                 
-            win.addstr(line_num+1, int((max_len+15)/2) - 10, "Hit escape to return")
+            win.addstr(line_num+1, int((max_len+15)/2) - 10, "Hit escape to close")
 
             c = win.getch()
             if c == 27 or c == ord('q') or c == ord("\n"):
@@ -1698,7 +1705,7 @@ class Interface:
                 if limit > 0:
                     self.server.set_option('seedRatioLimit', limit)
                     self.server.set_option('seedRatioLimited', True)
-                else:
+                elif limit == 0:
                     self.server.set_option('seedRatioLimited', False)
             elif c == ord('c'):
                 choice = self.dialog_menu('Encryption', enc_options,

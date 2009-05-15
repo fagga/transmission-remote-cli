@@ -155,7 +155,7 @@ class Transmission:
                     'sizeWhenDone', 'haveValid', 'haveUnchecked', 'addedDate',
                     'uploadedEver', 'errorString', 'recheckProgress', 'swarmSpeed',
                     'peersKnown', 'peersConnected', 'uploadLimit', 'downloadLimit',
-                    'uploadLimited', 'downloadLimited']
+                    'uploadLimited', 'downloadLimited', 'bandwidthPriority']
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
@@ -274,6 +274,14 @@ class Transmission:
             return []
         return self.torrent_cache
 
+    def get_torrent_by_id(self, id):
+        i = 0
+        while self.torrent_cache[i]['id'] != id:  i += 1
+        if self.torrent_cache[i]['id'] == id:
+            return self.torrent_cache[i]
+        else:
+            return None
+
 
     def get_torrent_details(self):
         return self.torrent_details_cache
@@ -319,10 +327,31 @@ class Transmission:
 
         request = TransmissionRequest(self.host, self.port, type, 1, data)
         request.send_request()
-        debug("requesting: " + str(request.http_request.data) + "\n\n\n")
         self.wait_for_torrentlist_update()
 
 
+    def increase_bandwidth_priority(self, torrent_id):
+        torrent = self.get_torrent_by_id(torrent_id)
+        if torrent == None or torrent['bandwidthPriority'] >= 1:
+            return False
+        else:
+            new_priority = torrent['bandwidthPriority'] + 1
+            request = TransmissionRequest(self.host, self.port, 'torrent-set', 1,
+                                          {'ids': [torrent_id], 'bandwidthPriority':new_priority})
+            request.send_request()
+            self.wait_for_torrentlist_update()
+
+    def decrease_bandwidth_priority(self, torrent_id):
+        torrent = self.get_torrent_by_id(torrent_id)
+        if torrent == None or torrent['bandwidthPriority'] <= -1:
+            return False
+        else:
+            new_priority = torrent['bandwidthPriority'] - 1
+            request = TransmissionRequest(self.host, self.port, 'torrent-set', 1,
+                                          {'ids': [torrent_id], 'bandwidthPriority':new_priority})
+            request.send_request()
+            self.wait_for_torrentlist_update()
+        
     def stop_torrent(self, id):
         request = TransmissionRequest(self.host, self.port, 'torrent-stop', 1, {'ids': [id]})
         request.send_request()
@@ -357,11 +386,11 @@ class Transmission:
                 ref_num = num
         current_priority = self.torrent_details_cache['priorities'][ref_num]
         if not self.torrent_details_cache['wanted'][ref_num]:
-            self.set_priority(self.torrent_details_cache['id'], file_nums, 'low')
+            self.set_file_priority(self.torrent_details_cache['id'], file_nums, 'low')
         elif current_priority == -1:
-            self.set_priority(self.torrent_details_cache['id'], file_nums, 'normal')
+            self.set_file_priority(self.torrent_details_cache['id'], file_nums, 'normal')
         elif current_priority == 0:
-            self.set_priority(self.torrent_details_cache['id'], file_nums, 'high')
+            self.set_file_priority(self.torrent_details_cache['id'], file_nums, 'high')
 
     def decrease_file_priority(self, file_nums):
         file_nums = list(file_nums)
@@ -372,14 +401,14 @@ class Transmission:
                 ref_num = num
         current_priority = self.torrent_details_cache['priorities'][ref_num]
         if current_priority >= 1:
-            self.set_priority(self.torrent_details_cache['id'], file_nums, 'normal')
+            self.set_file_priority(self.torrent_details_cache['id'], file_nums, 'normal')
         elif current_priority == 0:
-            self.set_priority(self.torrent_details_cache['id'], file_nums, 'low')
+            self.set_file_priority(self.torrent_details_cache['id'], file_nums, 'low')
         elif current_priority == -1:
-            self.set_priority(self.torrent_details_cache['id'], file_nums, 'off')
+            self.set_file_priority(self.torrent_details_cache['id'], file_nums, 'off')
 
 
-    def set_priority(self, torrent_id, file_nums, priority):
+    def set_file_priority(self, torrent_id, file_nums, priority):
         request_data = {'ids': [torrent_id]}
         if priority == 'off':
             request_data['files-unwanted'] = file_nums
@@ -390,7 +419,7 @@ class Transmission:
         request.send_request()
         self.wait_for_details_update()
 
-    def get_priority(self, torrent_id, file_num):
+    def get_file_priority(self, torrent_id, file_num):
         priority = self.torrent_details_cache['priorities'][file_num]
         if not self.torrent_details_cache['wanted'][file_num]: return 'off'
         elif priority <= -1: return 'low'
@@ -429,6 +458,16 @@ class Transmission:
         else:
             status = 'unknown state'
         return status
+
+    def get_bandwidth_priority(self, torrent):
+        if torrent['bandwidthPriority'] == -1:
+            return '-'
+        elif torrent['bandwidthPriority'] == 0:
+            return ' '
+        elif torrent['bandwidthPriority'] == 1:
+            return '+'
+        else:
+            return '?'
 
 # End of Class Transmission
 
@@ -674,7 +713,7 @@ class Interface:
                 self.filter_list = choice
 
 
-        # upload/download limits
+        # global upload/download limits
         elif c == ord('u'):
             current_limit = (0,self.stats['speed-limit-up'])[self.stats['speed-limit-up-enabled']]
             limit = self.dialog_input_number("Global upload limit in kilobytes per second", current_limit)
@@ -684,6 +723,7 @@ class Interface:
             limit = self.dialog_input_number("Global download limit in kilobytes per second", current_limit)
             self.server.set_rate_limit('down', limit)
 
+        # per torrent upload/download limits
         elif c == ord('U') and self.focus > -1:
             current_limit = (0,self.torrents[self.focus]['uploadLimit'])[self.torrents[self.focus]['uploadLimited']]
             limit = self.dialog_input_number("Upload limit in kilobytes per second for\n%s" % \
@@ -694,6 +734,13 @@ class Interface:
             limit = self.dialog_input_number("Download limit in Kilobytes per second for\n%s" % \
                                                  self.torrents[self.focus]['name'], current_limit)
             self.server.set_rate_limit('down', limit, self.torrents[self.focus]['id'])
+
+        # torrent bandwidth priority
+        elif c == ord('-') and self.focus > -1:
+            self.server.decrease_bandwidth_priority(self.torrents[self.focus]['id'])
+        elif c == ord('+') and self.focus > -1:
+            self.server.increase_bandwidth_priority(self.torrents[self.focus]['id'])
+
 
         # pause/unpause torrent
         elif c == ord('p') and self.focus > -1:
@@ -1031,9 +1078,10 @@ class Interface:
         if focused: tags = curses.A_REVERSE + curses.A_BOLD
         else:       tags = 0
 
-        remaining_space = self.torrent_title_width - sum(map(lambda x: len(x), parts), len(peers))
+        remaining_space = self.torrent_title_width - sum(map(lambda x: len(x), parts), len(peers)) - 2
         delimiter = ' ' * int(remaining_space / (len(parts)))
-        line = delimiter.join(parts)
+
+        line = self.server.get_bandwidth_priority(torrent) + ' ' + delimiter.join(parts)
 
         # make sure the peers element is always right justified
         line += ' ' * int(self.torrent_title_width - len(line) - len(peers)) + peers
@@ -1196,7 +1244,7 @@ class Interface:
         line = str(index+1).rjust(3) + \
             "  %6.1f%%" % percent(file['length'], file['bytesCompleted']) + \
             '  '+scale_bytes(file['length']).rjust(5) + \
-            '  '+self.server.get_priority(self.torrent_details['id'], index).center(8) + \
+            '  '+self.server.get_file_priority(self.torrent_details['id'], index).center(8) + \
             "  %s" % file['name'][0:self.width-31].encode('utf-8')
         if index == self.focus_detaillist:
             line = '_F' + line
@@ -1458,6 +1506,7 @@ class Interface:
             "         DEL/r  Remove focused torrent (and keep it's content)\n" + \
             "           u/d  Adjust maximum global upload/download rate\n" + \
             "           U/D  Adjust maximum upload/download rate for focused torrent\n"
+            "           +/-  Adjust bandwidth priority for focused torrent\n"
         if self.selected_torrent == -1:
             message += "             f  Filter torrent list\n" + \
                 "             s  Sort torrent list\n" \

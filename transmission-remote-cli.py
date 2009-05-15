@@ -1505,7 +1505,7 @@ class Interface:
             "             v  Verify focused torrent\n" + \
             "         DEL/r  Remove focused torrent (and keep it's content)\n" + \
             "           u/d  Adjust maximum global upload/download rate\n" + \
-            "           U/D  Adjust maximum upload/download rate for focused torrent\n"
+            "           U/D  Adjust maximum upload/download rate for focused torrent\n" + \
             "           +/-  Adjust bandwidth priority for focused torrent\n"
         if self.selected_torrent == -1:
             message += "             f  Filter torrent list\n" + \

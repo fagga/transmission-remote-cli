@@ -179,6 +179,16 @@ class Transmission:
             opener = urllib2.build_opener(authhandler)
             urllib2.install_opener(opener)
 
+        # check rpc version
+        request = TransmissionRequest(host, port, 'session-get', self.TAG_SESSION_GET)
+        request.send_request()
+        response = request.get_response()
+        msg = "Please install Transmission version 1.60 or higher.\n"
+        try:
+            if response['arguments']['rpc-version'] < 5:  quit(msg)
+        except KeyError:
+            quit(msg)
+
         self.requests = {'torrent-list':
                              TransmissionRequest(host, port, 'torrent-get', self.TAG_TORRENT_LIST, {'fields': self.LIST_FIELDS}),
                          'session-stats':
@@ -187,7 +197,6 @@ class Transmission:
                              TransmissionRequest(host, port, 'session-get', self.TAG_SESSION_GET),
                          'torrent-details':
                              TransmissionRequest(host, port)}
-
 
         self.torrent_cache = []
         self.status_cache  = dict()

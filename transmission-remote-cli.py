@@ -26,6 +26,7 @@ PORT = 9091
 
 import time
 import re
+import base64
 import simplejson as json
 import httplib
 import urllib2
@@ -163,7 +164,7 @@ class Transmission:
                       'announceURL', 'announceResponse', 'lastAnnounceTime',
                       'nextAnnounceTime', 'lastScrapeTime', 'nextScrapeTime',
                       'scrapeResponse', 'scrapeURL',
-                      'hashString', 'timesCompleted', 'pieceCount', 'pieceSize',
+                      'hashString', 'timesCompleted', 'pieceCount', 'pieceSize', 'pieces',
                       'downloadedEver', 'corruptEver',
                       'peersFrom', 'peersSendingToUs', 'peersGettingFromUs' ] + LIST_FIELDS
 
@@ -800,6 +801,7 @@ class Interface:
             elif c == ord('f'): self.details_category_focus = 1
             elif c == ord('e'): self.details_category_focus = 2
             elif c == ord('t'): self.details_category_focus = 3
+            elif c == ord('c'): self.details_category_focus = 4
 
             # file priority OR walk through details
             elif c == curses.KEY_RIGHT:
@@ -1110,7 +1112,7 @@ class Interface:
         self.draw_torrentlist_item(self.torrent_details, False, 0)
 
         # divider + menu
-        menu_items = ['_Overview', "_Files", 'P_eers', '_Tracker' ]
+        menu_items = ['_Overview', "_Files", 'P_eers', '_Tracker', 'Pie_ces' ]
         xpos = int((self.width - sum(map(lambda x: len(x), menu_items))-len(menu_items)) / 2)
         for item in menu_items:
             self.pad.move(3, xpos)
@@ -1132,6 +1134,8 @@ class Interface:
             self.draw_peerlist(5)
         elif self.details_category_focus == 3:
             self.draw_trackerlist(5)
+        elif self.details_category_focus == 4:
+            self.draw_pieces_map(5)
 
         self.pad.refresh(0,0, 1,0, self.height-2,self.width)
         self.screen.refresh()
@@ -1363,8 +1367,35 @@ class Interface:
             for tracker in inactive:
                 ypos += 1
                 self.pad.addstr(ypos, 2, tracker['announce'])
-
             
+
+    def draw_pieces_map(self, ypos):
+        pieces = ''
+        for p in base64.decodestring(self.torrent_details['pieces']):
+            debug("piece: %s\n" % int2bin(ord(p)))
+            pieces += int2bin(ord(p))
+        pieces = pieces[:self.torrent_details['pieceCount']] # strip of non-existent pieces
+
+        debug("piece len:%d   pieceCount:%d\n" % (len(pieces), self.torrent_details['pieceCount']))
+        map_width = int(str(self.width-7)[0:-1] + '0')
+
+        for x in range(10, map_width, 10):
+            self.pad.addstr(ypos, x+5, str(x), curses.A_BOLD)
+        ypos += 1
+
+        xpos = 6 ; counter = 1
+        self.pad.addstr(ypos, 1, "%4d" % 0, curses.A_BOLD)
+        for piece in pieces:
+            if int(piece): self.pad.addch(ypos, xpos, ' ', curses.A_REVERSE)
+            else:          self.pad.addch(ypos, xpos, '_')
+            if counter % map_width == 0:
+                ypos += 1 ; xpos = 6
+                self.pad.addstr(ypos, 1, "%4d" % counter, curses.A_BOLD)
+            else:
+                xpos += 1
+            counter += 1
+
+
 
     def draw_details_list(self, ypos, info):
         key_width = max(map(lambda x: len(x[0]), info))
@@ -1381,7 +1412,7 @@ class Interface:
         return ypos
 
     def next_details(self):
-        if self.details_category_focus >= 3:
+        if self.details_category_focus >= 4:
             self.details_category_focus = 0
         else:
             self.details_category_focus += 1
@@ -1391,7 +1422,7 @@ class Interface:
 
     def prev_details(self):
         if self.details_category_focus <= 0:
-            self.details_category_focus = 3
+            self.details_category_focus = 4
         else:
             self.details_category_focus -= 1
         self.pad.erase()
@@ -1920,6 +1951,10 @@ def num2str(num):
     else:
         return str(num)
 
+def int2bin(n):
+    """Returns the binary of integer n"""
+    return "".join([str((n >> y) & 1) for y in range(7, -1, -1)])
+
 def middlecut(string, width):
     return string[0:(width/2)-2] + '..' + string[len(string) - (width/2) :]
 
@@ -1933,8 +1968,6 @@ def debug(data):
 
 def quit(msg='', exitcode=0):
     try:
-#        curses.echo()
-#        curses.nocbreak()
         curses.endwin()
     except curses.error:
         pass

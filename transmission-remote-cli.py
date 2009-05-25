@@ -1179,8 +1179,12 @@ class Interface:
             else:
                 info[-1].append("no reception in progress")
 
+        try:
+            copies_distributed = (float(t['uploadedEver']) / float(t['sizeWhenDone']))
+        except ZeroDivisionError:
+            copies_distributed = 0
         info.append(['Upload: ', "%s " % scale_bytes(t['uploadedEver'], 'long') + \
-                         "(%.2f copies) distributed; " % (float(t['uploadedEver']) / float(t['sizeWhenDone']))])
+                         "(%.2f copies) distributed; " % copies_distributed])
         if t['rateUpload']:
             info[-1].append("sending %s per second" % scale_bytes(t['rateUpload'], 'long'))
             if t['uploadLimited']:

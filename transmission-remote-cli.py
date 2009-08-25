@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.3.1'
+VERSION='0.3.2'
 
 
 USERNAME = ''
@@ -241,7 +241,7 @@ class Transmission:
         # response is a reply to torrent-get
         if response['tag'] == self.TAG_TORRENT_LIST or response['tag'] == self.TAG_TORRENT_DETAILS:
             for t in response['arguments']['torrents']:
-                t['uploadRatio'] = round(float(t['uploadRatio']), 1)
+                t['uploadRatio'] = round(float(t['uploadRatio']), 2)
                 t['percent_done'] = percent(float(t['sizeWhenDone']),
                                             float(t['haveValid'] + t['haveUnchecked']))
 
@@ -1397,8 +1397,14 @@ class Interface:
                 self.pad.addstr(ypos, 1, "%4d" % counter, curses.A_BOLD)
             else:
                 xpos += 1
-            counter += 1
 
+            # end map if terminal is too small
+            if ypos >= self.height-3:
+                line = ('[' + str(len(pieces)-counter) + ' more pieces not listed]').center(self.width)
+                self.pad.addstr(ypos, 1, line, curses.A_BOLD)
+                break
+            else:
+                counter += 1
 
 
     def draw_details_list(self, ypos, info):

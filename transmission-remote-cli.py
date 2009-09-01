@@ -1553,7 +1553,7 @@ class Interface:
         message = "          F1/?  Show this help\n" + \
             "             p  Pause/Unpause focused torrent\n" + \
             "             v  Verify focused torrent\n" + \
-            "         DEL/r  Remove focused torrent (and keep it's content)\n" + \
+            "         DEL/r  Remove focused torrent (and keep its content)\n" + \
             "           u/d  Adjust maximum global upload/download rate\n" + \
             "           U/D  Adjust maximum upload/download rate for focused torrent\n" + \
             "           +/-  Adjust bandwidth priority for focused torrent\n"

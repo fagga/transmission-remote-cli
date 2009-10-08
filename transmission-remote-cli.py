@@ -24,6 +24,11 @@ PASSWORD = ''
 HOST = 'localhost'
 PORT = 9091
 
+TRNSM_VERSION_MIN = '1.60'
+TRNSM_VERSION_MAX = '1.75'
+RPC_VERSION_MIN = 5
+RPC_VERSION_MAX = 6
+
 import time
 import re
 import base64
@@ -31,7 +36,7 @@ import simplejson as json
 import httplib
 import urllib2
 import socket
-socket.setdefaulttimeout(5)
+socket.setdefaulttimeout(10)
 
 import sys
 import os
@@ -184,12 +189,24 @@ class Transmission:
         request = TransmissionRequest(host, port, 'session-get', self.TAG_SESSION_GET)
         request.send_request()
         response = request.get_response()
-        msg = "Please install Transmission version 1.60 or higher.\n"
-        try:
-            if response['arguments']['rpc-version'] < 5:  quit(msg)
-        except KeyError:
-            quit(msg)
+        
+        # rpc version too old?
+        version_error = "Unsupported Transmission version: " + str(response['arguments']['version']) + \
+            " -- RPC protocol version: " + str(response['arguments']['rpc-version']) + "\n"
 
+        min_msg = "Please install Transmission version " + TRNSM_VERSION_MIN + " or higher.\n"
+        try:
+            if response['arguments']['rpc-version'] < 5:
+                quit(version_error + min_msg)
+        except KeyError:
+            quit(version_error + min_msg)
+
+        # rpc version too new?
+        if response['arguments']['rpc-version'] > 6:
+            quit(version_error + "Please install Transmission version " + TRNSM_VERSION_MAX + " or lower.\n")
+
+
+        # set up request list
         self.requests = {'torrent-list':
                              TransmissionRequest(host, port, 'torrent-get', self.TAG_TORRENT_LIST, {'fields': self.LIST_FIELDS}),
                          'session-stats':

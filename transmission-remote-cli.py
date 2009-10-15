@@ -165,7 +165,7 @@ class Transmission:
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
-                      'totalSize', 'comment',
+                      'totalSize', 'leftUntilDone', 'comment',
                       'announceURL', 'announceResponse', 'lastAnnounceTime',
                       'nextAnnounceTime', 'lastScrapeTime', 'nextScrapeTime',
                       'scrapeResponse', 'scrapeURL',
@@ -1165,8 +1165,8 @@ class Interface:
         info.append(['ID: ',   "%s" % t['id']])
 
         info.append(['Size: ', "%s; " % scale_bytes(t['totalSize'], 'long'),
-                     "%s wanted" % (scale_bytes(t['sizeWhenDone'], 'long'),'everything') \
-                         [t['totalSize']==t['sizeWhenDone']]])
+                     "%s wanted; " % (scale_bytes(t['sizeWhenDone'], 'long'),'everything')[t['totalSize']==t['sizeWhenDone']],
+                     "%s left" % scale_bytes(t['leftUntilDone'], 'long')])
 
         info.append(['Files: ', "%d; " % len(t['files'])])
         complete     = map(lambda x: x['bytesCompleted'] == x['length'], t['files']).count(True)

@@ -1164,8 +1164,12 @@ class Interface:
         info.append(['Hash: ', "%s" % t['hashString']])
         info.append(['ID: ',   "%s" % t['id']])
 
+        wanted = 0
+        for i, file_info in enumerate(t['files']):
+            if t['wanted'][i] == True: wanted += t['files'][i]['length']
+
         info.append(['Size: ', "%s; " % scale_bytes(t['totalSize'], 'long'),
-                     "%s wanted; " % (scale_bytes(t['sizeWhenDone'], 'long'),'everything')[t['totalSize']==t['sizeWhenDone']],
+                     "%s wanted; " % (scale_bytes(wanted, 'long'),'everything') [t['totalSize'] == wanted],
                      "%s left" % scale_bytes(t['leftUntilDone'], 'long')])
 
         info.append(['Files: ', "%d; " % len(t['files'])])

@@ -1386,24 +1386,34 @@ class Interface:
         if self.width >= announce_width + scrape_width + 2:
             ypos += 1
         
+        # show a list of inactive trackers
         if inactive:
-            self.pad.addstr(ypos, 0, "Fallback Tracker%s:" % ('','s')[len(inactive)>1])
-            # show inactive trackers
+            self.pad.addstr(ypos, 0, "%d Fallback Tracker%s:" % (len(inactive), ('','s')[len(inactive)>1]) )
+
+            # find longest tracker url to make multiple columns if necessary
+            max_url_length = max(map(lambda x: len(x['announce']), inactive))
+
+            ypos_start = ypos + 1
+            xpos = 0
             for tracker in inactive:
                 ypos += 1
-                self.pad.addstr(ypos, 2, tracker['announce'])
-            
+                if ypos >= self.height:
+                    # start new column
+                    xpos += max_url_length + 2
+                    ypos = ypos_start
+                if xpos+max_url_length > self.width:
+                    # all possible columns full
+                    break
+                self.pad.addstr(ypos, xpos, tracker['announce'])
+
 
     def draw_pieces_map(self, ypos):
         pieces = ''
         for p in base64.decodestring(self.torrent_details['pieces']):
-            debug("piece: %s\n" % int2bin(ord(p)))
             pieces += int2bin(ord(p))
-        pieces = pieces[:self.torrent_details['pieceCount']] # strip of non-existent pieces
+        pieces = pieces[:self.torrent_details['pieceCount']] # strip off non-existent pieces
 
-        debug("piece len:%d   pieceCount:%d\n" % (len(pieces), self.torrent_details['pieceCount']))
         map_width = int(str(self.width-7)[0:-1] + '0')
-
         for x in range(10, map_width, 10):
             self.pad.addstr(ypos, x+5, str(x), curses.A_BOLD)
         ypos += 1
@@ -1947,8 +1957,8 @@ def scale_bytes(bytes, type='short'):
         scaled_bytes = int(bytes / 1024)
         unit = ('K','Kilobyte')[type == 'long']
     else:
-        scaled_bytes = bytes
-        unit = ('B','Byte')[type == 'long']
+        scaled_bytes = round((bytes / 1024.0), 1)
+        unit = ('K','Kilobyte')[type == 'long']
 
     # add plural s to unit if necessary
     if type == 'long':

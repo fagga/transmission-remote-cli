@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.3.3'
+VERSION='0.3.4'
 
 
 USERNAME = ''
@@ -25,7 +25,7 @@ HOST = 'localhost'
 PORT = 9091
 
 TRNSM_VERSION_MIN = '1.60'
-TRNSM_VERSION_MAX = '1.75'
+TRNSM_VERSION_MAX = '1.76'
 RPC_VERSION_MIN = 5
 RPC_VERSION_MAX = 6
 
@@ -36,7 +36,7 @@ import simplejson as json
 import httplib
 import urllib2
 import socket
-socket.setdefaulttimeout(10)
+socket.setdefaulttimeout(None)
 
 import sys
 import os

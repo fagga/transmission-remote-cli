@@ -741,10 +741,14 @@ class Interface:
                     self.filter_list = '' # reset filter
 
         # leave details
-        elif c == curses.KEY_BACKSPACE and self.selected_torrent > -1:
+        elif self.selected_torrent > -1 and (c == curses.KEY_BACKSPACE or 
+                                             c == curses.KEY_UP and self.focus_detaillist == -1):
             self.server.set_torrent_details_id(-1)
-            self.selected_torrent = -1
+            self.selected_torrent       = -1
             self.details_category_focus = 0
+            self.scrollpos_detaillist   = 0
+            self.selected_files         = []
+
 
         # go back or quit on q
         elif c == ord('q'):
@@ -756,11 +760,11 @@ class Interface:
                     quit() # exit
             else: # return to list view
                 self.server.set_torrent_details_id(-1)
-                self.selected_torrent = -1
+                self.selected_torrent       = -1
                 self.details_category_focus = 0
-                self.focus_detaillist     = -1
-                self.scrollpos_detaillist = 0
-                self.selected_files       = []
+                self.focus_detaillist       = -1
+                self.scrollpos_detaillist   = 0
+                self.selected_files         = []
 
 
         # show options window

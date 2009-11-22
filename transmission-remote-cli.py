@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.3.4'
+VERSION='0.4.0'
 
 
 USERNAME = ''
@@ -29,6 +29,11 @@ TRNSM_VERSION_MAX = '1.76'
 RPC_VERSION_MIN = 5
 RPC_VERSION_MAX = 6
 
+# error codes
+CONNECTION_ERROR = 1
+JSON_ERROR       = 2
+CONFIGFILE_ERROR = 3
+
 import time
 import re
 import base64
@@ -37,7 +42,7 @@ import httplib
 import urllib2
 import socket
 socket.setdefaulttimeout(None)
-
+import ConfigParser
 import sys
 import os
 import signal
@@ -56,32 +61,94 @@ try:   import GeoIP; features['geoip'] = True  # show country peer seems to be i
 except ImportError:  features['geoip'] = False
 
 
-# command line parameters
-from optparse import OptionParser
-parser = OptionParser(usage="Usage: %prog [[USERNAME:PASSWORD@]HOST[:PORT]]",
-                      version="%%prog %s" % VERSION)
-parser.add_option("--debug", action="store_true", dest="DEBUG", default=False,
-                  help="Create file debug.log in current directory and put messages in it.")
-(options, connection) = parser.parse_args()
+# define config defaults
+config = ConfigParser.SafeConfigParser()
+config.add_section('Connection')
+config.set('Connection', 'password', '')
+config.set('Connection', 'username', '')
+config.set('Connection', 'port', '9091')
+config.set('Connection', 'host', 'localhost')
 
 
-# find username, password, host and port
-if connection:
+def explode_connection_string(connection):
+    global HOST, PORT, USERNAME, PASSWORD
     if connection[0].find('@') >= 0:
         auth, connection[0] = connection[0].split('@')
         if auth.find(':') >= 0:
             USERNAME, PASSWORD = auth.split(':')
-
     if connection[0].find(':') >= 0:
         HOST, PORT = connection[0].split(':')
         PORT = int(PORT)
     else:
         HOST = connection[0]
+    return HOST, PORT, USERNAME, PASSWORD
 
 
-# error codes
-CONNECTION_ERROR = 1
-JSON_ERROR       = 2
+# create initial config file
+def create_config(option, opt_str, value, parser):
+    if parser.largs:
+        HOST, PORT, USERNAME, PASSWORD = explode_connection_string(parser.largs)
+        config.set('Connection', 'host', HOST)
+        config.set('Connection', 'port', str(PORT))
+        config.set('Connection', 'username', USERNAME)
+        config.set('Connection', 'password', PASSWORD)
+
+    configfile = parser.values.configfile
+    # create directory
+    dir = os.path.dirname(configfile)
+    if not os.path.isdir(dir):
+        try:
+            os.makedirs(dir)
+        except OSError, msg:
+            print msg
+            exit(CONFIGFILE_ERROR)
+        
+    # create config file
+    try:
+        config.write(open(configfile, 'w'))
+    except IOError, msg:
+        print msg
+        exit(CONFIGFILE_ERROR)
+
+    print "Wrote config file %s" % configfile
+    exit(0)
+
+
+# command line parameters
+default_config_path = os.environ['HOME'] + '/.config/transmission-remote-cli/settings.cfg'
+from optparse import OptionParser, SUPPRESS_HELP
+parser = OptionParser(usage="Usage: %prog [[USERNAME:PASSWORD@]HOST[:PORT]] [OPTIONS]",
+                      version="%%prog %s" % VERSION,
+                      description="%%prog %s" % VERSION)
+parser.add_option("--debug", action="store_true", dest="DEBUG", default=False,
+                  help=SUPPRESS_HELP)
+parser.add_option("--config", action="store", dest="configfile",
+                  default=default_config_path,
+                  help="Path to configuration file.")
+parser.add_option("--create-config", action="callback", callback=create_config,
+                  help="Create configuration file CONFIGFILE with default values. " +\
+                      "Provide --config=CONFIGFILE before if you don't want the default path: "+default_config_path)
+(options, connection) = parser.parse_args()
+
+
+# read config from config file
+config.read(options.configfile)
+HOST, PORT = config.get('Connection', 'host'), config.getint('Connection', 'port')
+USERNAME, PASSWORD = config.get('Connection', 'username'), config.get('Connection', 'password')
+
+# re-write config file to keep it up-to-date with options from new trcli version
+if os.path.isfile(options.configfile):
+    try:
+        f = open(options.configfile, 'w+')
+        config.write(f)
+    except IOError, msg:
+        quit("Cannot write config file %s: %s" % (options.configfile, msg), CONFIGFILE_ERROR)
+
+# command line can override config file
+if connection:
+    HOST, PORT, USERNAME, PASSWORD = explode_connection_string(connection)
+
+
 
 
 # Handle communication with Transmission server.

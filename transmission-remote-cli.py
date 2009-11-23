@@ -62,6 +62,12 @@ config.set('Connection', 'password', '')
 config.set('Connection', 'username', '')
 config.set('Connection', 'port', '9091')
 config.set('Connection', 'host', 'localhost')
+config.add_section('Sorting')
+config.set('Sorting', 'order',   'name')
+config.set('Sorting', 'reverse', 'False')
+config.add_section('Filtering')
+config.set('Filtering', 'filter', '')
+config.set('Filtering', 'invert', 'False')
 
 
 def explode_connection_string(connection):
@@ -92,7 +98,7 @@ def create_config(option, opt_str, value, parser):
 
     # create directory
     dir = os.path.dirname(configfile)
-    if not os.path.isdir(dir):
+    if dir != '' and not os.path.isdir(dir):
         try:
             os.makedirs(dir)
         except OSError, msg:
@@ -124,11 +130,11 @@ parser.add_option("--config", action="store", dest="configfile",
 parser.add_option("--create-config", action="callback", callback=create_config,
                   help="Create configuration file CONFIGFILE with default values. " +\
                       "Provide --config=CONFIGFILE before if you don't want the default path: "+default_config_path)
-(options, connection) = parser.parse_args()
+(cmd_args, connection) = parser.parse_args()
 
 
 # read config from config file
-config.read(options.configfile)
+config.read(cmd_args.configfile)
 
 
 # command line connection data can override config file
@@ -565,11 +571,11 @@ class Interface:
     def __init__(self, server):
         self.server = server
 
-        self.filter_list    = ''
-        self.filter_inverse = False
+        self.filter_list    = config.get('Filtering', 'filter')
+        self.filter_inverse = config.getboolean('Filtering', 'invert')
 
-        self.sort_orders  = ['name']
-        self.sort_reverse = False
+        self.sort_orders  = config.get('Sorting', 'order').split(',') #['name']
+        self.sort_reverse = config.getboolean('Sorting', 'reverse')
 
         self.selected_torrent = -1  # changes to >-1 when focus >-1 & user hits return
         self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
@@ -625,9 +631,6 @@ class Interface:
         self.get_screen_size()
 
     def restore_screen(self):
-#        self.screen.keypad(0)
-#        curses.echo()
-#        curses.nocbreak()
         curses.endwin()
 
 
@@ -744,11 +747,18 @@ class Interface:
         # go back or quit on q
         elif c == ord('q'):
             if self.selected_torrent == -1:
-                if self.filter_list:
-                    self.filter_list = '' # reset filter
-                    self.filter_inverse = False
-                else:
-                    quit() # exit
+                global cmd_args
+                if os.path.isfile(cmd_args.configfile):
+                    # remember sort order and filter
+                    config.set('Sorting', 'order',   ','.join(self.sort_orders))
+                    config.set('Sorting', 'reverse', str(self.sort_reverse))
+                    config.set('Filtering', 'filter', self.filter_list)
+                    config.set('Filtering', 'invert', str(self.filter_inverse))
+                    try:
+                        config.write(open(cmd_args.configfile, 'w'))
+                    except IOError, msg:
+                        quit("Cannot write config file %s:\n%s\n" % (cmd_args.configfile, msg))
+                quit()
             else: # return to list view
                 self.server.set_torrent_details_id(-1)
                 self.selected_torrent       = -1
@@ -2063,7 +2073,7 @@ def middlecut(string, width):
 
 
 def debug(data):
-    if options.DEBUG:
+    if cmd_args.DEBUG:
         file = open("debug.log", 'a')
         file.write(data.encode('utf-8'))
         file.close

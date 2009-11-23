@@ -1,12 +1,12 @@
 # A console client for the BitTorrent client [Transmission](http://www.transmissionbt.com/ "Transmission Homepage").
 
-**Download the latest version [here](http://github.com/fagga/transmission-remote-cli/raw/master/transmission-remote-cli.py).**
+**Download the latest version from [here](http://github.com/fagga/transmission-remote-cli/raw/master/transmission-remote-cli.py).**
 
-### Screenshot
-![Screenshot](http://cloud.github.com/downloads/fagga/transmission-remote-cli/screenshot.png)
+## Screenshot
+![Screenshot](http://cloud.github.com/downloads/fagga/transmission-remote-cli/screenshot.png)  
 
 
-### Setup
+## Setup
 If your Transmission daemon is listening for clients at localhost:9091 without
 authentication, you don't need to configure anything.
 
@@ -20,14 +20,16 @@ of these patterns:
 You can write this (and other) stuff into a configuration file:  
 `$ transmission-remote-cli.py johndoe:secretbirthday@homeserver:1234 --create-config`  
 
-No configuration file is created unless you create it somehow. However, if the
-file exists, it is re-written when trcli exits.
+No configuration file is created automatically, you have to do it somehow.  
+However, if the file exists, it is re-written when trcli exits to remember
+some settings. This means you shouldn't have trcli running when editing it
+manually.
 
 If you don't like the default configuration file path
-(~/.config/transmission-remote-cli/settings.cfg), change it:  
-`$ transmission-remote-cli.py johndoe:secretbirthday@homeserver:1234 --config ~/.trclirc --create-config`
+~/.config/transmission-remote-cli/settings.cfg, change it:  
+`$ transmission-remote-cli.py johndoe:secretbirthday@homeserver:1234 --config ~/.trclirc --create-config`  
 
 
-### Contact
+## Contact
 Feel free to request new features or provide bug reports.  
 You can find my email address [here](http://github.com/fagga).

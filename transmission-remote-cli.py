@@ -16,13 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.4.0'
-
-
-USERNAME = ''
-PASSWORD = ''
-HOST = 'localhost'
-PORT = 9091
+VERSION='0.4.0.1'
 
 TRNSM_VERSION_MIN = '1.60'
 TRNSM_VERSION_MAX = '1.76'
@@ -71,29 +65,31 @@ config.set('Connection', 'host', 'localhost')
 
 
 def explode_connection_string(connection):
-    global HOST, PORT, USERNAME, PASSWORD
+    host, port = 'localhost', 9091
+    username, password = '', ''
     if connection[0].find('@') >= 0:
         auth, connection[0] = connection[0].split('@')
         if auth.find(':') >= 0:
-            USERNAME, PASSWORD = auth.split(':')
+            username, password = auth.split(':')
     if connection[0].find(':') >= 0:
-        HOST, PORT = connection[0].split(':')
-        PORT = int(PORT)
+        host, port = connection[0].split(':')
+        port = int(port)
     else:
-        HOST = connection[0]
-    return HOST, PORT, USERNAME, PASSWORD
+        host = connection[0]
+    return host, port, username, password
 
 
 # create initial config file
 def create_config(option, opt_str, value, parser):
-    if parser.largs:
-        HOST, PORT, USERNAME, PASSWORD = explode_connection_string(parser.largs)
-        config.set('Connection', 'host', HOST)
-        config.set('Connection', 'port', str(PORT))
-        config.set('Connection', 'username', USERNAME)
-        config.set('Connection', 'password', PASSWORD)
-
     configfile = parser.values.configfile
+    config.read(configfile)
+    if parser.largs:
+        host, port, username, password = explode_connection_string(parser.largs)
+        config.set('Connection', 'host', host)
+        config.set('Connection', 'port', str(port))
+        config.set('Connection', 'username', username)
+        config.set('Connection', 'password', password)
+
     # create directory
     dir = os.path.dirname(configfile)
     if not os.path.isdir(dir):
@@ -133,21 +129,16 @@ parser.add_option("--create-config", action="callback", callback=create_config,
 
 # read config from config file
 config.read(options.configfile)
-HOST, PORT = config.get('Connection', 'host'), config.getint('Connection', 'port')
-USERNAME, PASSWORD = config.get('Connection', 'username'), config.get('Connection', 'password')
 
-# re-write config file to keep it up-to-date with options from new trcli version
-if os.path.isfile(options.configfile):
-    try:
-        f = open(options.configfile, 'w+')
-        config.write(f)
-    except IOError, msg:
-        quit("Cannot write config file %s: %s" % (options.configfile, msg), CONFIGFILE_ERROR)
 
-# command line can override config file
+# command line connection data can override config file
 if connection:
-    HOST, PORT, USERNAME, PASSWORD = explode_connection_string(connection)
-
+    host, port, username, password = explode_connection_string(connection)
+    config.set('Connection', 'host', host)
+    config.set('Connection', 'port', str(port))
+    config.set('Connection', 'username', username)
+    config.set('Connection', 'password', password)
+    
 
 
 
@@ -2088,10 +2079,9 @@ def quit(msg='', exitcode=0):
     os._exit(exitcode)
 
 
-
-ui = Interface(Transmission(HOST, PORT, USERNAME, PASSWORD))
-
-
-
+ui = Interface(Transmission(config.get('Connection', 'host'),
+                            config.getint('Connection', 'port'),
+                            config.get('Connection', 'username'),
+                            config.get('Connection', 'password')))
 
 

@@ -20,14 +20,14 @@ of these patterns:
 You can write this (and other) stuff into a configuration file:  
 `$ transmission-remote-cli.py johndoe:secretbirthday@homeserver:1234 --create-config`  
 
-No configuration file is created automatically, you have to do it somehow.  
-However, if the file exists, it is re-written when trcli exits to remember
-some settings. This means you shouldn't have trcli running when editing it
-manually.
+No configuration file is created automatically, you have to do it
+somehow. However, if the file exists, it is re-written when trcli exits to
+remember some settings. This means you shouldn't have trcli running when
+editing it.
 
 If you don't like the default configuration file path
 ~/.config/transmission-remote-cli/settings.cfg, change it:  
-`$ transmission-remote-cli.py johndoe:secretbirthday@homeserver:1234 --config ~/.trclirc --create-config`  
+`$ transmission-remote-cli.py --config ~/.trclirc --create-config`  
 
 
 ## Contact

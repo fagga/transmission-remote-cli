@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.4.0.1'
+VERSION='0.4.1'
 
 TRNSM_VERSION_MIN = '1.60'
 TRNSM_VERSION_MAX = '1.76'
@@ -444,6 +444,11 @@ class Transmission:
             request.send_request()
             self.wait_for_torrentlist_update()
         
+
+    def toggle_turtle_mode(self):
+        self.set_option('alt-speed-enabled', not self.status_cache['alt-speed-enabled'])
+
+
     def stop_torrent(self, id):
         request = TransmissionRequest(self.host, self.port, 'torrent-stop', 1, {'ids': [id]})
         request.send_request()
@@ -835,6 +840,11 @@ class Interface:
             limit = self.dialog_input_number("Download limit in Kilobytes per second for\n%s" % \
                                                  self.torrents[self.focus]['name'], current_limit)
             self.server.set_rate_limit('down', limit, self.torrents[self.focus]['id'])
+
+        # toggle turtle mode
+        elif c == ord('t') and self.selected_torrent == -1:
+            self.server.toggle_turtle_mode()
+
 
         # torrent bandwidth priority
         elif c == ord('-') and self.focus > -1:
@@ -1594,26 +1604,38 @@ class Interface:
 
     def draw_torrents_stats(self):
         if self.selected_torrent > -1 and self.details_category_focus == 2:
-            line = "%d peer%s connected:" % (self.torrent_details['peersConnected'],
-                                             ('s','')[self.torrent_details['peersConnected'] == 1]) + \
-                " Tracker: %-3d" % self.torrent_details['peersFrom']['fromTracker'] + \
-                " PEX: %-3d" % self.torrent_details['peersFrom']['fromPex'] + \
-                " Incoming: %-3d" % self.torrent_details['peersFrom']['fromIncoming'] + \
-                " Cache: %-3d" % self.torrent_details['peersFrom']['fromCache']
+            self.screen.insstr((self.height-1), 0, 
+                               "%d peer%s connected:" % (self.torrent_details['peersConnected'],
+                                                         ('s','')[self.torrent_details['peersConnected'] == 1]) + \
+                                   " Tracker: %-3d" % self.torrent_details['peersFrom']['fromTracker'] + \
+                                   " PEX: %-3d" % self.torrent_details['peersFrom']['fromPex'] + \
+                                   " Incoming: %-3d" % self.torrent_details['peersFrom']['fromIncoming'] + \
+                                   " Cache: %-3d" % self.torrent_details['peersFrom']['fromCache'],
+                               curses.A_REVERSE)
         else:
-            line = "%d torrent%s" % (len(self.torrents), ('s','')[len(self.torrents) == 1])
+            self.screen.addstr((self.height-1), 0, 
+                               "%d torrent%s" % (len(self.torrents), ('s','')[len(self.torrents) == 1]),
+                               curses.A_REVERSE)
             if self.filter_list:
-                line += " %s%s" % (('','not ')[self.filter_inverse], self.filter_list)
-            line += ": %d downloading; " % len(filter(lambda x: x['status']==Transmission.STATUS_DOWNLOAD,
-                                                      self.torrents)) + \
-                "%d seeding; " % len(filter(lambda x: x['status']==Transmission.STATUS_SEED,
-                                            self.torrents)) + \
-                "%d paused" % self.stats['pausedTorrentCount']
-        self.screen.insstr((self.height-1), 0, line, curses.A_REVERSE)
+                self.screen.addstr(" ", curses.A_REVERSE)
+                self.screen.addstr("%s%s" % (('','not ')[self.filter_inverse], self.filter_list),
+                                   curses.A_REVERSE + curses.A_BOLD)
+
+            self.screen.addstr(": %d downloading; " % len(filter(lambda x: x['status']==Transmission.STATUS_DOWNLOAD,
+                                                                 self.torrents)) + \
+                                   "%d seeding; " % len(filter(lambda x: x['status']==Transmission.STATUS_SEED,
+                                                               self.torrents)) + \
+                                   "%d paused" % self.stats['pausedTorrentCount'],
+                               curses.A_REVERSE)
 
 
     def draw_global_rates(self):
         rates_width = self.rateDownload_width + self.rateUpload_width + 3
+        if self.stats['alt-speed-enabled']:
+            self.screen.move(self.height-1, self.width-rates_width - len('Turtle mode '))
+            self.screen.addstr('Turtle mode', curses.A_REVERSE + curses.A_BOLD)
+            self.screen.addch(' ', curses.A_REVERSE)
+        
         self.screen.move(self.height-1, self.width-rates_width)
         self.screen.addch(curses.ACS_DARROW, curses.A_REVERSE)
         self.screen.addstr(scale_bytes(self.stats['downloadSpeed']).rjust(self.rateDownload_width),
@@ -1668,6 +1690,7 @@ class Interface:
                 "   Enter/right  View focused torrent's details\n" + \
                 "           ESC  Unfocus\n" + \
                 "             o  Configuration options\n" + \
+                "             t  Toggle turtle mode\n" + \
                 "             q  Quit\n\n"
         else:
             if self.details_category_focus == 2:

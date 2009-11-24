@@ -108,6 +108,7 @@ def create_config(option, opt_str, value, parser):
     # create config file
     try:
         config.write(open(configfile, 'w'))
+        os.chmod(configfile, 0600)
     except IOError, msg:
         print msg
         exit(CONFIGFILE_ERROR)
@@ -756,6 +757,7 @@ class Interface:
                     config.set('Filtering', 'invert', str(self.filter_inverse))
                     try:
                         config.write(open(cmd_args.configfile, 'w'))
+                        os.chmod(cmd_args.configfile, 0600)
                     except IOError, msg:
                         quit("Cannot write config file %s:\n%s\n" % (cmd_args.configfile, msg))
                 quit()

@@ -41,6 +41,16 @@ Some examples:
 `$ transmission-remote-cli.py -- -as`  
 
 
+## Add torrents  
+If you provide only one command line argument and it doesn't start with '-',
+it's treated like a torrent file/URL and submitted to the daemon via
+transmission-remote. This is useful because you can instruct Firefox to open
+torrent files with transmission-remote-cli.py.
+
+`$ transmission-remote-cli.py http://www.link.to/file.torrent`
+`$ transmission-remote-cli.py path/to/some/torrent-file`  
+
+
 ## Contact
 Feel free to request new features or provide bug reports.  
 You can find my email address [here](http://github.com/fagga).

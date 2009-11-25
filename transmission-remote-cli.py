@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.4.2'
+VERSION='0.4.3'
 
 TRNSM_VERSION_MIN = '1.60'
 TRNSM_VERSION_MAX = '1.76'
@@ -1311,10 +1311,8 @@ class Interface:
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
         ypos += 1
 
-
         hosts = self.server.get_hosts()
         geo_ips = self.server.get_geo_ips()
-
         for index, peer in enumerate(peers):
             if features['dns']:
                 try:
@@ -1339,8 +1337,8 @@ class Interface:
             self.pad.move(ypos, 0)
             self.pad.addstr("%-6s   " % peer['flagStr'])
             self.pad.addstr("%5s  " % scale_bytes(peer['rateToClient']), download_tag)
-            self.pad.addstr("%5s   " % scale_bytes(peer['rateToPeer']), upload_tag)
-            self.pad.addstr("%5.1f%%   " % (float(peer['progress'])*100))
+            self.pad.addstr("%5s  " % scale_bytes(peer['rateToPeer']), upload_tag)
+            self.pad.addstr("%6.2f%%   " % (float(peer['progress'])*100))
             self.pad.addstr(clientname.ljust(clientname_width).encode('utf-8'))
             self.pad.addstr("  %15s  " % peer['address'])
             if features['geoip']:
@@ -2120,7 +2118,12 @@ if transmissionremote_args:
            (config.get('Connection', 'host'), config.get('Connection', 'port'))]
     if config.get('Connection', 'username') and config.get('Connection', 'password'):
         cmd.extend(['--auth', '%s:%s' % (config.get('Connection', 'username'), config.get('Connection', 'password'))])
-    cmd.extend(transmissionremote_args)
+
+    # one argument and it doesn't start with '-' --> treat it like it's a torrent link/url
+    if len(transmissionremote_args) == 1 and not transmissionremote_args[0].startswith('-'):
+        cmd.extend(['-a', transmissionremote_args[0]])
+    else:
+        cmd.extend(transmissionremote_args)
     print "EXECUTING:\n%s\nRESPONSE:" % ' '.join(cmd)
 
     try:

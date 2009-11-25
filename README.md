@@ -34,7 +34,7 @@ and/or doesn't listen on the default localhost:9091 for
 instructions. transmission-remote-cli delivers this connection information and
 your arguments on to transmission-remote.
 
-Some examples:
+Some examples:  
 `$ transmission-remote-cli.py -- -a some/path/to/file.torrent`  
 `$ transmission-remote-cli.py -- -l`  
 `$ transmission-remote-cli.py -- -t 2 -i`  

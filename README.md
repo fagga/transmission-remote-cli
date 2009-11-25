@@ -6,11 +6,8 @@
 ![Screenshot](http://cloud.github.com/downloads/fagga/transmission-remote-cli/screenshot.png)  
 
 
-## Setup
-If your Transmission daemon is listening for clients at localhost:9091 without
-authentication, you don't need to configure anything.
-
-Authentication and connection information can be set via command line with one
+## Connection information
+Authentication and host/port can be set via command line with one
 of these patterns:  
 `$ transmission-remote-cli.py -c homeserver`  
 `$ transmission-remote-cli.py -c homeserver:1234`  
@@ -39,8 +36,8 @@ your arguments on to transmission-remote.
 
 Some examples:
 `$ transmission-remote-cli.py -- -a some/path/to/file.torrent`  
-`$ transmission-remote-cli.py -- -l`
-`$ transmission-remote-cli.py -- -t 2 -i`
+`$ transmission-remote-cli.py -- -l`  
+`$ transmission-remote-cli.py -- -t 2 -i`  
 `$ transmission-remote-cli.py -- -as`  
 
 

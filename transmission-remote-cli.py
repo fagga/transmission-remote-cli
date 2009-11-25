@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.4.1'
+VERSION='0.4.2'
 
 TRNSM_VERSION_MIN = '1.60'
 TRNSM_VERSION_MAX = '1.76'
@@ -37,6 +37,7 @@ import urllib2
 import socket
 socket.setdefaulttimeout(None)
 import ConfigParser
+from optparse import OptionParser, SUPPRESS_HELP
 import sys
 import os
 import signal
@@ -44,6 +45,7 @@ import locale
 locale.setlocale(locale.LC_ALL, '')
 import curses
 from textwrap import wrap
+from subprocess import call
 
 
 # optional features provided by non-standard modules
@@ -69,83 +71,6 @@ config.add_section('Filtering')
 config.set('Filtering', 'filter', '')
 config.set('Filtering', 'invert', 'False')
 
-
-def explode_connection_string(connection):
-    host, port = 'localhost', 9091
-    username, password = '', ''
-    if connection[0].find('@') >= 0:
-        auth, connection[0] = connection[0].split('@')
-        if auth.find(':') >= 0:
-            username, password = auth.split(':')
-    if connection[0].find(':') >= 0:
-        host, port = connection[0].split(':')
-        port = int(port)
-    else:
-        host = connection[0]
-    return host, port, username, password
-
-
-# create initial config file
-def create_config(option, opt_str, value, parser):
-    configfile = parser.values.configfile
-    config.read(configfile)
-    if parser.largs:
-        host, port, username, password = explode_connection_string(parser.largs)
-        config.set('Connection', 'host', host)
-        config.set('Connection', 'port', str(port))
-        config.set('Connection', 'username', username)
-        config.set('Connection', 'password', password)
-
-    # create directory
-    dir = os.path.dirname(configfile)
-    if dir != '' and not os.path.isdir(dir):
-        try:
-            os.makedirs(dir)
-        except OSError, msg:
-            print msg
-            exit(CONFIGFILE_ERROR)
-        
-    # create config file
-    try:
-        config.write(open(configfile, 'w'))
-        os.chmod(configfile, 0600)
-    except IOError, msg:
-        print msg
-        exit(CONFIGFILE_ERROR)
-
-    print "Wrote config file %s" % configfile
-    exit(0)
-
-
-# command line parameters
-default_config_path = os.environ['HOME'] + '/.config/transmission-remote-cli/settings.cfg'
-from optparse import OptionParser, SUPPRESS_HELP
-parser = OptionParser(usage="Usage: %prog [[USERNAME:PASSWORD@]HOST[:PORT]] [OPTIONS]",
-                      version="%%prog %s" % VERSION,
-                      description="%%prog %s" % VERSION)
-parser.add_option("--debug", action="store_true", dest="DEBUG", default=False,
-                  help=SUPPRESS_HELP)
-parser.add_option("--config", action="store", dest="configfile",
-                  default=default_config_path,
-                  help="Path to configuration file.")
-parser.add_option("--create-config", action="callback", callback=create_config,
-                  help="Create configuration file CONFIGFILE with default values. " +\
-                      "Provide --config=CONFIGFILE before if you don't want the default path: "+default_config_path)
-(cmd_args, connection) = parser.parse_args()
-
-
-# read config from config file
-config.read(cmd_args.configfile)
-
-
-# command line connection data can override config file
-if connection:
-    host, port, username, password = explode_connection_string(connection)
-    config.set('Connection', 'host', host)
-    config.set('Connection', 'port', str(port))
-    config.set('Connection', 'username', username)
-    config.set('Connection', 'password', password)
-    
 
 
 
@@ -753,18 +678,10 @@ class Interface:
         # go back or quit on q
         elif c == ord('q'):
             if self.selected_torrent == -1:
-                global cmd_args
-                if os.path.isfile(cmd_args.configfile):
-                    # remember sort order and filter
-                    config.set('Sorting', 'order',   ','.join(self.sort_orders))
-                    config.set('Sorting', 'reverse', str(self.sort_reverse))
-                    config.set('Filtering', 'filter', self.filter_list)
-                    config.set('Filtering', 'invert', str(self.filter_inverse))
-                    try:
-                        config.write(open(cmd_args.configfile, 'w'))
-                        os.chmod(cmd_args.configfile, 0600)
-                    except IOError, msg:
-                        quit("Cannot write config file %s:\n%s\n" % (cmd_args.configfile, msg))
+                config.set('Sorting', 'order',   ','.join(self.sort_orders))
+                config.set('Sorting', 'reverse', str(self.sort_reverse))
+                config.set('Filtering', 'filter', self.filter_list)
+                config.set('Filtering', 'invert', str(self.filter_inverse))
                 quit()
             else: # return to list view
                 self.server.set_torrent_details_id(-1)
@@ -2041,6 +1958,7 @@ def timestamp(timestamp):
         relative = 'now'
     return "%s (%s)" % (absolute, relative)
 
+
 def scale_bytes(bytes, type='short'):
     if bytes >= 1073741824:
         scaled_bytes = round((bytes / 1073741824.0), 2)
@@ -2096,24 +2014,123 @@ def int2bin(n):
 def middlecut(string, width):
     return string[0:(width/2)-2] + '..' + string[len(string) - (width/2) :]
 
-
 def debug(data):
     if cmd_args.DEBUG:
         file = open("debug.log", 'a')
         file.write(data.encode('utf-8'))
         file.close
     
-
 def quit(msg='', exitcode=0):
     try:
         curses.endwin()
     except curses.error:
         pass
 
-    print >> sys.stderr, msg,
+    # if this is a graceful exit and config file is present
+    if not msg and not exitcode and os.path.isfile(cmd_args.configfile):
+        try:
+            config.write(open(cmd_args.configfile, 'w'))
+            os.chmod(cmd_args.configfile, 0600)
+        except IOError, msg:
+            print >> sys.stderr, "Cannot write config file %s:\n%s" % (cmd_args.configfile, msg)
+    else:
+        print >> sys.stderr, msg,
     os._exit(exitcode)
 
 
+def explode_connection_string(connection):
+    host, port = config.get('Connection', 'host'), config.getint('Connection', 'port')
+    username, password = config.get('Connection', 'username'), config.get('Connection', 'password')
+    try:
+        if connection.count('@') == 1:
+            auth, connection = connection.split('@')
+            if auth.count(':') == 1:
+                username, password = auth.split(':')
+        if connection.count(':') == 1:
+            host, port = connection.split(':')
+            port = int(port)
+        else:
+            host = connection
+    except ValueError:
+        quit("Wrong connection pattern: %s\n" % connection)
+    return host, port, username, password
+
+
+# create initial config file
+def create_config(option, opt_str, value, parser):
+    configfile = parser.values.configfile
+    config.read(configfile)
+    if parser.values.connection:
+        host, port, username, password = explode_connection_string(parser.values.connection)
+        config.set('Connection', 'host', host)
+        config.set('Connection', 'port', str(port))
+        config.set('Connection', 'username', username)
+        config.set('Connection', 'password', password)
+
+    # create directory
+    dir = os.path.dirname(configfile)
+    if dir != '' and not os.path.isdir(dir):
+        try:
+            os.makedirs(dir)
+        except OSError, msg:
+            print msg
+            exit(CONFIGFILE_ERROR)
+        
+    # create config file
+    try:
+        config.write(open(configfile, 'w'))
+        os.chmod(configfile, 0600)
+    except IOError, msg:
+        print msg
+        exit(CONFIGFILE_ERROR)
+
+    print "Wrote config file %s" % configfile
+    exit(0)
+
+
+# command line parameters
+default_config_path = os.environ['HOME'] + '/.config/transmission-remote-cli/settings.cfg'
+parser = OptionParser(version="%%prog %s" % VERSION,
+                      description="%%prog %s" % VERSION)
+parser.add_option("--debug", action="store_true", dest="DEBUG", default=False, help=SUPPRESS_HELP)
+parser.add_option("-c", "--connect", action="store", dest="connection", default="",
+                  help="Point to the server using pattern [username:password@]host[:port]")
+parser.add_option("-f", "--config", action="store", dest="configfile", default=default_config_path,
+                  help="Path to configuration file.")
+parser.add_option("--create-config", action="callback", callback=create_config,
+                  help="Create configuration file CONFIGFILE with default values.")
+(cmd_args, transmissionremote_args) = parser.parse_args()
+
+
+# read config from config file
+config.read(cmd_args.configfile)
+
+# command line connection data can override config file
+if cmd_args.connection:
+    host, port, username, password = explode_connection_string(cmd_args.connection)
+    config.set('Connection', 'host', host)
+    config.set('Connection', 'port', str(port))
+    config.set('Connection', 'username', username)
+    config.set('Connection', 'password', password)
+
+
+# forward arguments after '--' to transmission-remote
+if transmissionremote_args:
+    cmd = ['transmission-remote', '%s:%s' %
+           (config.get('Connection', 'host'), config.get('Connection', 'port'))]
+    if config.get('Connection', 'username') and config.get('Connection', 'password'):
+        cmd.extend(['--auth', '%s:%s' % (config.get('Connection', 'username'), config.get('Connection', 'password'))])
+    cmd.extend(transmissionremote_args)
+    print "EXECUTING:\n%s\nRESPONSE:" % ' '.join(cmd)
+
+    try:
+        retcode = call(cmd)
+    except OSError, msg:
+        quit("Could not execute the above command: %s\n" % msg, 128)
+    quit('', retcode)
+
+
+# run interface
 ui = Interface(Transmission(config.get('Connection', 'host'),
                             config.getint('Connection', 'port'),
                             config.get('Connection', 'username'),

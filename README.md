@@ -47,7 +47,7 @@ it's treated like a torrent file/URL and submitted to the daemon via
 transmission-remote. This is useful because you can instruct Firefox to open
 torrent files with transmission-remote-cli.py.
 
-`$ transmission-remote-cli.py http://www.link.to/file.torrent`
+`$ transmission-remote-cli.py http://link/to/file.torrent`  
 `$ transmission-remote-cli.py path/to/some/torrent-file`  
 
 

@@ -2088,7 +2088,8 @@ def create_config(option, opt_str, value, parser):
 
 # command line parameters
 default_config_path = os.environ['HOME'] + '/.config/transmission-remote-cli/settings.cfg'
-parser = OptionParser(version="%%prog %s" % VERSION,
+parser = OptionParser(usage="%prog [options] [-- transmission-remote options]",
+                      version="%%prog %s" % VERSION,
                       description="%%prog %s" % VERSION)
 parser.add_option("--debug", action="store_true", dest="DEBUG", default=False, help=SUPPRESS_HELP)
 parser.add_option("-c", "--connect", action="store", dest="connection", default="",

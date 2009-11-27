@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.4.3'
+VERSION='0.4.4'
 
 TRNSM_VERSION_MIN = '1.60'
 TRNSM_VERSION_MAX = '1.76'
@@ -179,20 +179,20 @@ class Transmission:
         request = TransmissionRequest(host, port, 'session-get', self.TAG_SESSION_GET)
         request.send_request()
         response = request.get_response()
-        
+
         # rpc version too old?
         version_error = "Unsupported Transmission version: " + str(response['arguments']['version']) + \
             " -- RPC protocol version: " + str(response['arguments']['rpc-version']) + "\n"
 
         min_msg = "Please install Transmission version " + TRNSM_VERSION_MIN + " or higher.\n"
         try:
-            if response['arguments']['rpc-version'] < 5:
+            if response['arguments']['rpc-version'] < RPC_VERSION_MIN:
                 quit(version_error + min_msg)
         except KeyError:
             quit(version_error + min_msg)
 
         # rpc version too new?
-        if response['arguments']['rpc-version'] > 6:
+        if response['arguments']['rpc-version'] > RPC_VERSION_MAX:
             quit(version_error + "Please install Transmission version " + TRNSM_VERSION_MAX + " or lower.\n")
 
 
@@ -209,6 +209,7 @@ class Transmission:
         self.torrent_cache = []
         self.status_cache  = dict()
         self.torrent_details_cache = dict()
+        self.peer_progress_cache   = dict()
         self.hosts_cache   = dict()
         self.geo_ips_cache = dict()
         if features['dns']:   self.resolver = adns.init()
@@ -217,6 +218,12 @@ class Transmission:
         # make sure there are no undefined values
         self.wait_for_torrentlist_update()
 
+        # this fills self.peer_progress_cache with initial values
+        for t in self.torrent_cache:
+            self.requests['torrent-details'].set_request_data('torrent-get', self.TAG_TORRENT_DETAILS,
+                                                              {'ids':t['id'], 'fields': self.DETAIL_FIELDS})
+            self.wait_for_details_update()
+        self.requests['torrent-details'] = TransmissionRequest(self.host, self.port)
 
 
     def update(self, delay, tag_waiting_for=0):
@@ -257,15 +264,7 @@ class Transmission:
 
             elif response['tag'] == self.TAG_TORRENT_DETAILS:
                 self.torrent_details_cache = response['arguments']['torrents'][0]
-                if features['dns'] or features['geoip']:
-                    for peer in self.torrent_details_cache['peers']:
-                        ip = peer['address']
-                        if features['dns'] and not self.hosts_cache.has_key(ip):
-                            self.hosts_cache[ip] = self.resolver.submit_reverse(ip, adns.rr.PTR)
-                        if features['geoip'] and not self.geo_ips_cache.has_key(ip):
-                            self.geo_ips_cache[ip] = self.geo_ip.country_code_by_addr(ip)
-                            if self.geo_ips_cache[ip] == None:
-                                self.geo_ips_cache[ip] = '?'
+                self.upgrade_peerlist()
 
         elif response['tag'] == self.TAG_SESSION_STATS:
             self.status_cache.update(response['arguments'])
@@ -275,6 +274,43 @@ class Transmission:
 
         return response['tag']
 
+    def upgrade_peerlist(self):
+        for index,peer in enumerate(self.torrent_details_cache['peers']):
+            ip = peer['address']
+            peerid = ip + self.torrent_details_cache['hashString']
+
+            # make sure peer cache exists
+            if not self.peer_progress_cache.has_key(peerid):
+                self.peer_progress_cache[peerid] = {'last_progress':0, 'last_update':0, 'download_speed':0, 'time_left':0}
+
+            # estimate how fast a peer is downloading
+            if peer['progress'] < 1:
+                progress_diff = peer['progress'] - self.peer_progress_cache[peerid]['last_progress']
+                if progress_diff > 0:
+                    this_time  = time.time()
+                    time_diff  = this_time - self.peer_progress_cache[peerid]['last_update']
+                    downloaded = self.torrent_details_cache['totalSize'] * progress_diff
+                    avg_speed  = downloaded / time_diff
+                    avg_speed  = (self.peer_progress_cache[peerid]['download_speed'] + avg_speed) /2  # make it less jumpy
+                    time_left  = (self.torrent_details_cache['totalSize'] -
+                                  (self.torrent_details_cache['totalSize']*peer['progress']))  / avg_speed
+
+                    self.peer_progress_cache[peerid]['last_update']    = this_time  # remember update time
+                    self.peer_progress_cache[peerid]['download_speed'] = avg_speed
+                    self.peer_progress_cache[peerid]['time_left']      = time_left
+                        
+
+
+                self.peer_progress_cache[peerid]['last_progress'] = peer['progress']  # remember progress
+            self.torrent_details_cache['peers'][index].update(self.peer_progress_cache[peerid])
+                
+            # resolve and locate peer's ip
+            if features['dns'] and not self.hosts_cache.has_key(ip):
+                self.hosts_cache[ip] = self.resolver.submit_reverse(ip, adns.rr.PTR)
+            if features['geoip'] and not self.geo_ips_cache.has_key(ip):
+                self.geo_ips_cache[ip] = self.geo_ip.country_code_by_addr(ip)
+                if self.geo_ips_cache[ip] == None:
+                    self.geo_ips_cache[ip] = '?'
 
 
     def get_global_stats(self):
@@ -1302,7 +1338,7 @@ class Interface:
             if len(peer['clientName']) > clientname_width:
                 clientname_width = len(peer['clientName'])
         
-        column_names = "Flags %3d Down %3d Up  Progress  " % \
+        column_names = "Flags %3d Down %3d Up   Progress         " % \
             (self.torrent_details['peersSendingToUs'], self.torrent_details['peersGettingFromUs'])
         column_names += 'Client'.ljust(clientname_width) + "          Address"
         if features['geoip']: column_names += "  Country"
@@ -1337,8 +1373,23 @@ class Interface:
             self.pad.move(ypos, 0)
             self.pad.addstr("%-6s   " % peer['flagStr'])
             self.pad.addstr("%5s  " % scale_bytes(peer['rateToClient']), download_tag)
-            self.pad.addstr("%5s  " % scale_bytes(peer['rateToPeer']), upload_tag)
-            self.pad.addstr("%6.2f%%   " % (float(peer['progress'])*100))
+            self.pad.addstr("%5s   " % scale_bytes(peer['rateToPeer']), upload_tag)
+
+            self.pad.addstr("%3d%% " % (float(peer['progress'])*100))
+            self.pad.addch(curses.ACS_DARROW)
+            if peer['progress'] < 1 and peer['download_speed'] > 1024:
+                self.pad.addstr("%-4s" % scale_bytes(peer['download_speed']), curses.A_BOLD)
+                self.pad.addstr(" ")
+                self.pad.addch(curses.ACS_PLMINUS)
+                self.pad.addstr("%-3s" % scale_time(peer['time_left']), curses.A_BOLD)
+                self.pad.addstr("  ")
+            else:
+                self.pad.addstr("?    ")
+                self.pad.addch(curses.ACS_PLMINUS)
+                self.pad.addstr("?    ")
+
+
+
             self.pad.addstr(clientname.ljust(clientname_width).encode('utf-8'))
             self.pad.addstr("  %15s  " % peer['address'])
             if features['geoip']:

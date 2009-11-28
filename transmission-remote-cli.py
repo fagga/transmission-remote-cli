@@ -291,15 +291,14 @@ class Transmission:
                     time_diff  = this_time - self.peer_progress_cache[peerid]['last_update']
                     downloaded = self.torrent_details_cache['totalSize'] * progress_diff
                     avg_speed  = downloaded / time_diff
-                    avg_speed  = (self.peer_progress_cache[peerid]['download_speed'] + avg_speed) /2  # make it less jumpy
-                    time_left  = (self.torrent_details_cache['totalSize'] -
-                                  (self.torrent_details_cache['totalSize']*peer['progress']))  / avg_speed
+                    avg_speed  = ((self.peer_progress_cache[peerid]['download_speed']*10) + avg_speed) /11  # make it less jumpy
+                    downloaded_total = self.torrent_details_cache['totalSize'] \
+                        - (self.torrent_details_cache['totalSize']*peer['progress'])
+                    time_left  = downloaded_total / avg_speed
 
                     self.peer_progress_cache[peerid]['last_update']    = this_time  # remember update time
                     self.peer_progress_cache[peerid]['download_speed'] = avg_speed
                     self.peer_progress_cache[peerid]['time_left']      = time_left
-                        
-
 
                 self.peer_progress_cache[peerid]['last_progress'] = peer['progress']  # remember progress
             self.torrent_details_cache['peers'][index].update(self.peer_progress_cache[peerid])
@@ -1338,7 +1337,7 @@ class Interface:
             if len(peer['clientName']) > clientname_width:
                 clientname_width = len(peer['clientName'])
         
-        column_names = "Flags %3d Down %3d Up   Progress         " % \
+        column_names = "Flags %3d Down %3d Up   Progress     ETA   " % \
             (self.torrent_details['peersSendingToUs'], self.torrent_details['peersGettingFromUs'])
         column_names += 'Client'.ljust(clientname_width) + "          Address"
         if features['geoip']: column_names += "  Country"
@@ -1375,18 +1374,17 @@ class Interface:
             self.pad.addstr("%5s  " % scale_bytes(peer['rateToClient']), download_tag)
             self.pad.addstr("%5s   " % scale_bytes(peer['rateToPeer']), upload_tag)
 
-            self.pad.addstr("%3d%% " % (float(peer['progress'])*100))
-            self.pad.addch(curses.ACS_DARROW)
+            self.pad.addstr("%3d%%" % (float(peer['progress'])*100), curses.A_BOLD)
             if peer['progress'] < 1 and peer['download_speed'] > 1024:
-                self.pad.addstr("%-4s" % scale_bytes(peer['download_speed']), curses.A_BOLD)
+                self.pad.addstr(" @ ")
+                self.pad.addch(curses.ACS_PLMINUS)
+                self.pad.addstr("%-4s" % scale_bytes(peer['download_speed']))
                 self.pad.addstr(" ")
                 self.pad.addch(curses.ACS_PLMINUS)
-                self.pad.addstr("%-3s" % scale_time(peer['time_left']), curses.A_BOLD)
+                self.pad.addstr("%-3s" % scale_time(peer['time_left']))
                 self.pad.addstr("  ")
             else:
-                self.pad.addstr("?    ")
-                self.pad.addch(curses.ACS_PLMINUS)
-                self.pad.addstr("?    ")
+                self.pad.addstr("               ")
 
 
 

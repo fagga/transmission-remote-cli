@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.4.4'
+VERSION='0.4.4.1'
 
 TRNSM_VERSION_MIN = '1.60'
 TRNSM_VERSION_MAX = '1.76'
@@ -281,7 +281,8 @@ class Transmission:
 
             # make sure peer cache exists
             if not self.peer_progress_cache.has_key(peerid):
-                self.peer_progress_cache[peerid] = {'last_progress':0, 'last_update':0, 'download_speed':0, 'time_left':0}
+                self.peer_progress_cache[peerid] = {'last_progress':peer['progress'], 'last_update':time.time(),
+                                                    'download_speed':0, 'time_left':0}
 
             # estimate how fast a peer is downloading
             if peer['progress'] < 1:
@@ -291,10 +292,12 @@ class Transmission:
                     time_diff  = this_time - self.peer_progress_cache[peerid]['last_update']
                     downloaded = self.torrent_details_cache['totalSize'] * progress_diff
                     avg_speed  = downloaded / time_diff
-                    avg_speed  = ((self.peer_progress_cache[peerid]['download_speed']*10) + avg_speed) /11  # make it less jumpy
-                    downloaded_total = self.torrent_details_cache['totalSize'] \
-                        - (self.torrent_details_cache['totalSize']*peer['progress'])
-                    time_left  = downloaded_total / avg_speed
+                    if self.peer_progress_cache[peerid]['download_speed'] > 0:  # make it less jumpy
+                        avg_speed = ((self.peer_progress_cache[peerid]['download_speed']*3) + avg_speed) /4
+
+                    download_left = self.torrent_details_cache['totalSize'] - \
+                        (self.torrent_details_cache['totalSize']*peer['progress'])
+                    time_left  = download_left / avg_speed
 
                     self.peer_progress_cache[peerid]['last_update']    = this_time  # remember update time
                     self.peer_progress_cache[peerid]['download_speed'] = avg_speed
@@ -1337,7 +1340,7 @@ class Interface:
             if len(peer['clientName']) > clientname_width:
                 clientname_width = len(peer['clientName'])
         
-        column_names = "Flags %3d Down %3d Up   Progress     ETA   " % \
+        column_names = "Flags %3d Down %3d Up   Progress      ETA   " % \
             (self.torrent_details['peersSendingToUs'], self.torrent_details['peersGettingFromUs'])
         column_names += 'Client'.ljust(clientname_width) + "          Address"
         if features['geoip']: column_names += "  Country"
@@ -1378,13 +1381,11 @@ class Interface:
             if peer['progress'] < 1 and peer['download_speed'] > 1024:
                 self.pad.addstr(" @ ")
                 self.pad.addch(curses.ACS_PLMINUS)
-                self.pad.addstr("%-4s" % scale_bytes(peer['download_speed']))
-                self.pad.addstr(" ")
+                self.pad.addstr("%-5s " % scale_bytes(peer['download_speed']))
                 self.pad.addch(curses.ACS_PLMINUS)
-                self.pad.addstr("%-3s" % scale_time(peer['time_left']))
-                self.pad.addstr("  ")
+                self.pad.addstr("%-4s " % scale_time(peer['time_left']))
             else:
-                self.pad.addstr("               ")
+                self.pad.addstr("                ")
 
 
 
@@ -1949,9 +1950,9 @@ def scale_time(seconds, type='short'):
             if seconds < 5:
                 return 'now'
             else:
-                return "%s second%s" % (seconds, ('', 's')[seconds>1])
+                return "%d second%s" % (seconds, ('', 's')[seconds>1])
         else:
-            return "%ss" % seconds
+            return "%ds" % seconds
 
     elif seconds < hour_in_sec:
         minutes = round(seconds / minute_in_sec, 0)

@@ -290,18 +290,23 @@ class Transmission:
                 if progress_diff > 0:
                     this_time  = time.time()
                     time_diff  = this_time - self.peer_progress_cache[peerid]['last_update']
-                    downloaded = self.torrent_details_cache['totalSize'] * progress_diff
-                    avg_speed  = downloaded / time_diff
-                    if self.peer_progress_cache[peerid]['download_speed'] > 0:  # make it less jumpy
-                        avg_speed = ((self.peer_progress_cache[peerid]['download_speed']*3) + avg_speed) /4
+                    if time_diff > 5:  # avoid too high initial download_speeds
+                        downloaded = self.torrent_details_cache['totalSize'] * progress_diff
+                        avg_speed  = downloaded / time_diff
+                        debug("%s downloaded %s to %s (%s) in %d seconds\n" \
+                                  % (peerid, self.peer_progress_cache[peerid]['last_progress'], peer['progress'],
+                                     scale_bytes(downloaded), time_diff))
 
-                    download_left = self.torrent_details_cache['totalSize'] - \
-                        (self.torrent_details_cache['totalSize']*peer['progress'])
-                    time_left  = download_left / avg_speed
+                        if self.peer_progress_cache[peerid]['download_speed'] > 0:  # make it less jumpy
+                            avg_speed = ((self.peer_progress_cache[peerid]['download_speed']*3) + avg_speed) /4
 
-                    self.peer_progress_cache[peerid]['last_update']    = this_time  # remember update time
-                    self.peer_progress_cache[peerid]['download_speed'] = avg_speed
-                    self.peer_progress_cache[peerid]['time_left']      = time_left
+                        download_left = self.torrent_details_cache['totalSize'] - \
+                            (self.torrent_details_cache['totalSize']*peer['progress'])
+                        time_left  = download_left / avg_speed
+
+                        self.peer_progress_cache[peerid]['last_update']    = this_time  # remember update time
+                        self.peer_progress_cache[peerid]['download_speed'] = avg_speed
+                        self.peer_progress_cache[peerid]['time_left']      = time_left
 
                 self.peer_progress_cache[peerid]['last_progress'] = peer['progress']  # remember progress
             self.torrent_details_cache['peers'][index].update(self.peer_progress_cache[peerid])

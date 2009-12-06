@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.4.4.1'
+VERSION='0.4.5'
 
 TRNSM_VERSION_MIN = '1.60'
 TRNSM_VERSION_MAX = '1.76'
@@ -297,7 +297,7 @@ class Transmission:
                               % (self.peer_progress_cache[peerid]['last_update'], this_time, time_diff) +\
                               "\tlast_progress.: %-13s   this_progress...: %-13s  diff: %s\n" \
                               % (self.peer_progress_cache[peerid]['last_progress'], peer['progress'], progress_diff) +\
-                              "\tformula: (%s * %s) / %s = %s/s\n\n" \
+                              "\tformula: (%s * %s) / %s = %s/s\n" \
                               % (self.torrent_details_cache['totalSize'], progress_diff, time_diff, scale_bytes(avg_speed)))
 
                     if self.peer_progress_cache[peerid]['download_speed'] > 0:  # make it less jumpy
@@ -306,6 +306,7 @@ class Transmission:
                     download_left = self.torrent_details_cache['totalSize'] - \
                         (self.torrent_details_cache['totalSize']*peer['progress'])
                     time_left  = download_left / avg_speed
+                    debug("  %s  --  will finish %s\n\n" % (timestamp(this_time), timestamp(time_left + this_time)))
 
                     self.peer_progress_cache[peerid]['last_update']    = this_time  # remember update time
                     self.peer_progress_cache[peerid]['download_speed'] = avg_speed
@@ -1215,31 +1216,31 @@ class Interface:
         for i, file_info in enumerate(t['files']):
             if t['wanted'][i] == True: wanted += t['files'][i]['length']
 
-        info.append(['Size: ', "%s; " % scale_bytes(t['totalSize'], 'long'),
-                     "%s wanted; " % (scale_bytes(wanted, 'long'),'everything') [t['totalSize'] == wanted],
+        info.append(['Size: ', "%s;  " % scale_bytes(t['totalSize'], 'long'),
+                     "%s wanted;  " % (scale_bytes(wanted, 'long'),'everything') [t['totalSize'] == wanted],
                      "%s left" % scale_bytes(t['leftUntilDone'], 'long')])
 
-        info.append(['Files: ', "%d; " % len(t['files'])])
+        info.append(['Files: ', "%d;  " % len(t['files'])])
         complete     = map(lambda x: x['bytesCompleted'] == x['length'], t['files']).count(True)
         not_complete = filter(lambda x: x['bytesCompleted'] != x['length'], t['files'])
         partial      = map(lambda x: x['bytesCompleted'] > 0, not_complete).count(True)
         if complete == len(t['files']):
             info[-1].append("all complete")
         else:
-            info[-1].append("%d complete; " % complete)
+            info[-1].append("%d complete;  " % complete)
             info[-1].append("%d commenced" % partial)
 
-        info.append(['Pieces: ', "%s; " % t['pieceCount'],
+        info.append(['Pieces: ', "%s;  " % t['pieceCount'],
                      "%s each" % scale_bytes(t['pieceSize'], 'long')])
 
         info.append(['Download: '])
         info[-1].append("%s" % scale_bytes(t['downloadedEver'], 'long') + \
-                        " (%d%%) received; " % int(percent(t['sizeWhenDone'], t['downloadedEver'])))
+                        " (%d%%) received;  " % int(percent(t['sizeWhenDone'], t['downloadedEver'])))
         info[-1].append("%s" % scale_bytes(t['haveValid'], 'long') + \
-                        " (%d%%) verified; " % int(percent(t['sizeWhenDone'], t['haveValid'])))
+                        " (%d%%) verified;  " % int(percent(t['sizeWhenDone'], t['haveValid'])))
         info[-1].append("%s corrupt"  % scale_bytes(t['corruptEver'], 'long'))
         if t['percent_done'] < 100:
-            info[-1][-1] += '; '
+            info[-1][-1] += ';  '
             if t['rateDownload']:
                 info[-1].append("receiving %s per second" % scale_bytes(t['rateDownload'], 'long'))
                 if t['downloadLimited']:
@@ -1252,7 +1253,7 @@ class Interface:
         except ZeroDivisionError:
             copies_distributed = 0
         info.append(['Upload: ', "%s " % scale_bytes(t['uploadedEver'], 'long') + \
-                         "(%.2f copies) distributed; " % copies_distributed])
+                         "(%.2f copies) distributed;  " % copies_distributed])
         if t['rateUpload']:
             info[-1].append("sending %s per second" % scale_bytes(t['rateUpload'], 'long'))
             if t['uploadLimited']:
@@ -1260,10 +1261,10 @@ class Interface:
         else:
             info[-1].append("no transmission in progress")
 
-        info.append(['Peers: ', "%d reported by tracker; " % t['peersKnown'],
-                     "connected to %d; "                  % t['peersConnected'],
-                     "downloading from %d; "              % t['peersSendingToUs'],
-                     "uploading to %d"                    % t['peersGettingFromUs']])
+        info.append(['Peers: ', "%d reported by tracker;  " % t['peersKnown'],
+                     "connected to %d;  "                   % t['peersConnected'],
+                     "downloading from %d;  "               % t['peersSendingToUs'],
+                     "uploading to %d"                      % t['peersGettingFromUs']])
 
         ypos = self.draw_details_list(ypos, info)
 
@@ -2018,22 +2019,19 @@ def timestamp(timestamp):
 def scale_bytes(bytes, type='short'):
     if bytes >= 1073741824:
         scaled_bytes = round((bytes / 1073741824.0), 2)
-        unit = ('G','Gigabyte')[type == 'long']
+        unit = 'G'
     elif bytes >= 1048576:
         scaled_bytes = round((bytes / 1048576.0), 1)
         if scaled_bytes >= 100:
             scaled_bytes = int(scaled_bytes)
-        unit = ('M','Megabyte')[type == 'long']
+        unit = 'M'
     elif bytes >= 1024:
         scaled_bytes = int(bytes / 1024)
-        unit = ('K','Kilobyte')[type == 'long']
+        unit = 'K'
     else:
         scaled_bytes = round((bytes / 1024.0), 1)
-        unit = ('K','Kilobyte')[type == 'long']
+        unit = 'K'
 
-    # add plural s to unit if necessary
-    if type == 'long':
-        unit = ' ' + unit + ('s', '')[scaled_bytes == 1]
 
     # handle 0 bytes special
     if bytes == 0 and type == 'long':
@@ -2045,8 +2043,10 @@ def scale_bytes(bytes, type='short'):
     else:
         scaled_bytes = str(scaled_bytes).rstrip('0')
     
-    if type == 'blank': return scaled_bytes
-    else:               return scaled_bytes + unit
+    if type == 'long':
+        return num2str(bytes) + ' [' + scaled_bytes + unit + ']'
+    else:
+        return scaled_bytes + unit
 
 
 def html2text(str):
@@ -2061,7 +2061,8 @@ def num2str(num):
     elif int(num) == -2:
         return 'oo'
     else:
-        return str(num)
+        string = re.sub(r'(\d{3})', '\g<1>,', str(num)[::-1])[::-1]
+        return string.lstrip(',')
 
 def int2bin(n):
     """Returns the binary of integer n"""

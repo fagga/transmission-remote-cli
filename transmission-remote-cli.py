@@ -301,7 +301,7 @@ class Transmission:
                               % (self.torrent_details_cache['totalSize'], progress_diff, time_diff, scale_bytes(avg_speed)))
 
                     if self.peer_progress_cache[peerid]['download_speed'] > 0:  # make it less jumpy
-                        avg_speed = ((self.peer_progress_cache[peerid]['download_speed']*3) + avg_speed) /4
+                        avg_speed = (self.peer_progress_cache[peerid]['download_speed'] + avg_speed) /2
 
                     download_left = self.torrent_details_cache['totalSize'] - \
                         (self.torrent_details_cache['totalSize']*peer['progress'])
@@ -968,7 +968,7 @@ class Interface:
         elif self.filter_list == 'incomplete':
             self.torrents = [t for t in self.torrents if t['percent_done'] < 100]
         elif self.filter_list == 'active':
-            self.torrents = [t for t in self.torrents if not t['rateDownload'] == t['rateUpload'] == 0]
+            self.torrents = [t for t in self.torrents if t['peersConnected'] > 0]
         elif self.filter_list == 'verifying':
             self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_CHECK \
                                  or t['status'] == Transmission.STATUS_CHECK_WAIT]

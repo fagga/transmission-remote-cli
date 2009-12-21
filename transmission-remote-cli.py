@@ -1718,9 +1718,8 @@ class Interface:
         ypos = 1
         for msg in message.split("\n"):
             msg = msg[0:self.width-4]
-            win.addstr(ypos, 2, msg)
+            win.addstr(ypos, 2, msg.encode('utf-8'))
             ypos += 1
-
         return win
 
 

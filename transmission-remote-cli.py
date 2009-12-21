@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.4.5'
+VERSION='0.4.6'
 
 TRNSM_VERSION_MIN = '1.60'
 TRNSM_VERSION_MAX = '1.76'
@@ -555,9 +555,10 @@ class Interface:
         self.sort_orders  = config.get('Sorting', 'order').split(',') #['name']
         self.sort_reverse = config.getboolean('Sorting', 'reverse')
 
+        self.torrents         = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
+        self.stats            = self.server.get_global_stats()
+        self.torrent_details  = []
         self.selected_torrent = -1  # changes to >-1 when focus >-1 & user hits return
-        self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
-        self.stats    = self.server.get_global_stats()
 
         self.focus     = -1  # -1: nothing focused; 0: top of list; <# of torrents>-1: bottom of list
         self.scrollpos = 0   # start of torrentlist
@@ -632,11 +633,21 @@ class Interface:
         self.pad_height = max((len(self.torrents)+1)*3, self.height)
         self.pad = curses.newpad(self.pad_height, self.width)
         self.mainview_height = self.height - 2
-        self.torrents_per_page  = self.mainview_height/3
-
+        self.torrents_per_page = self.mainview_height/3
         self.detaillistitems_per_page = self.height - 8
 
-        if self.torrents:
+        if self.selected_torrent > -1:
+            self.rateDownload_width = self.get_rateDownload_width([self.torrent_details])
+            self.rateUpload_width   = self.get_rateUpload_width([self.torrent_details])
+
+            debug("download width:%s   upload width:%s\n" % (self.rateDownload_width, self.rateUpload_width))
+
+            self.torrent_title_width = self.width - self.rateUpload_width - 2
+            # show downloading column only if torrents is downloading
+            if self.torrent_details['status'] == Transmission.STATUS_DOWNLOAD:
+                self.torrent_title_width -= self.rateDownload_width + 2
+
+        elif self.torrents:
             visible_torrents = self.torrents[self.scrollpos/3 : self.scrollpos/3 + self.torrents_per_page + 1]
             self.rateDownload_width = self.get_rateDownload_width(visible_torrents)
             self.rateUpload_width   = self.get_rateUpload_width(visible_torrents)
@@ -1106,12 +1117,11 @@ class Interface:
             tag += curses.A_BOLD
             tag_done += curses.A_BOLD
 
-        title = title.encode('utf-8')
         # addstr() dies when you tell it to draw on the last column of the
         # terminal, so we have to catch this exception.
         try:
-            self.pad.addstr(ypos, 0, title[0:bar_width], tag_done)
-            self.pad.addstr(ypos, bar_width, title[bar_width:], tag)
+            self.pad.addstr(ypos, 0, title[0:bar_width].encode('utf-8'), tag_done)
+            self.pad.addstr(ypos, bar_width, title[bar_width:].encode('utf-8'), tag)
         except:
             pass
 
@@ -1168,6 +1178,7 @@ class Interface:
 
     def draw_details(self):
         self.torrent_details = self.server.get_torrent_details()
+        self.manage_layout()
 
         # details could need more space than the torrent list
         self.pad_height = max(50, len(self.torrent_details['files'])+10, (len(self.torrents)+1)*3, self.height)

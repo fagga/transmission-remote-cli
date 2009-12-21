@@ -832,7 +832,7 @@ class Interface:
         # remove torrent
         elif self.focus > -1 and (c == ord('r') or c == curses.KEY_DC):
             name = self.torrents[self.focus]['name'][0:self.width - 15]
-            if self.dialog_yesno("Remove %s?" % name.encode('utf8')) == True:
+            if self.dialog_yesno("Remove %s?" % name) == True:
                 if self.selected_torrent > -1:  # leave details
                     self.server.set_torrent_details_id(-1)
                     self.selected_torrent = -1

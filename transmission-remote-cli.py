@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.4.6'
+VERSION='0.4.7'
 
 TRNSM_VERSION_MIN = '1.60'
 TRNSM_VERSION_MAX = '1.76'
@@ -1499,9 +1499,9 @@ class Interface:
                 xpos += 1
 
             # end map if terminal is too small
-            if ypos >= self.height-3:
-                line = ('[' + str(len(pieces)-counter) + ' more pieces not listed]').center(self.width)
-                self.pad.addstr(ypos, 1, line, curses.A_BOLD)
+            if ypos >= self.height-2:
+                line = ('[' + str(len(pieces)-counter) + ' further pieces not listed]').center(self.width)
+                self.pad.addstr(ypos-1, 1, line, curses.A_BOLD)
                 break
             else:
                 counter += 1

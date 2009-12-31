@@ -1492,6 +1492,7 @@ class Interface:
         for piece in pieces:
             if int(piece): self.pad.addch(ypos, xpos, ' ', curses.A_REVERSE)
             else:          self.pad.addch(ypos, xpos, '_')
+
             if counter % map_width == 0:
                 ypos += 1 ; xpos = 6
                 self.pad.addstr(ypos, 1, "%4d" % counter, curses.A_BOLD)
@@ -1500,8 +1501,10 @@ class Interface:
 
             # end map if terminal is too small
             if ypos >= self.height-2:
-                line = ('[' + str(len(pieces)-counter) + ' further pieces not listed]').center(self.width)
-                self.pad.addstr(ypos-1, 1, line, curses.A_BOLD)
+                missing_pieces = len(pieces) - counter
+                line = "%d further piece%s not listed" % (missing_pieces, ('','s')[missing_pieces>1])
+                xpos = (self.width - len(line)) / 2
+                self.pad.addstr(ypos-1, xpos, line, curses.A_REVERSE)
                 break
             else:
                 counter += 1

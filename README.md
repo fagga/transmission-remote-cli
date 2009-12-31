@@ -39,7 +39,6 @@ If you don't like the default configuration file path
 ~/.config/transmission-remote-cli/settings.cfg, change it:  
 `$ transmission-remote-cli.py -f ~/.trclirc --create-config`
 
----
 
 ## Calling transmission-remote  
 transmission-remote-cli forwards all arguments after '--' to
@@ -54,7 +53,6 @@ Some examples:
 `$ transmission-remote-cli.py -- -t 2 -i`  
 `$ transmission-remote-cli.py -- -as`
 
----
 
 ## Add torrents  
 If you provide only one command line argument and it doesn't start with '-',
@@ -65,7 +63,6 @@ torrent files with transmission-remote-cli.py.
 `$ transmission-remote-cli.py http://link/to/file.torrent`  
 `$ transmission-remote-cli.py path/to/some/torrent-file`
 
----
 
 ## Contact
 Feel free to request new features or provide bug reports.  

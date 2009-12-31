@@ -16,9 +16,8 @@ packaged in any Linux distribution. The Debian/Ubuntu package is called
 - GeoIP: Guess which country peers come from.
 - adns: Resolve IPs to host names.
 
-(Debian/Ubuntu package names are `python-adns` and `python-geoip`.)
+Debian/Ubuntu package names are `python-adns` and `python-geoip`.
 
----
 
 ## Connection information
 Authentication and host/port can be set via command line with one

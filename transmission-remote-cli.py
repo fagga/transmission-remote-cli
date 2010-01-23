@@ -16,12 +16,12 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.4.8'
+VERSION='0.5.0'
 
 TRNSM_VERSION_MIN = '1.60'
-TRNSM_VERSION_MAX = '1.77'
-RPC_VERSION_MIN = 5
-RPC_VERSION_MAX = 6
+TRNSM_VERSION_MAX = '1.82'
+RPC_VERSION_MIN = 7
+RPC_VERSION_MAX = 7
 
 # error codes
 CONNECTION_ERROR = 1
@@ -146,20 +146,17 @@ class Transmission:
     TAG_SESSION_STATS   = 21
     TAG_SESSION_GET     = 22
 
-    LIST_FIELDS = [ 'id', 'name', 'status', 'seeders', 'leechers', 'desiredAvailable',
+    LIST_FIELDS = [ 'id', 'name', 'status', 'trackerStats', 'desiredAvailable',
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
                     'sizeWhenDone', 'haveValid', 'haveUnchecked', 'addedDate',
-                    'uploadedEver', 'errorString', 'recheckProgress', 'swarmSpeed',
+                    'uploadedEver', 'errorString', 'recheckProgress',
                     'peersKnown', 'peersConnected', 'uploadLimit', 'downloadLimit',
                     'uploadLimited', 'downloadLimited', 'bandwidthPriority']
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
                       'totalSize', 'leftUntilDone', 'comment',
-                      'announceURL', 'announceResponse', 'lastAnnounceTime',
-                      'nextAnnounceTime', 'lastScrapeTime', 'nextScrapeTime',
-                      'scrapeResponse', 'scrapeURL',
-                      'hashString', 'timesCompleted', 'pieceCount', 'pieceSize', 'pieces',
+                      'hashString', 'pieceCount', 'pieceSize', 'pieces',
                       'downloadedEver', 'corruptEver',
                       'peersFrom', 'peersSendingToUs', 'peersGettingFromUs' ] + LIST_FIELDS
 
@@ -258,6 +255,8 @@ class Transmission:
                 t['uploadRatio'] = round(float(t['uploadRatio']), 2)
                 t['percent_done'] = percent(float(t['sizeWhenDone']),
                                             float(t['haveValid'] + t['haveUnchecked']))
+                t['seeders']  = sum(map(lambda x: max(0, x['seederCount']),  t['trackerStats']))
+                t['leechers'] = sum(map(lambda x: max(0, x['leecherCount']), t['trackerStats']))
 
             if response['tag'] == self.TAG_TORRENT_LIST:
                 self.torrent_cache = response['arguments']['torrents']
@@ -768,7 +767,7 @@ class Interface:
                        ('seeders','_Seeds'), ('leechers','Lee_ches'), ('sizeWhenDone', 'Si_ze'),
                        ('status','S_tatus'), ('uploadedEver','Up_loaded'),
                        ('rateUpload','_Upload Speed'), ('rateDownload','_Download Speed'),
-                       ('swarmSpeed','Swar_m Rate'), ('uploadRatio','_Ratio'),
+                       ('uploadRatio','_Ratio'),
                        ('peersConnected','P_eers'), ('reverse','Re_verse')]
             choice = self.dialog_menu('Sort order', options,
                                       map(lambda x: x[0]==self.sort_orders[-1], options).index(True)+1)
@@ -1152,10 +1151,6 @@ class Interface:
                 uploaded = scale_bytes(torrent['uploadedEver'])
                 parts.append("%7s uploaded" % ('nothing',uploaded)[uploaded != '0B'])
 
-            if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 18:
-                swarm_rate = scale_bytes(torrent['swarmSpeed'])
-                parts.append("%5s swarm rate" % ('no',swarm_rate)[swarm_rate != ''])
-
             if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 22:
                 parts.append("%4s peer%s connected" % (torrent['peersConnected'],
                                                        ('s',' ')[torrent['peersConnected'] == 1]))
@@ -1278,9 +1273,6 @@ class Interface:
                      "uploading to %d"                      % t['peersGettingFromUs']])
 
         ypos = self.draw_details_list(ypos, info)
-
-        self.pad.addstr(ypos, 1, "Tracker has seen %s clients completing this torrent." \
-                            % num2str(t['timesCompleted']))
 
         self.draw_details_eventdates(ypos+2)
         return ypos+2
@@ -1419,6 +1411,8 @@ class Interface:
 
 
     def draw_trackerlist(self, ypos):
+        self.pad.addstr(ypos, 5, "Yet to be fixed.")
+        return
         t = self.torrent_details
         # find active tracker
         active   = ''

@@ -16,9 +16,9 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.5.0'
+VERSION='0.5.1'
 
-TRNSM_VERSION_MIN = '1.60'
+TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '1.82'
 RPC_VERSION_MIN = 7
 RPC_VERSION_MAX = 7
@@ -86,7 +86,6 @@ class TransmissionRequest:
     def set_request_data(self, method, tag, arguments=None):
         request_data = {'method':method, 'tag':tag}
         if arguments: request_data['arguments'] = arguments
-#        debug(repr(request_data) + "\n")
         self.http_request = urllib2.Request(url=self.url, data=json.dumps(request_data))
 
     def send_request(self):
@@ -255,8 +254,8 @@ class Transmission:
                 t['uploadRatio'] = round(float(t['uploadRatio']), 2)
                 t['percent_done'] = percent(float(t['sizeWhenDone']),
                                             float(t['haveValid'] + t['haveUnchecked']))
-                t['seeders']  = sum(map(lambda x: max(0, x['seederCount']),  t['trackerStats']))
-                t['leechers'] = sum(map(lambda x: max(0, x['leecherCount']), t['trackerStats']))
+                t['seeders']  = max(map(lambda x: x['seederCount'],  t['trackerStats']))
+                t['leechers'] = max(map(lambda x: x['leecherCount'], t['trackerStats']))
 
             if response['tag'] == self.TAG_TORRENT_LIST:
                 self.torrent_cache = response['arguments']['torrents']
@@ -619,7 +618,7 @@ class Interface:
             curses.endwin()
             self.screen.refresh()
             self.height, self.width = self.screen.getmaxyx()
-            if self.width < 50 or self.height < 16:
+            if self.width < 60 or self.height < 16:
                 self.screen.erase()
                 self.screen.addstr(0,0, "Terminal too small", curses.A_REVERSE + curses.A_BOLD)
                 time.sleep(1)
@@ -638,9 +637,6 @@ class Interface:
         if self.selected_torrent > -1:
             self.rateDownload_width = self.get_rateDownload_width([self.torrent_details])
             self.rateUpload_width   = self.get_rateUpload_width([self.torrent_details])
-
-            debug("download width:%s   upload width:%s\n" % (self.rateDownload_width, self.rateUpload_width))
-
             self.torrent_title_width = self.width - self.rateUpload_width - 2
             # show downloading column only if torrents is downloading
             if self.torrent_details['status'] == Transmission.STATUS_DOWNLOAD:
@@ -1143,8 +1139,8 @@ class Interface:
             parts[0] = parts[0].ljust(20)
 
             # seeds and leeches will be appended right justified later
-            peers  = "%4s seed%s " % (num2str(torrent['seeders']), ('s', ' ')[torrent['seeders']==1])
-            peers += "%4s leech%s" % (num2str(torrent['leechers']), ('es', '  ')[torrent['leechers']==1])
+            peers  = "%5s seed%s " % (num2str(torrent['seeders']), ('s', ' ')[torrent['seeders']==1])
+            peers += "%5s leech%s" % (num2str(torrent['leechers']), ('es', '  ')[torrent['leechers']==1])
 
             # show additional information if enough room
             if self.torrent_title_width - sum(map(lambda x: len(x), parts)) - len(peers) > 18:
@@ -1274,8 +1270,8 @@ class Interface:
 
         ypos = self.draw_details_list(ypos, info)
 
-        self.draw_details_eventdates(ypos+2)
-        return ypos+2
+        self.draw_details_eventdates(ypos+1)
+        return ypos+1
 
     def draw_details_eventdates(self, ypos):
         t = self.torrent_details
@@ -1399,8 +1395,6 @@ class Interface:
             else:
                 self.pad.addstr("                ")
 
-
-
             self.pad.addstr(clientname.ljust(clientname_width).encode('utf-8'))
             self.pad.addstr("  %15s  " % peer['address'])
             if features['geoip']:
@@ -1411,63 +1405,42 @@ class Interface:
 
 
     def draw_trackerlist(self, ypos):
-        self.pad.addstr(ypos, 5, "Yet to be fixed.")
-        return
-        t = self.torrent_details
-        # find active tracker
-        active   = ''
-        inactive = []
-        for tracker in t['trackers']:
-            if tracker['announce'] == t['announceURL']:
-                active = tracker
+        tlist = self.torrent_details['trackerStats']
+        for t in tlist:
+            announce_msg_size = scrape_msg_size = 0
+            self.pad.addstr(ypos+1, 0,  "Latest announce: %s" % timestamp(t['lastAnnounceTime']))
+            self.pad.addstr(ypos+1, 55, "Latest scrape: %s" % timestamp(t['lastScrapeTime']))
+
+            if t['lastAnnounceSucceeded']:
+                peers = "%s peer%s" % (num2str(t['lastAnnouncePeerCount']), ('s', '')[t['lastAnnouncePeerCount']==1])
+                self.pad.addstr(ypos,   0, "#%i in tier #%i: %s" % (t['id']+1, t['tier'], t['announce']), curses.A_BOLD + curses.A_UNDERLINE)
+                self.pad.addstr(ypos+2, 9, "Result: ")
+                self.pad.addstr(ypos+2, 17, "%s" % peers, curses.A_BOLD)
             else:
-                inactive.append(tracker)
+                self.pad.addstr(ypos,   0, "#%i in tier #%i: %s" % (t['id']+1, t['tier'], t['announce']), curses.A_UNDERLINE)
+                self.pad.addstr(ypos+2, 7, "Response:")
+                announce_msg_size = self.wrap_and_draw_result(ypos+2, 17, t['lastAnnounceResult'])
 
-        # show active tracker
-        self.pad.addstr(ypos, 0, active['announce'])
-        self.pad.addstr(ypos+1, 2, "  Latest announce: %s" % timestamp(t['lastAnnounceTime']))
-        self.pad.addstr(ypos+2, 2, "Announce response: %s" % t['announceResponse'])
-        self.pad.addstr(ypos+3, 2, "    Next announce: %s" % timestamp(t['nextAnnounceTime']))
-        if t['errorString']:
-            self.pad.addstr(ypos+4, 2, "Error: %s" % t['errorString'])
+            if t['lastScrapeSucceeded']:
+                seeds   = "%s seed%s" % (num2str(t['seederCount']), ('s', '')[t['seederCount']==1])
+                leeches = "%s leech%s" % (num2str(t['leecherCount']), ('es', '')[t['leecherCount']==1])
+                self.pad.addstr(ypos+2, 55, "Tracker knows: ")
+                self.pad.addstr(ypos+2, 70, "%s and %s" % (seeds, leeches), curses.A_BOLD)
+            else:
+                self.pad.addstr(ypos+2, 60, "Response:")
+                scrape_msg_size += self.wrap_and_draw_result(ypos+2, 70, t['lastScrapeResult'])
+            ypos += max(announce_msg_size, scrape_msg_size)
 
-        if not active['scrape']:
-            active['scrape'] = "No scrape URL announced"
+            self.pad.addstr(ypos+3, 0,  "  Next announce: %s" % timestamp(t['nextAnnounceTime']))
+            self.pad.addstr(ypos+3, 55, "  Next scrape: %s" % timestamp(t['nextScrapeTime']))
+            ypos += 5
 
-        scrape_width   = max(60, len(active['scrape']))
-        announce_width = max(60, len(active['announce']))
-        if self.width < announce_width + scrape_width + 2:
-            xpos = 0
-            ypos += 6
-        else:
-            xpos = announce_width + 2
-        self.pad.addstr(ypos,   xpos, active['scrape'])
-        self.pad.addstr(ypos+1, xpos+2, "  Latest scrape: %s" % timestamp(t['lastScrapeTime']))
-        self.pad.addstr(ypos+2, xpos+2, "Scrape response: %s" % t['scrapeResponse'])
-        self.pad.addstr(ypos+3, xpos+2, "    Next scrape: %s" % timestamp(t['nextScrapeTime']))
-        ypos += 5
-        if self.width >= announce_width + scrape_width + 2:
-            ypos += 1
-        
-        # show a list of inactive trackers
-        if inactive:
-            self.pad.addstr(ypos, 0, "%d Fallback Tracker%s:" % (len(inactive), ('','s')[len(inactive)>1]) )
-
-            # find longest tracker url to make multiple columns if necessary
-            max_url_length = max(map(lambda x: len(x['announce']), inactive))
-
-            ypos_start = ypos + 1
-            xpos = 0
-            for tracker in inactive:
-                ypos += 1
-                if ypos >= self.height:
-                    # start new column
-                    xpos += max_url_length + 2
-                    ypos = ypos_start
-                if xpos+max_url_length > self.width:
-                    # all possible columns full
-                    break
-                self.pad.addstr(ypos, xpos, tracker['announce'])
+    def wrap_and_draw_result(self, ypos, xpos, result):
+        result = wrap(result, 30)
+        i = 0
+        for i, line in enumerate(result):
+            self.pad.addstr(ypos+i, xpos, line, curses.A_BOLD)
+        return i
 
 
     def draw_pieces_map(self, ypos):
@@ -2008,7 +1981,7 @@ def scale_time(seconds, type='short'):
 
 
 def timestamp(timestamp):
-    if timestamp <= 1:
+    if timestamp < 1:
         return 'never'
 
     date_format = "%x %X"

@@ -31,8 +31,10 @@ CONFIGFILE_ERROR = 3
 import time
 import re
 import base64
-try:    import json
-except ImportError: import simplejson as json
+try:
+    import json
+except ImportError:
+    import simplejson as json
 import httplib
 import urllib2
 import socket

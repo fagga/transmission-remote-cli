@@ -1288,11 +1288,17 @@ class Interface:
         else:
             self.pad.addstr(ypos+4, 1, 'Finished: ' + timestamp(t['doneDate']))
 
-        if self.width >= 75 and t['comment']:
-            width = self.width - 50
-            comment = wrap('Comment: ' + t['comment'], width)
-            for i, line in enumerate(comment):
-                self.pad.addstr(ypos+i, 50, line)
+        if t['comment']:
+            if self.width >= 90:
+                width = self.width - 50
+                comment = wrap('Comment: ' + t['comment'], width)
+                for i, line in enumerate(comment):
+                    self.pad.addstr(ypos+i, 50, line)
+            else:
+                width = self.width - 2
+                comment = wrap('Comment: ' + t['comment'], width)
+                for i, line in enumerate(comment):
+                    self.pad.addstr(ypos+6+i, 2, line)
 
 
     def draw_filelist(self, ypos):

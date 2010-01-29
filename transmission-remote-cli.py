@@ -259,6 +259,7 @@ class Transmission:
                                             float(t['haveValid'] + t['haveUnchecked']))
                 t['seeders']  = max(map(lambda x: x['seederCount'],  t['trackerStats']))
                 t['leechers'] = max(map(lambda x: x['leecherCount'], t['trackerStats']))
+                t['available'] = t['desiredAvailable'] + t['haveValid'] + t['haveUnchecked']
 
             if response['tag'] == self.TAG_TORRENT_LIST:
                 self.torrent_cache = response['arguments']['torrents']
@@ -1089,8 +1090,7 @@ class Interface:
         size = "%5s" % scale_bytes(torrent['sizeWhenDone'])
         if torrent['percent_done'] < 100:
             if torrent['seeders'] <= 0 and torrent['status'] != Transmission.STATUS_CHECK:
-                available = torrent['desiredAvailable'] + torrent['haveValid'] + torrent['haveUnchecked']
-                size = "%5s / " % scale_bytes(available) + size
+                size = "%5s / " % scale_bytes(torrent['available']) + size
             size = "%5s / " % scale_bytes(torrent['haveValid'] + torrent['haveUnchecked']) + size
         size = '| ' + size
         title = title[:-len(size)] + size
@@ -1221,9 +1221,13 @@ class Interface:
         for i, file_info in enumerate(t['files']):
             if t['wanted'][i] == True: wanted += t['files'][i]['length']
 
-        info.append(['Size: ', "%s;  " % scale_bytes(t['totalSize'], 'long'),
-                     "%s wanted;  " % (scale_bytes(wanted, 'long'),'everything') [t['totalSize'] == wanted],
-                     "%s left" % scale_bytes(t['leftUntilDone'], 'long')])
+        sizes = ['Size: ', "%s;  " % scale_bytes(t['totalSize'], 'long'),
+                 "%s wanted;  " % (scale_bytes(wanted, 'long'),'everything') [t['totalSize'] == wanted]]
+        if t['available'] < t['totalSize']:
+            sizes.append("%s available;  " % scale_bytes(t['available'], 'long'))
+        sizes.extend(["%s left" % scale_bytes(t['leftUntilDone'], 'long')])
+        info.append(sizes)
+
 
         info.append(['Files: ', "%d;  " % len(t['files'])])
         complete     = map(lambda x: x['bytesCompleted'] == x['length'], t['files']).count(True)

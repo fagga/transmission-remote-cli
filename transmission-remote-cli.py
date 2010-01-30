@@ -16,10 +16,10 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.5.1'
+VERSION='0.5.2'
 
 TRNSM_VERSION_MIN = '1.80'
-TRNSM_VERSION_MAX = '1.82'
+TRNSM_VERSION_MAX = '1.83'
 RPC_VERSION_MIN = 7
 RPC_VERSION_MAX = 7
 
@@ -1398,7 +1398,10 @@ class Interface:
             self.pad.addstr("%5s  " % scale_bytes(peer['rateToClient']), download_tag)
             self.pad.addstr("%5s   " % scale_bytes(peer['rateToPeer']), upload_tag)
 
-            self.pad.addstr("%3d%%" % (float(peer['progress'])*100), curses.A_BOLD)
+            if peer['progress'] < 1:
+                self.pad.addstr("%3d%%" % (float(peer['progress'])*100))
+            else:
+                self.pad.addstr("%3d%%" % (float(peer['progress'])*100), curses.A_BOLD)
             if peer['progress'] < 1 and peer['download_speed'] > 1024:
                 self.pad.addstr(" @ ")
                 self.pad.addch(curses.ACS_PLMINUS)

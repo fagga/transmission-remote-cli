@@ -1182,7 +1182,7 @@ class Interface:
         self.draw_torrentlist_item(self.torrent_details, False, 0)
 
         # divider + menu
-        menu_items = ['_Overview', "_Files", 'P_eers', '_Tracker', 'Pie_ces' ]
+        menu_items = ['_Overview', "_Files", 'P_eers', '_Trackers', 'Pie_ces' ]
         xpos = int((self.width - sum(map(lambda x: len(x), menu_items))-len(menu_items)) / 2)
         for item in menu_items:
             self.pad.move(3, xpos)
@@ -1578,7 +1578,7 @@ class Interface:
             self.screen.insstr((self.height-1), 0, 
                                "%d peer%s connected:" % (self.torrent_details['peersConnected'],
                                                          ('s','')[self.torrent_details['peersConnected'] == 1]) + \
-                                   " Tracker: %-3d" % self.torrent_details['peersFrom']['fromTracker'] + \
+                                   " Trackers: %-3d" % self.torrent_details['peersFrom']['fromTracker'] + \
                                    " PEX: %-3d" % self.torrent_details['peersFrom']['fromPex'] + \
                                    " Incoming: %-3d" % self.torrent_details['peersFrom']['fromIncoming'] + \
                                    " Cache: %-3d" % self.torrent_details['peersFrom']['fromCache'],

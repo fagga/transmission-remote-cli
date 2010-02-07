@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.5.2'
+VERSION='0.5.3'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '1.83'
@@ -257,8 +257,12 @@ class Transmission:
                 t['uploadRatio'] = round(float(t['uploadRatio']), 2)
                 t['percent_done'] = percent(float(t['sizeWhenDone']),
                                             float(t['haveValid'] + t['haveUnchecked']))
-                t['seeders']  = max(map(lambda x: x['seederCount'],  t['trackerStats']))
-                t['leechers'] = max(map(lambda x: x['leecherCount'], t['trackerStats']))
+                try:
+                    t['seeders']  = max(map(lambda x: x['seederCount'],  t['trackerStats']))
+                    t['leechers'] = max(map(lambda x: x['leecherCount'], t['trackerStats']))
+                except ValueError:
+                    t['seeders']  = t['leechers'] = -1
+
                 t['available'] = t['desiredAvailable'] + t['haveValid'] + t['haveUnchecked']
 
             if response['tag'] == self.TAG_TORRENT_LIST:

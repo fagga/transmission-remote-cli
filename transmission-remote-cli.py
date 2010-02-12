@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.5.3'
+VERSION='0.5.4'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '1.83'
@@ -1302,12 +1302,12 @@ class Interface:
         if t['comment']:
             if self.width >= 90:
                 width = self.width - 50
-                comment = wrap('Comment: ' + t['comment'], width)
+                comment = wrap('Comment: ' + t['comment'].encode('utf8'), width)
                 for i, line in enumerate(comment):
                     self.pad.addstr(ypos+i, 50, line)
             else:
                 width = self.width - 2
-                comment = wrap('Comment: ' + t['comment'], width)
+                comment = wrap('Comment: ' + t['comment'].encode('utf8'), width)
                 for i, line in enumerate(comment):
                     self.pad.addstr(ypos+6+i, 2, line)
 

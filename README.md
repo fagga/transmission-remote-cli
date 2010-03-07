@@ -8,7 +8,7 @@
 
 ## Modules
 
-You need [simplejson](http://pypi.python.org/pypi/simplejson/) which should be
+For Python 2.5 or older, you need [simplejson](http://pypi.python.org/pypi/simplejson/) which should be
 packaged in any Linux distribution. The Debian/Ubuntu package is called
 `python-simplejson`.
 

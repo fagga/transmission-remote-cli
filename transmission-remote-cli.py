@@ -16,12 +16,12 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.5.5'
+VERSION='0.5.6'
 
 TRNSM_VERSION_MIN = '1.80'
-TRNSM_VERSION_MAX = '1.91'
+TRNSM_VERSION_MAX = '2.00'
 RPC_VERSION_MIN = 7
-RPC_VERSION_MAX = 8
+RPC_VERSION_MAX = 9
 
 # error codes
 CONNECTION_ERROR = 1
@@ -565,6 +565,7 @@ class Interface:
         self.stats            = self.server.get_global_stats()
         self.torrent_details  = []
         self.selected_torrent = -1  # changes to >-1 when focus >-1 & user hits return
+        self.all_paused = False
 
         self.focus     = -1  # -1: nothing focused; 0: top of list; <# of torrents>-1: bottom of list
         self.scrollpos = 0   # start of torrentlist
@@ -837,7 +838,18 @@ class Interface:
                 self.server.start_torrent(self.torrents[self.focus]['id'])
             else:
                 self.server.stop_torrent(self.torrents[self.focus]['id'])
-            
+
+        # pause/unpause all torrents
+        elif c == ord('P'):
+            if self.all_paused:
+                for t in self.torrents:
+                    self.server.start_torrent(t['id'])
+                self.all_paused = False
+            else:
+                for t in self.torrents:
+                    self.server.stop_torrent(t['id'])
+                self.all_paused = True
+
         # verify torrent data
         elif self.focus > -1 and (c == ord('v') or c == ord('y')):
             if self.torrents[self.focus]['status'] != Transmission.STATUS_CHECK:
@@ -1654,6 +1666,7 @@ class Interface:
     def list_key_bindings(self):
         message = "          F1/?  Show this help\n" + \
             "             p  Pause/Unpause focused torrent\n" + \
+            "             P  Pause/Unpause all torrents\n" + \
             "             v  Verify focused torrent\n" + \
             "         DEL/r  Remove focused torrent (and keep its content)\n" + \
             "           u/d  Adjust maximum global upload/download rate\n" + \

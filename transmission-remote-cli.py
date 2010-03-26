@@ -601,15 +601,16 @@ class Interface:
         # enable colors if available
         try:
             curses.start_color()
-            curses.init_pair(1, curses.COLOR_BLACK,   curses.COLOR_BLUE)  # download rate
-            curses.init_pair(2, curses.COLOR_BLACK,   curses.COLOR_RED)   # upload rate
-            curses.init_pair(3, curses.COLOR_BLUE,    curses.COLOR_BLACK) # unfinished progress
-            curses.init_pair(4, curses.COLOR_GREEN,   curses.COLOR_BLACK) # finished progress
-            curses.init_pair(5, curses.COLOR_BLACK,   curses.COLOR_WHITE) # eta/ratio
-            curses.init_pair(6, curses.COLOR_CYAN,    curses.COLOR_BLACK) # idle progress
-            curses.init_pair(7, curses.COLOR_MAGENTA, curses.COLOR_BLACK) # verifying
-            curses.init_pair(8, curses.COLOR_WHITE,   curses.COLOR_BLACK) # button
-            curses.init_pair(9, curses.COLOR_BLACK,   curses.COLOR_WHITE) # focused button
+            curses.init_pair(1,  curses.COLOR_BLACK,    curses.COLOR_BLUE)  # download rate
+            curses.init_pair(2,  curses.COLOR_BLACK,    curses.COLOR_RED)   # upload rate
+            curses.init_pair(3,  curses.COLOR_BLUE,     curses.COLOR_BLACK) # unfinished progress
+            curses.init_pair(4,  curses.COLOR_GREEN,    curses.COLOR_BLACK) # finished progress
+            curses.init_pair(5,  curses.COLOR_BLACK,    curses.COLOR_WHITE) # eta/ratio
+            curses.init_pair(6,  curses.COLOR_CYAN,     curses.COLOR_BLACK) # idle progress
+            curses.init_pair(7,  curses.COLOR_MAGENTA,  curses.COLOR_BLACK) # verifying
+            curses.init_pair(8,  curses.COLOR_WHITE,    curses.COLOR_BLACK) # button
+            curses.init_pair(9,  curses.COLOR_BLACK,    curses.COLOR_WHITE) # focused button
+            curses.init_pair(10, curses.COLOR_WHITE,     curses.COLOR_RED)   # stats filter
         except:
             pass
 
@@ -727,9 +728,17 @@ class Interface:
                 elif self.filter_list:
                     self.filter_list = '' # reset filter
 
+        # NOTE_01
+        # TODO: I would consider removing the KEY_UP from leave details. So
+        # I've temporarily done so. I'd be happy do discuss this. I personally
+        # think it improves usability, unless the up key has consistently been
+        # throughout the program for this function, in which case a further
+        # discussion on the next step would be useful. The up key also breaks
+        # the scrolling upwards of the peer list.
+        # -Ben (bct __aet__ 2320 __doet__ eu)
+
         # leave details
-        elif self.selected_torrent > -1 and (c == curses.KEY_BACKSPACE or 
-                                             c == curses.KEY_UP and self.focus_detaillist == -1):
+        elif self.selected_torrent > -1 and c == curses.KEY_BACKSPACE:
             self.server.set_torrent_details_id(-1)
             self.selected_torrent       = -1
             self.details_category_focus = 0
@@ -888,6 +897,7 @@ class Interface:
         # torrent details
         elif self.selected_torrent > -1:
             if c == ord("\t"): self.next_details()
+            elif c == curses.KEY_BTAB: self.prev_details()
             elif c == ord('o'): self.details_category_focus = 0
             elif c == ord('f'): self.details_category_focus = 1
             elif c == ord('e'): self.details_category_focus = 2
@@ -960,6 +970,8 @@ class Interface:
             elif self.details_category_focus == 2:
                 list_len = len(self.torrent_details['peers'])
                 if c == curses.KEY_UP:
+                    # TODO: This doesn't actually get noticed, instead the
+                    # details view exits. See NOTE_01 for details.
                     if self.scrollpos_detaillist > 0:
                         self.scrollpos_detaillist -= 1
                 elif c == curses.KEY_DOWN:
@@ -969,6 +981,10 @@ class Interface:
                     self.scrollpos_detaillist = 0
                 elif c == curses.KEY_END:
                     self.scrollpos_detaillist = list_len - self.detaillistitems_per_page
+
+            # TODO: Tracker list movement
+
+            # TODO: Pieces list movement
 
         else:
             return # don't recognize key
@@ -1323,8 +1339,11 @@ class Interface:
                 for i, line in enumerate(comment):
                     self.pad.addstr(ypos+6+i, 2, line)
 
-
     def draw_filelist(self, ypos):
+
+        # TODO: This would be nice with coloured priorities to make it more
+        # user friendly.
+
         column_names = '  #  Progress  Size  Priority  Filename'
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
         ypos += 1
@@ -1365,7 +1384,6 @@ class Interface:
         if index in self.selected_files:
             line = '_S' + line
         return line
-
 
     def draw_peerlist(self, ypos):
         start = self.scrollpos_detaillist
@@ -1435,37 +1453,48 @@ class Interface:
                 self.pad.addstr(host_name.encode('utf-8'), curses.A_DIM)
             ypos += 1
 
-
     def draw_trackerlist(self, ypos):
         tlist = self.torrent_details['trackerStats']
         for t in tlist:
             announce_msg_size = scrape_msg_size = 0
-            self.pad.addstr(ypos+1, 0,  "Latest announce: %s" % timestamp(t['lastAnnounceTime']))
-            self.pad.addstr(ypos+1, 55, "Latest scrape: %s" % timestamp(t['lastScrapeTime']))
 
-            if t['lastAnnounceSucceeded']:
-                peers = "%s peer%s" % (num2str(t['lastAnnouncePeerCount']), ('s', '')[t['lastAnnouncePeerCount']==1])
-                self.pad.addstr(ypos,   0, "#%i in tier #%i: %s" % (t['id']+1, t['tier'], t['announce']), curses.A_BOLD + curses.A_UNDERLINE)
-                self.pad.addstr(ypos+2, 9, "Result: ")
-                self.pad.addstr(ypos+2, 17, "%s" % peers, curses.A_BOLD)
-            else:
-                self.pad.addstr(ypos,   0, "#%i in tier #%i: %s" % (t['id']+1, t['tier'], t['announce']), curses.A_UNDERLINE)
-                self.pad.addstr(ypos+2, 7, "Response:")
-                announce_msg_size = self.wrap_and_draw_result(ypos+2, 17, t['lastAnnounceResult'])
+            # TODO: Don't draw on the last line, this needs to be looked into
+            # further, including other methods... The draw_filelist method
+            # seems to do this properly
+            #
+            # TODO: Make this scrollable, using up, down, pageup, pagedown buttons.
+            try:
 
-            if t['lastScrapeSucceeded']:
-                seeds   = "%s seed%s" % (num2str(t['seederCount']), ('s', '')[t['seederCount']==1])
-                leeches = "%s leech%s" % (num2str(t['leecherCount']), ('es', '')[t['leecherCount']==1])
-                self.pad.addstr(ypos+2, 55, "Tracker knows: ")
-                self.pad.addstr(ypos+2, 70, "%s and %s" % (seeds, leeches), curses.A_BOLD)
-            else:
-                self.pad.addstr(ypos+2, 60, "Response:")
-                scrape_msg_size += self.wrap_and_draw_result(ypos+2, 70, t['lastScrapeResult'])
-            ypos += max(announce_msg_size, scrape_msg_size)
+                self.pad.addstr(ypos+1, 0,  "Latest announce: %s" % timestamp(t['lastAnnounceTime']))
+                self.pad.addstr(ypos+1, 55, "Latest scrape: %s" % timestamp(t['lastScrapeTime']))
 
-            self.pad.addstr(ypos+3, 0,  "  Next announce: %s" % timestamp(t['nextAnnounceTime']))
-            self.pad.addstr(ypos+3, 55, "  Next scrape: %s" % timestamp(t['nextScrapeTime']))
-            ypos += 5
+                if t['lastAnnounceSucceeded']:
+                    peers = "%s peer%s" % (num2str(t['lastAnnouncePeerCount']), ('s', '')[t['lastAnnouncePeerCount']==1])
+                    self.pad.addstr(ypos,   0, "#%i in tier #%i: %s" % (t['id']+1, t['tier'], t['announce']), curses.A_BOLD + curses.A_UNDERLINE)
+                    self.pad.addstr(ypos+2, 9, "Result: ")
+                    self.pad.addstr(ypos+2, 17, "%s" % peers, curses.A_BOLD)
+                else:
+                    self.pad.addstr(ypos,   0, "#%i in tier #%i: %s" % (t['id']+1, t['tier'], t['announce']), curses.A_UNDERLINE)
+                    self.pad.addstr(ypos+2, 7, "Response:")
+                    announce_msg_size = self.wrap_and_draw_result(ypos+2, 17, t['lastAnnounceResult'])
+
+                if t['lastScrapeSucceeded']:
+                    seeds   = "%s seed%s" % (num2str(t['seederCount']), ('s', '')[t['seederCount']==1])
+                    leeches = "%s leech%s" % (num2str(t['leecherCount']), ('es', '')[t['leecherCount']==1])
+                    self.pad.addstr(ypos+2, 55, "Tracker knows: ")
+                    self.pad.addstr(ypos+2, 70, "%s and %s" % (seeds, leeches), curses.A_BOLD)
+                else:
+                    self.pad.addstr(ypos+2, 60, "Response:")
+                    scrape_msg_size += self.wrap_and_draw_result(ypos+2, 70, t['lastScrapeResult'])
+
+                ypos += max(announce_msg_size, scrape_msg_size)
+
+                self.pad.addstr(ypos+3, 0,  "  Next announce: %s" % timestamp(t['nextAnnounceTime']))
+                self.pad.addstr(ypos+3, 55, "  Next scrape: %s" % timestamp(t['nextScrapeTime']))
+
+                ypos += 5
+            except:
+                pass
 
     def wrap_and_draw_result(self, ypos, xpos, result):
         result = wrap(result, 30)
@@ -1473,7 +1502,6 @@ class Interface:
         for i, line in enumerate(result):
             self.pad.addstr(ypos+i, xpos, line, curses.A_BOLD)
         return i
-
 
     def draw_pieces_map(self, ypos):
         pieces = ''
@@ -1498,6 +1526,9 @@ class Interface:
             else:
                 xpos += 1
 
+            # TODO: Fix this to let users scroll down with up, down, pageup,
+            # and pagedown buttons. You know it makes sense.
+
             # end map if terminal is too small
             if ypos >= self.height-2:
                 missing_pieces = len(pieces) - counter
@@ -1507,7 +1538,6 @@ class Interface:
                 break
             else:
                 counter += 1
-
 
     def draw_details_list(self, ypos, info):
         key_width = max(map(lambda x: len(x[0]), info))
@@ -1600,30 +1630,41 @@ class Interface:
                                    " Cache: %-3d" % self.torrent_details['peersFrom']['fromCache'],
                                curses.A_REVERSE)
         else:
-            self.screen.addstr((self.height-1), 0, 
-                               "%d torrent%s" % (len(self.torrents), ('s','')[len(self.torrents) == 1]),
-                               curses.A_REVERSE)
+            self.screen.addstr((self.height-1), 0, "Torrent%s: " % ('s','')[len(self.torrents) == 1],
+                                   curses.A_REVERSE)
+            self.screen.addstr("%d (" % len(self.torrents), curses.A_REVERSE)
+
+            downloading = len(filter(lambda x: x['status']==Transmission.STATUS_DOWNLOAD, self.torrents))
+            seeding = len(filter(lambda x: x['status']==Transmission.STATUS_SEED, self.torrents))
+            paused = self.stats['pausedTorrentCount']
+
+            self.screen.addstr("Downloading: ", curses.A_REVERSE)
+            self.screen.addstr("%d " % downloading, curses.A_REVERSE)
+            self.screen.addstr("Seeding: ", curses.A_REVERSE)
+            self.screen.addstr("%d " % seeding, curses.A_REVERSE)
+            self.screen.addstr("Paused: ", curses.A_REVERSE)
+            self.screen.addstr("%d) " % paused, curses.A_REVERSE)
+
             if self.filter_list:
-                self.screen.addstr(" ", curses.A_REVERSE)
+                self.screen.addstr("Showing only: ", curses.A_REVERSE)
                 self.screen.addstr("%s%s" % (('','not ')[self.filter_inverse], self.filter_list),
-                                   curses.A_REVERSE + curses.A_BOLD)
-
-            self.screen.addstr(": %d downloading; " % len(filter(lambda x: x['status']==Transmission.STATUS_DOWNLOAD,
-                                                                 self.torrents)) + \
-                                   "%d seeding; " % len(filter(lambda x: x['status']==Transmission.STATUS_SEED,
-                                                               self.torrents)) + \
-                                   "%d paused" % self.stats['pausedTorrentCount'],
-                               curses.A_REVERSE)
-
+                                   curses.A_REVERSE + curses.color_pair(10))
 
     def draw_global_rates(self):
         rates_width = self.rateDownload_width + self.rateUpload_width + 3
+
+        upload_limit   = (0, self.stats['speed-limit-up'])[self.stats['speed-limit-up-enabled']]
+        download_limit = (0, self.stats['speed-limit-down'])[self.stats['speed-limit-down-enabled']]
+        limits = "DL: %d " % download_limit + "UL: %d " % upload_limit
+        limits_width = len(limits)
+
         if self.stats['alt-speed-enabled']:
-            self.screen.move(self.height-1, self.width-rates_width - len('Turtle mode '))
+            self.screen.move(self.height-1, self.width-rates_width - limits_width - len('Turtle mode '))
             self.screen.addstr('Turtle mode', curses.A_REVERSE + curses.A_BOLD)
             self.screen.addch(' ', curses.A_REVERSE)
-        
-        self.screen.move(self.height-1, self.width-rates_width)
+
+        self.screen.move(self.height - 1, self.width - rates_width - len(limits))
+        self.screen.addstr(limits, curses.A_REVERSE)
         self.screen.addch(curses.ACS_DARROW, curses.A_REVERSE)
         self.screen.addstr(scale_bytes(self.stats['downloadSpeed']).rjust(self.rateDownload_width),
                            curses.A_REVERSE + curses.A_BOLD + curses.color_pair(1))
@@ -1701,13 +1742,15 @@ class Interface:
                 if self.details_category_focus == 1:
                     if self.focus_detaillist > -1:
                         message += "           TAB  Jump to next view\n"
+                        message += "           SHIFT+TAB  Jump to previous view\n"
                         message += "    left/right  Decrease/Increase file priority\n"
                     message += "       up/down  Select file\n"
                     message += "         SPACE  Select/Deselect focused file\n"
                     message += "             a  Select/Deselect all files\n"
                     message += "           ESC  Unfocus\n"
                 else:
-                    message += "left/right/TAB  Jump to next/previous view\n"
+                    message += "     TAB/right  Jump to next view\n"
+                    message += "SHIFT+TAB/left  Jump to previous view\n"
                 message += "   q/backspace  Back to list\n\n"
 
         width  = max(map(lambda x: len(x), message.split("\n"))) + 4

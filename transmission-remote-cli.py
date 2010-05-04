@@ -323,7 +323,10 @@ class Transmission:
                 
             # resolve and locate peer's ip
             if features['dns'] and not self.hosts_cache.has_key(ip):
-                self.hosts_cache[ip] = self.resolver.submit_reverse(ip, adns.rr.PTR)
+                try:
+                    self.hosts_cache[ip] = self.resolver.submit_reverse(ip, adns.rr.PTR)
+                except adns.Error:
+                    pass
             if features['geoip'] and not self.geo_ips_cache.has_key(ip):
                 self.geo_ips_cache[ip] = self.geo_ip.country_code_by_addr(ip)
                 if self.geo_ips_cache[ip] == None:
@@ -727,15 +730,6 @@ class Interface:
                     self.focus     = -1
                 elif self.filter_list:
                     self.filter_list = '' # reset filter
-
-        # NOTE_01
-        # TODO: I would consider removing the KEY_UP from leave details. So
-        # I've temporarily done so. I'd be happy do discuss this. I personally
-        # think it improves usability, unless the up key has consistently been
-        # throughout the program for this function, in which case a further
-        # discussion on the next step would be useful. The up key also breaks
-        # the scrolling upwards of the peer list.
-        # -Ben (bct __aet__ 2320 __doet__ eu)
 
         # leave details
         elif self.selected_torrent > -1 and c == curses.KEY_BACKSPACE:
@@ -1409,8 +1403,8 @@ class Interface:
         for index, peer in enumerate(peers):
             if features['dns']:
                 try:
-                    host = hosts[peer['address']].check()
                     try:
+                        host = hosts[peer['address']].check()
                         host_name = host[3][0]
                     except IndexError:
                         host_name = "<not resolvable>"

@@ -1406,7 +1406,7 @@ class Interface:
                     try:
                         host = hosts[peer['address']].check()
                         host_name = host[3][0]
-                    except IndexError:
+                    except (IndexError, KeyError):
                         host_name = "<not resolvable>"
                 except adns.NotReady:
                     host_name = "<resolving>"

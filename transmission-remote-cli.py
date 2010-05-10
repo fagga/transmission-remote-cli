@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.5.7'
+VERSION='0.6.0'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.00'
@@ -1331,17 +1331,17 @@ class Interface:
     def draw_details_eventdates(self, ypos):
         t = self.torrent_details
 
-        self.pad.addstr(ypos,   1, ' Created: ' + timestamp(t['dateCreated']))
-        self.pad.addstr(ypos+1, 1, '   Added: ' + timestamp(t['addedDate']))
-        self.pad.addstr(ypos+2, 1, ' Started: ' + timestamp(t['startDate']))
-        self.pad.addstr(ypos+3, 1, 'Activity: ' + timestamp(t['activityDate']))
+        self.pad.addstr(ypos,   1, '  Created: ' + timestamp(t['dateCreated']))
+        self.pad.addstr(ypos+1, 1, '    Added: ' + timestamp(t['addedDate']))
+        self.pad.addstr(ypos+2, 1, '  Started: ' + timestamp(t['startDate']))
+        self.pad.addstr(ypos+3, 1, ' Activity: ' + timestamp(t['activityDate']))
 
         if t['percent_done'] < 100 and t['eta'] > 0:
-            self.pad.addstr(ypos+4, 1, 'Finished: ' + timestamp(time.time() + t['eta']))
+            self.pad.addstr(ypos+4, 1, 'Finishing: ' + timestamp(time.time() + t['eta']))
         elif t['doneDate'] <= 0:
-            self.pad.addstr(ypos+4, 1, 'Finished: sometime')
+            self.pad.addstr(ypos+4, 1, 'Finishing: sometime')
         else:
-            self.pad.addstr(ypos+4, 1, 'Finished: ' + timestamp(t['doneDate']))
+            self.pad.addstr(ypos+4, 1, 'Finishing: ' + timestamp(t['doneDate']))
 
         if t['comment']:
             if self.width >= 90:

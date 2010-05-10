@@ -2226,15 +2226,20 @@ if cmd_args.connection:
 if transmissionremote_args:
     cmd = ['transmission-remote', '%s:%s' %
            (config.get('Connection', 'host'), config.get('Connection', 'port'))]
-    if config.get('Connection', 'username') and config.get('Connection', 'password'):
-        cmd.extend(['--auth', '%s:%s' % (config.get('Connection', 'username'), config.get('Connection', 'password'))])
 
     # one argument and it doesn't start with '-' --> treat it like it's a torrent link/url
     if len(transmissionremote_args) == 1 and not transmissionremote_args[0].startswith('-'):
         cmd.extend(['-a', transmissionremote_args[0]])
     else:
         cmd.extend(transmissionremote_args)
-    print "EXECUTING:\n%s\nRESPONSE:" % ' '.join(cmd)
+
+    if config.get('Connection', 'username') and config.get('Connection', 'password'):
+        cmd_print = cmd
+        cmd_print.extend(['--auth', '%s:PASSWORD' % config.get('Connection', 'username')])
+        print "EXECUTING:\n%s\nRESPONSE:" % ' '.join(cmd_print)
+        cmd.extend(['--auth', '%s:%s' % (config.get('Connection', 'username'), config.get('Connection', 'password'))])
+    else:
+        print "EXECUTING:\n%s\nRESPONSE:" % ' '.join(cmd)
 
     try:
         retcode = call(cmd)

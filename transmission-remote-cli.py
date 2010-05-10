@@ -269,7 +269,9 @@ class Transmission:
                 self.torrent_cache = response['arguments']['torrents']
 
             elif response['tag'] == self.TAG_TORRENT_DETAILS:
-                self.torrent_details_cache = response['arguments']['torrents'][0]
+                torrent_details = response['arguments']['torrents'][0]
+                torrent_details['pieces'] = base64.decodestring(torrent_details['pieces'])
+                self.torrent_details_cache = torrent_details
                 self.upgrade_peerlist()
 
         elif response['tag'] == self.TAG_SESSION_STATS:
@@ -960,25 +962,45 @@ class Interface:
                     self.focus_detaillist, self.scrollpos_detaillist = \
                         self.move_to_end(1, self.detaillistitems_per_page, len(self.torrent_details['files']))
 
+            list_len = 0
+
             # peer list movement
-            elif self.details_category_focus == 2:
+            if self.details_category_focus == 2:
                 list_len = len(self.torrent_details['peers'])
+
+            # tracker list movement
+            elif self.details_category_focus == 3:
+                list_len = len(self.torrent_details['trackerStats']) * 5 - 1
+
+            # pieces list movement
+            elif self.details_category_focus == 4:
+                piece_count = self.torrent_details['pieceCount']
+                margin = len(str(piece_count)) + 2
+                map_width = int(str(self.width-margin-1)[0:-1] + '0')
+                list_len = int(piece_count / map_width) + 1
+
+            if list_len:
                 if c == curses.KEY_UP:
-                    # TODO: This doesn't actually get noticed, instead the
-                    # details view exits. See NOTE_01 for details.
                     if self.scrollpos_detaillist > 0:
                         self.scrollpos_detaillist -= 1
                 elif c == curses.KEY_DOWN:
                     if self.scrollpos_detaillist < list_len - self.detaillistitems_per_page:
                         self.scrollpos_detaillist += 1
+                elif c == curses.KEY_PPAGE:
+                    if self.scrollpos_detaillist > self.detaillistitems_per_page - 1:
+                        self.scrollpos_detaillist -= self.detaillistitems_per_page - 1
+                    else:
+                        self.scrollpos_detaillist = 0
+                elif c == curses.KEY_NPAGE:
+                    if self.scrollpos_detaillist < list_len - self.detaillistitems_per_page * 2 + 1:
+                        self.scrollpos_detaillist += self.detaillistitems_per_page - 1
+                    elif list_len > self.detaillistitems_per_page:
+                        self.scrollpos_detaillist = list_len - self.detaillistitems_per_page
                 elif c == curses.KEY_HOME:
                     self.scrollpos_detaillist = 0
                 elif c == curses.KEY_END:
-                    self.scrollpos_detaillist = list_len - self.detaillistitems_per_page
-
-            # TODO: Tracker list movement
-
-            # TODO: Pieces list movement
+                    if list_len > self.detaillistitems_per_page:
+                        self.scrollpos_detaillist = list_len - self.detaillistitems_per_page
 
         else:
             return # don't recognize key
@@ -1448,90 +1470,88 @@ class Interface:
             ypos += 1
 
     def draw_trackerlist(self, ypos):
+        top = ypos - 1
+        def addstr(ypos, xpos, *args):
+            if ypos > top and ypos < self.height - 2:
+                self.pad.addstr(ypos, xpos, *args)
         tlist = self.torrent_details['trackerStats']
+        ypos -= self.scrollpos_detaillist % 5
+        start = self.scrollpos_detaillist / 5
+        tlist = tlist[start:]
         for t in tlist:
             announce_msg_size = scrape_msg_size = 0
 
-            # TODO: Don't draw on the last line, this needs to be looked into
-            # further, including other methods... The draw_filelist method
-            # seems to do this properly
-            #
-            # TODO: Make this scrollable, using up, down, pageup, pagedown buttons.
-            try:
+            addstr(ypos+1, 0,  "Latest announce: %s" % timestamp(t['lastAnnounceTime']))
+            addstr(ypos+1, 55, "Latest scrape: %s" % timestamp(t['lastScrapeTime']))
 
-                self.pad.addstr(ypos+1, 0,  "Latest announce: %s" % timestamp(t['lastAnnounceTime']))
-                self.pad.addstr(ypos+1, 55, "Latest scrape: %s" % timestamp(t['lastScrapeTime']))
+            if t['lastAnnounceSucceeded']:
+                peers = "%s peer%s" % (num2str(t['lastAnnouncePeerCount']), ('s', '')[t['lastAnnouncePeerCount']==1])
+                addstr(ypos,   0, "#%i in tier #%i: %s" % (t['id']+1, t['tier'], t['announce']), curses.A_BOLD + curses.A_UNDERLINE)
+                addstr(ypos+2, 9, "Result: ")
+                addstr(ypos+2, 17, "%s" % peers, curses.A_BOLD)
+            else:
+                addstr(ypos,   0, "#%i in tier #%i: %s" % (t['id']+1, t['tier'], t['announce']), curses.A_UNDERLINE)
+                addstr(ypos+2, 7, "Response:")
+                announce_msg_size = self.wrap_and_draw_result(top, ypos+2, 17, t['lastAnnounceResult'])
 
-                if t['lastAnnounceSucceeded']:
-                    peers = "%s peer%s" % (num2str(t['lastAnnouncePeerCount']), ('s', '')[t['lastAnnouncePeerCount']==1])
-                    self.pad.addstr(ypos,   0, "#%i in tier #%i: %s" % (t['id']+1, t['tier'], t['announce']), curses.A_BOLD + curses.A_UNDERLINE)
-                    self.pad.addstr(ypos+2, 9, "Result: ")
-                    self.pad.addstr(ypos+2, 17, "%s" % peers, curses.A_BOLD)
-                else:
-                    self.pad.addstr(ypos,   0, "#%i in tier #%i: %s" % (t['id']+1, t['tier'], t['announce']), curses.A_UNDERLINE)
-                    self.pad.addstr(ypos+2, 7, "Response:")
-                    announce_msg_size = self.wrap_and_draw_result(ypos+2, 17, t['lastAnnounceResult'])
+            if t['lastScrapeSucceeded']:
+                seeds   = "%s seed%s" % (num2str(t['seederCount']), ('s', '')[t['seederCount']==1])
+                leeches = "%s leech%s" % (num2str(t['leecherCount']), ('es', '')[t['leecherCount']==1])
+                addstr(ypos+2, 55, "Tracker knows: ")
+                addstr(ypos+2, 70, "%s and %s" % (seeds, leeches), curses.A_BOLD)
+            else:
+                addstr(ypos+2, 60, "Response:")
+                scrape_msg_size += self.wrap_and_draw_result(top, ypos+2, 70, t['lastScrapeResult'])
 
-                if t['lastScrapeSucceeded']:
-                    seeds   = "%s seed%s" % (num2str(t['seederCount']), ('s', '')[t['seederCount']==1])
-                    leeches = "%s leech%s" % (num2str(t['leecherCount']), ('es', '')[t['leecherCount']==1])
-                    self.pad.addstr(ypos+2, 55, "Tracker knows: ")
-                    self.pad.addstr(ypos+2, 70, "%s and %s" % (seeds, leeches), curses.A_BOLD)
-                else:
-                    self.pad.addstr(ypos+2, 60, "Response:")
-                    scrape_msg_size += self.wrap_and_draw_result(ypos+2, 70, t['lastScrapeResult'])
+            ypos += max(announce_msg_size, scrape_msg_size)
 
-                ypos += max(announce_msg_size, scrape_msg_size)
+            addstr(ypos+3, 0,  "  Next announce: %s" % timestamp(t['nextAnnounceTime']))
+            addstr(ypos+3, 55, "  Next scrape: %s" % timestamp(t['nextScrapeTime']))
 
-                self.pad.addstr(ypos+3, 0,  "  Next announce: %s" % timestamp(t['nextAnnounceTime']))
-                self.pad.addstr(ypos+3, 55, "  Next scrape: %s" % timestamp(t['nextScrapeTime']))
+            ypos += 5
 
-                ypos += 5
-            except:
-                pass
-
-    def wrap_and_draw_result(self, ypos, xpos, result):
+    def wrap_and_draw_result(self, top, ypos, xpos, result):
         result = wrap(result, 30)
         i = 0
         for i, line in enumerate(result):
-            self.pad.addstr(ypos+i, xpos, line, curses.A_BOLD)
+            if ypos+i > top and ypos+i < self.height - 2:
+                self.pad.addstr(ypos+i, xpos, line, curses.A_BOLD)
         return i
 
     def draw_pieces_map(self, ypos):
-        pieces = ''
-        for p in base64.decodestring(self.torrent_details['pieces']):
-            pieces += int2bin(ord(p))
-        pieces = pieces[:self.torrent_details['pieceCount']] # strip off non-existent pieces
+        pieces = self.torrent_details['pieces']
+        piece_count = self.torrent_details['pieceCount']
+        margin = len(str(piece_count)) + 2
 
-        map_width = int(str(self.width-7)[0:-1] + '0')
+        map_width = int(str(self.width-margin-1)[0:-1] + '0')
         for x in range(10, map_width, 10):
-            self.pad.addstr(ypos, x+5, str(x), curses.A_BOLD)
-        ypos += 1
+            self.pad.addstr(ypos, x+margin-1, str(x), curses.A_BOLD)
 
-        xpos = 6 ; counter = 1
-        self.pad.addstr(ypos, 1, "%4d" % 0, curses.A_BOLD)
-        for piece in pieces:
-            if int(piece): self.pad.addch(ypos, xpos, ' ', curses.A_REVERSE)
-            else:          self.pad.addch(ypos, xpos, '_')
+        start = self.scrollpos_detaillist * map_width
+        end = min(start + (self.height - ypos - 3) * map_width, piece_count)
+        if end <= start: return
+        block = ord(pieces[start >> 3]) << (start & 7)
 
+        format = "%%%dd" % (margin - 2)
+        for counter in xrange(start, end):
             if counter % map_width == 0:
-                ypos += 1 ; xpos = 6
-                self.pad.addstr(ypos, 1, "%4d" % counter, curses.A_BOLD)
+                ypos += 1 ; xpos = margin
+                self.pad.addstr(ypos, 1, format % counter, curses.A_BOLD)
             else:
                 xpos += 1
 
-            # TODO: Fix this to let users scroll down with up, down, pageup,
-            # and pagedown buttons. You know it makes sense.
+            if counter & 7 == 0:
+                block = ord(pieces[counter >> 3])
+            piece = block & 0x80
+            if piece: self.pad.addch(ypos, xpos, ' ', curses.A_REVERSE)
+            else:     self.pad.addch(ypos, xpos, '_')
+            block <<= 1
 
-            # end map if terminal is too small
-            if ypos >= self.height-2:
-                missing_pieces = len(pieces) - counter
-                line = "%d further piece%s not listed" % (missing_pieces, ('','s')[missing_pieces>1])
-                xpos = (self.width - len(line)) / 2
-                self.pad.addstr(ypos-1, xpos, line, curses.A_REVERSE)
-                break
-            else:
-                counter += 1
+        missing_pieces = piece_count - counter - 1
+        if missing_pieces:
+            line = "%d further piece%s not listed" % (missing_pieces, ('','s')[missing_pieces>1])
+            xpos = (self.width - len(line)) / 2
+            self.pad.addstr(self.height-3, xpos, line, curses.A_REVERSE)
 
     def draw_details_list(self, ypos, info):
         key_width = max(map(lambda x: len(x[0]), info))
@@ -2113,10 +2133,6 @@ def num2str(num):
     else:
         string = re.sub(r'(\d{3})', '\g<1>,', str(num)[::-1])[::-1]
         return string.lstrip(',')
-
-def int2bin(n):
-    """Returns the binary of integer n"""
-    return "".join([str((n >> y) & 1) for y in range(7, -1, -1)])
 
 def middlecut(string, width):
     return string[0:(width/2)-2] + '..' + string[len(string) - (width/2) :]

@@ -1341,7 +1341,7 @@ class Interface:
         elif t['doneDate'] <= 0:
             self.pad.addstr(ypos+4, 1, 'Finishing: sometime')
         else:
-            self.pad.addstr(ypos+4, 1, 'Finishing: ' + timestamp(t['doneDate']))
+            self.pad.addstr(ypos+4, 1, ' Finished: ' + timestamp(t['doneDate']))
 
         if t['comment']:
             if self.width >= 90:

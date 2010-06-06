@@ -153,14 +153,14 @@ class Transmission:
                     'sizeWhenDone', 'haveValid', 'haveUnchecked', 'addedDate',
                     'uploadedEver', 'errorString', 'recheckProgress',
                     'peersKnown', 'peersConnected', 'uploadLimit', 'downloadLimit',
-                    'uploadLimited', 'downloadLimited', 'bandwidthPriority']
+                    'uploadLimited', 'downloadLimited', 'bandwidthPriority',
+                    'peersSendingToUs', 'peersGettingFromUs']
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
-                      'totalSize', 'leftUntilDone', 'comment',
+                      'totalSize', 'leftUntilDone', 'comment', 'isPrivate',
                       'hashString', 'pieceCount', 'pieceSize', 'pieces',
-                      'downloadedEver', 'corruptEver',
-                      'peersFrom', 'peersSendingToUs', 'peersGettingFromUs' ] + LIST_FIELDS
+                      'downloadedEver', 'corruptEver', 'peersFrom' ] + LIST_FIELDS
 
     def __init__(self, host, port, username, password):
         self.host = host
@@ -1026,7 +1026,9 @@ class Interface:
         elif self.filter_list == 'incomplete':
             self.torrents = [t for t in self.torrents if t['percent_done'] < 100]
         elif self.filter_list == 'active':
-            self.torrents = [t for t in self.torrents if t['peersConnected'] > 0]
+            self.torrents = [t for t in self.torrents if t['peersGettingFromUs'] > 0 \
+                                 or t['peersSendingToUs'] > 0 or t['status'] == Transmission.STATUS_CHECK]
+            #self.torrents = [t for t in self.torrents if t['peersConnected'] > 0]
         elif self.filter_list == 'verifying':
             self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_CHECK \
                                  or t['status'] == Transmission.STATUS_CHECK_WAIT]
@@ -1322,6 +1324,12 @@ class Interface:
                      "connected to %d;  "                   % t['peersConnected'],
                      "downloading from %d;  "               % t['peersSendingToUs'],
                      "uploading to %d"                      % t['peersGettingFromUs']])
+
+        info.append(['Privacy: '])
+        if t['isPrivate']:
+            info[-1].append('Private to this tracker -- DHT and PEX disabled')
+        else:
+            info[-1].append('Public torrent')
 
         ypos = self.draw_details_list(ypos, info)
 
@@ -1639,6 +1647,7 @@ class Interface:
                                "%d peer%s connected:" % (self.torrent_details['peersConnected'],
                                                          ('s','')[self.torrent_details['peersConnected'] == 1]) + \
                                    " Trackers: %-3d" % self.torrent_details['peersFrom']['fromTracker'] + \
+                                   " DHT: %-3d" % self.torrent_details['peersFrom']['fromDht'] + \
                                    " PEX: %-3d" % self.torrent_details['peersFrom']['fromPex'] + \
                                    " Incoming: %-3d" % self.torrent_details['peersFrom']['fromIncoming'] + \
                                    " Cache: %-3d" % self.torrent_details['peersFrom']['fromCache'],

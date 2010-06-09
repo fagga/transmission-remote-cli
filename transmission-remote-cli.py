@@ -216,12 +216,6 @@ class Transmission:
 
         # make sure there are no undefined values
         self.wait_for_torrentlist_update()
-
-        # this fills self.peer_progress_cache with initial values
-        for t in self.torrent_cache:
-            self.requests['torrent-details'].set_request_data('torrent-get', self.TAG_TORRENT_DETAILS,
-                                                              {'ids':t['id'], 'fields': self.DETAIL_FIELDS})
-            self.wait_for_details_update()
         self.requests['torrent-details'] = TransmissionRequest(self.host, self.port)
 
 

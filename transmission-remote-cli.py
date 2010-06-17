@@ -1356,7 +1356,7 @@ class Interface:
                 width = self.width - 50
                 comment = wrap('Comment: ' + t['comment'].encode('utf8'), width)
                 for i, line in enumerate(comment):
-                    if(ypos+i > self.height):
+                    if(ypos+i > self.height-1):
                         break
                     self.pad.addstr(ypos+i, 50, line)
             else:

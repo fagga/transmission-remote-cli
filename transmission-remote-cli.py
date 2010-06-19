@@ -873,9 +873,9 @@ class Interface:
 
         # movement in torrent list
         elif self.selected_torrent == -1:
-            if   c == curses.KEY_UP:
+            if   c == curses.KEY_UP or c == ord('k'):
                 self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, 3)
-            elif c == curses.KEY_DOWN:
+            elif c == curses.KEY_DOWN or c == ord('j'):
                 self.focus, self.scrollpos = self.move_down(self.focus, self.scrollpos, 3,
                                                             self.torrents_per_page, len(self.torrents))
             elif c == curses.KEY_PPAGE:
@@ -941,10 +941,10 @@ class Interface:
                         self.selected_files = range(0, len(self.torrent_details['files']))
 
                 # focus/movement
-                elif c == curses.KEY_UP:
+                elif c == curses.KEY_UP or c == ord('k'):
                     self.focus_detaillist, self.scrollpos_detaillist = \
                         self.move_up(self.focus_detaillist, self.scrollpos_detaillist, 1)
-                elif c == curses.KEY_DOWN:
+                elif c == curses.KEY_DOWN or c == ord('j'):
                     self.focus_detaillist, self.scrollpos_detaillist = \
                         self.move_down(self.focus_detaillist, self.scrollpos_detaillist, 1,
                                        self.detaillistitems_per_page, len(self.torrent_details['files']))
@@ -980,10 +980,10 @@ class Interface:
                 list_len = int(piece_count / map_width) + 1
 
             if list_len:
-                if c == curses.KEY_UP:
+                if c == curses.KEY_UP or c == ord('k'):
                     if self.scrollpos_detaillist > 0:
                         self.scrollpos_detaillist -= 1
-                elif c == curses.KEY_DOWN:
+                elif c == curses.KEY_DOWN or c == ord('j'):
                     if self.scrollpos_detaillist < list_len - self.detaillistitems_per_page:
                         self.scrollpos_detaillist += 1
                 elif c == curses.KEY_PPAGE:
@@ -1897,8 +1897,8 @@ class Interface:
                     if number <= 0: number = 0
                     if c == curses.KEY_LEFT:    number -= smallstep
                     elif c == curses.KEY_RIGHT: number += smallstep
-                    elif c == curses.KEY_DOWN:  number -= bigstep
-                    elif c == curses.KEY_UP:    number += bigstep
+                    elif c == curses.KEY_DOWN or c == ord('j'):  number -= bigstep
+                    elif c == curses.KEY_UP or c == ord('k'):    number += bigstep
                     if number <= 0: number = 0
                     input = str(number)
                 except ValueError:
@@ -1924,10 +1924,10 @@ class Interface:
                 return options[old_focus-1][0]
             elif c == ord("\n"):
                 return options[focus-1][0]
-            elif c == curses.KEY_DOWN:
+            elif c == curses.KEY_DOWN or c == ord('j'):
                 focus += 1
                 if focus > len(options): focus = 1
-            elif c == curses.KEY_UP:
+            elif c == curses.KEY_UP or c == ord('k'):
                 focus -= 1
                 if focus < 1: focus = len(options)
             elif c == curses.KEY_HOME:

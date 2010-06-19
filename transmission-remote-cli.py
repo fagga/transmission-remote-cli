@@ -1959,7 +1959,7 @@ class Interface:
             options = [('Peer _Port', "%d" % self.stats['peer-port']),
                        ('UP_nP/NAT-PMP', ('disabled','enabled ')[self.stats['port-forwarding-enabled']]),
                        ('Peer E_xchange', ('disabled','enabled ')[self.stats['pex-enabled']]),
-                       ('Global Peer _Limit', "%d" % self.stats['peer-limit-global']),
+                       ('_Global Peer Limit', "%d" % self.stats['peer-limit-global']),
                        ('Peer Limit per _Torrent', "%d" % self.stats['peer-limit-per-torrent']),
                        ('Protocol En_cryption', "%s" % self.stats['encryption']),
                        ('_Seed Ratio Limit', "%s" % ('unlimited',self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']])]
@@ -1993,7 +1993,7 @@ class Interface:
                                        (1,0)[self.stats['port-forwarding-enabled']])
             elif c == ord('x'):
                 self.server.set_option('pex-enabled', (1,0)[self.stats['pex-enabled']])
-            elif c == ord('l'):
+            elif c == ord('g'):
                 limit = self.dialog_input_number("Maximum number of connected peers",
                                                  self.stats['peer-limit-global'])
                 if limit >= 0: self.server.set_option('peer-limit-global', limit)

@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.6.2'
+VERSION='0.6.3'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.00'
@@ -1680,23 +1680,25 @@ class Interface:
 
         upload_limit   = (0, self.stats['speed-limit-up'])[self.stats['speed-limit-up-enabled']]
         download_limit = (0, self.stats['speed-limit-down'])[self.stats['speed-limit-down-enabled']]
-        limits = "DL: %d " % download_limit + "UL: %d " % upload_limit
-        limits_width = len(limits)
+        limits = {'dn_limit' : "/%d" % download_limit,
+                  'up_limit' : "/%d" % upload_limit}
+        limits_width = len(limits['dn_limit']) + len(limits['up_limit'])
 
         if self.stats['alt-speed-enabled']:
             self.screen.move(self.height-1, self.width-rates_width - limits_width - len('Turtle mode '))
             self.screen.addstr('Turtle mode', curses.A_REVERSE + curses.A_BOLD)
             self.screen.addch(' ', curses.A_REVERSE)
 
-        self.screen.move(self.height - 1, self.width - rates_width - len(limits))
-        self.screen.addstr(limits, curses.A_REVERSE)
+        self.screen.move(self.height - 1, self.width - rates_width - limits_width)
         self.screen.addch(curses.ACS_DARROW, curses.A_REVERSE)
         self.screen.addstr(scale_bytes(self.stats['downloadSpeed']).rjust(self.rateDownload_width),
                            curses.A_REVERSE + curses.A_BOLD + curses.color_pair(1))
+        self.screen.addstr(limits['dn_limit'], curses.A_REVERSE)
         self.screen.addch(' ', curses.A_REVERSE)
         self.screen.addch(curses.ACS_UARROW, curses.A_REVERSE)
-        self.screen.insstr(scale_bytes(self.stats['uploadSpeed']).rjust(self.rateUpload_width),
+        self.screen.addstr(scale_bytes(self.stats['uploadSpeed']).rjust(self.rateUpload_width),
                            curses.A_REVERSE + curses.A_BOLD + curses.color_pair(2))
+        self.screen.insstr(limits['up_limit'], curses.A_REVERSE)
 
 
     def draw_title_bar(self):

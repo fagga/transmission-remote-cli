@@ -1672,10 +1672,14 @@ class Interface:
     def draw_global_rates(self):
         rates_width = self.rateDownload_width + self.rateUpload_width + 3
 
-        upload_limit   = (0, self.stats['speed-limit-up'])[self.stats['speed-limit-up-enabled']]
-        download_limit = (0, self.stats['speed-limit-down'])[self.stats['speed-limit-down-enabled']]
-        limits = {'dn_limit' : "/%d" % download_limit,
-                  'up_limit' : "/%d" % upload_limit}
+        if self.stats['alt-speed-enabled']:
+            upload_limit   = "/%dK" % self.stats['alt-speed-up']
+            download_limit = "/%dK" % self.stats['alt-speed-down']
+        else:
+            upload_limit   = ('', "/%dK" % self.stats['speed-limit-up'])[self.stats['speed-limit-up-enabled']]
+            download_limit = ('', "/%dK" % self.stats['speed-limit-down'])[self.stats['speed-limit-down-enabled']]
+
+        limits = {'dn_limit' : download_limit, 'up_limit' : upload_limit}
         limits_width = len(limits['dn_limit']) + len(limits['up_limit'])
 
         if self.stats['alt-speed-enabled']:
@@ -1690,9 +1694,9 @@ class Interface:
         self.screen.addstr(limits['dn_limit'], curses.A_REVERSE)
         self.screen.addch(' ', curses.A_REVERSE)
         self.screen.addch(curses.ACS_UARROW, curses.A_REVERSE)
-        self.screen.addstr(scale_bytes(self.stats['uploadSpeed']).rjust(self.rateUpload_width),
-                           curses.A_REVERSE + curses.A_BOLD + curses.color_pair(2))
         self.screen.insstr(limits['up_limit'], curses.A_REVERSE)
+        self.screen.insstr(scale_bytes(self.stats['uploadSpeed']).rjust(self.rateUpload_width),
+                           curses.A_REVERSE + curses.A_BOLD + curses.color_pair(2))
 
 
     def draw_title_bar(self):

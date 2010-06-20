@@ -1759,6 +1759,7 @@ class Interface:
                     "  K  Peer has unchoked us, but we're not interested\n" + \
                     "  ?  We unchoked this peer, but they're not interested\n" + \
                     "  E  Encrypted Connection\n" + \
+                    "  H  Peer was discovered through DHT\n" + \
                     "  X  Peer was discovered through Peer Exchange (PEX)\n" + \
                     "  I  Peer is an incoming connection \n\n"
             else:

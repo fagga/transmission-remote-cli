@@ -609,7 +609,7 @@ class Interface:
             curses.init_pair(7,  curses.COLOR_MAGENTA,  curses.COLOR_BLACK) # verifying
             curses.init_pair(8,  curses.COLOR_WHITE,    curses.COLOR_BLACK) # button
             curses.init_pair(9,  curses.COLOR_BLACK,    curses.COLOR_WHITE) # focused button
-            curses.init_pair(10, curses.COLOR_WHITE,     curses.COLOR_RED)   # stats filter
+            curses.init_pair(10, curses.COLOR_RED,      curses.COLOR_WHITE) # stats filter
         except:
             pass
 
@@ -1667,7 +1667,7 @@ class Interface:
             if self.filter_list:
                 self.screen.addstr("Showing only: ", curses.A_REVERSE)
                 self.screen.addstr("%s%s" % (('','not ')[self.filter_inverse], self.filter_list),
-                                   curses.A_REVERSE + curses.color_pair(10))
+                                   curses.color_pair(10))
 
     def draw_global_rates(self):
         rates_width = self.rateDownload_width + self.rateUpload_width + 3

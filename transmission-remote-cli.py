@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.6.4'
+VERSION='0.6.5'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.00'
@@ -609,7 +609,7 @@ class Interface:
             curses.init_pair(7,  curses.COLOR_MAGENTA,  curses.COLOR_BLACK) # verifying
             curses.init_pair(8,  curses.COLOR_WHITE,    curses.COLOR_BLACK) # button
             curses.init_pair(9,  curses.COLOR_BLACK,    curses.COLOR_WHITE) # focused button
-            curses.init_pair(10, curses.COLOR_RED,      curses.COLOR_WHITE) # stats filter
+            curses.init_pair(10, curses.COLOR_WHITE,    curses.COLOR_RED)   # stats filter
         except:
             pass
 

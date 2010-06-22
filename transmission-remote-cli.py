@@ -102,7 +102,7 @@ class TransmissionRequest:
         except httplib.BadStatusLine, msg:
             # server sends something httplib doesn't understand.
             # (happens sometimes with high cpu load[?])
-            pass  
+            pass
         except urllib2.HTTPError, msg:
             msg = html2text(str(msg.read()))
             m = re.search('X-Transmission-Session-Id:\s*(\w+)', msg)
@@ -242,7 +242,7 @@ class Transmission:
         else:
             return None
 
-                    
+
 
     def parse_response(self, response):
         # response is a reply to torrent-get
@@ -316,7 +316,7 @@ class Transmission:
 
                 self.peer_progress_cache[peerid]['last_progress'] = peer['progress']  # remember progress
             self.torrent_details_cache['peers'][index].update(self.peer_progress_cache[peerid])
-                
+
             # resolve and locate peer's ip
             if features['dns'] and not self.hosts_cache.has_key(ip):
                 try:
@@ -420,7 +420,7 @@ class Transmission:
                                           {'ids': [torrent_id], 'bandwidthPriority':new_priority})
             request.send_request()
             self.wait_for_torrentlist_update()
-        
+
 
     def toggle_turtle_mode(self):
         self.set_option('alt-speed-enabled', not self.status_cache['alt-speed-enabled'])
@@ -516,7 +516,7 @@ class Transmission:
             if self.update(0, update_id): break
             time.sleep(0.1)
         debug("delay was %dms\n\n" % ((time.time() - start) * 1000))
-        
+
 
     def get_status(self, torrent):
         if torrent['status'] == Transmission.STATUS_CHECK_WAIT:
@@ -547,7 +547,7 @@ class Transmission:
 
 
 
-    
+
 
 # User Interface
 class Interface:
@@ -593,7 +593,7 @@ class Interface:
         self.screen = curses.initscr()
         curses.noecho() ; curses.cbreak() ; self.screen.keypad(1)
         curses.halfdelay(10) # STDIN timeout
-        
+
         try: curses.curs_set(0)   # hide cursor if possible
         except curses.error: pass # some terminals seem to have problems with that
 
@@ -1198,7 +1198,7 @@ class Interface:
                 parts.append("%4s peer%s connected" % (torrent['peersConnected'],
                                                        ('s',' ')[torrent['peersConnected'] == 1]))
 
-            
+
         if focused: tags = curses.A_REVERSE + curses.A_BOLD
         else:       tags = 0
 
@@ -1210,7 +1210,7 @@ class Interface:
         # make sure the peers element is always right justified
         line += ' ' * int(self.torrent_title_width - len(line) - len(peers)) + peers
         self.pad.addstr(ypos+1, 0, line, tags)
-        
+
 
 
 
@@ -1414,7 +1414,7 @@ class Interface:
         for peer in peers:
             if len(peer['clientName']) > clientname_width:
                 clientname_width = len(peer['clientName'])
-        
+
         column_names = "Flags %3d Down %3d Up   Progress      ETA   " % \
             (self.torrent_details['peersSendingToUs'], self.torrent_details['peersGettingFromUs'])
         column_names += 'Client'.ljust(clientname_width) + "          Address"
@@ -1586,7 +1586,7 @@ class Interface:
         else:
             self.details_category_focus -= 1
         self.pad.erase()
-        
+
 
 
 
@@ -1639,7 +1639,7 @@ class Interface:
 
     def draw_torrents_stats(self):
         if self.selected_torrent > -1 and self.details_category_focus == 2:
-            self.screen.insstr((self.height-1), 0, 
+            self.screen.insstr((self.height-1), 0,
                                "%d peer%s connected:" % (self.torrent_details['peersConnected'],
                                                          ('s','')[self.torrent_details['peersConnected'] == 1]) + \
                                    " Trackers: %-3d" % self.torrent_details['peersFrom']['fromTracker'] + \
@@ -1916,7 +1916,7 @@ class Interface:
         while True:
             keymap = self.dialog_list_menu_options(win, width, options, focus)
             c = win.getch()
-            
+
             if c > 96 and c < 123 and chr(c) in keymap:
                 return options[keymap[chr(c)]][0]
             elif c == 27 or c == ord('q'):
@@ -1976,7 +1976,7 @@ class Interface:
                     win.addstr(part[0], curses.A_UNDERLINE)
                     win.addstr(part[1:] + ': ' + option[1])
                 line_num += 1
-                
+
             win.addstr(line_num+1, int((max_len+15)/2) - 10, "Hit escape to close")
 
             c = win.getch()
@@ -2124,7 +2124,7 @@ def scale_bytes(bytes, type='short'):
         scaled_bytes = str(int(scaled_bytes))
     else:
         scaled_bytes = str(scaled_bytes).rstrip('0')
-    
+
     if type == 'long':
         return num2str(bytes) + ' [' + scaled_bytes + unit + ']'
     else:
@@ -2154,7 +2154,7 @@ def debug(data):
         file = open("debug.log", 'a')
         file.write(data.encode('utf-8'))
         file.close
-    
+
 def quit(msg='', exitcode=0):
     try:
         curses.endwin()
@@ -2210,7 +2210,7 @@ def create_config(option, opt_str, value, parser):
         except OSError, msg:
             print msg
             exit(CONFIGFILE_ERROR)
-        
+
     # create config file
     try:
         config.write(open(configfile, 'w'))

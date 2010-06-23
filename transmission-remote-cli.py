@@ -265,6 +265,7 @@ class Transmission:
             elif response['tag'] == self.TAG_TORRENT_DETAILS:
                 torrent_details = response['arguments']['torrents'][0]
                 torrent_details['pieces'] = base64.decodestring(torrent_details['pieces'])
+
                 self.torrent_details_cache = torrent_details
                 self.upgrade_peerlist()
 
@@ -1383,22 +1384,48 @@ class Interface:
 
     def create_filelist(self):
         filelist = []
+
+        files = self.torrent_details['files']
+        current_folder = []
+        current_depth = 0
+        index = 0
         start = self.scrollpos_detaillist
         end   = self.scrollpos_detaillist + self.detaillistitems_per_page
-        for index in range(start, end):
-            filelist.append(self.create_filelist_line(index))
-        return filelist
+        for file in files:
+            f = file['name'].split('/')
+            f_len = len(f) - 1
+            current_folder_len = len(current_folder)
+            if f[:f_len] != current_folder:
+                current_depth = self.create_filelist_transition(f, current_folder, filelist, current_depth)
+                current_folder = f[:f_len]
+            filelist.append(self.create_filelist_line(f[-1], index, percent(file['length'], file['bytesCompleted']),
+                file['length'], current_depth))
+            index += 1
+            if index > end:
+                return filelist[start:]
+        return filelist[start:end]
 
-    def create_filelist_line(self, index):
-        try:
-            file = self.torrent_details['files'][index]
-        except IndexError:
-            return ''
-        line = str(index+1).rjust(3) + \
-            "  %6.1f%%" % percent(file['length'], file['bytesCompleted']) + \
-            '  '+scale_bytes(file['length']).rjust(5) + \
+    def create_filelist_transition(self, f, current_folder, filelist, current_depth):
+        f_len = len(f) - 1
+        current_folder_len = len(current_folder)
+        same = 0
+        while same < current_folder_len and same  < f_len and f[same] == current_folder[same]:
+            same += 1
+        for i in range(current_folder_len - same):
+            current_depth -= 1
+            filelist.append('  '*current_depth + ' '*31 + '/')
+        if f_len < current_folder_len:
+            return current_depth
+        while current_depth < f_len:
+            filelist.append('%s\\ %s' % ('  '*current_depth + ' '*31 , f[current_depth]))
+            current_depth += 1
+        return current_depth
+
+    def create_filelist_line(self, name, index, percent, length, current_depth):
+        line = "%s  %6.1f%%" % (str(index+1).rjust(3), percent) + \
+            '  '+scale_bytes(length).rjust(5) + \
             '  '+self.server.get_file_priority(self.torrent_details['id'], index).center(8) + \
-            "  %s" % file['name'][0:self.width-31].encode('utf-8')
+            " %s| %s" % ('  '*current_depth, name[0:self.width-31-current_depth].encode('utf-8'))
         if index == self.focus_detaillist:
             line = '_F' + line
         if index in self.selected_files:

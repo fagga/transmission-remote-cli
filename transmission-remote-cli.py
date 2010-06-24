@@ -1389,23 +1389,29 @@ class Interface:
         current_folder = []
         current_depth = 0
         index = 0
-        start = self.scrollpos_detaillist
-        end   = self.scrollpos_detaillist + self.detaillistitems_per_page
+        pos = 0
+        pos_before_focus = 0
         for file in files:
             f = file['name'].split('/')
             f_len = len(f) - 1
             current_folder_len = len(current_folder)
             if f[:f_len] != current_folder:
-                current_depth = self.create_filelist_transition(f, current_folder, filelist, current_depth)
+                [current_depth, pos] = self.create_filelist_transition(f, current_folder, filelist, current_depth, pos)
                 current_folder = f[:f_len]
             filelist.append(self.create_filelist_line(f[-1], index, percent(file['length'], file['bytesCompleted']),
                 file['length'], current_depth))
             index += 1
-            if index > end:
-                return filelist[start:]
-        return filelist[start:end]
+            if self.focus_detaillist == index:
+                pos_before_focus = pos
+            if index + pos >= self.focus_detaillist + 1 + pos + self.detaillistitems_per_page/2 \
+            and index + pos >= self.detaillistitems_per_page:
+                if self.focus_detaillist + 1 + pos < self.detaillistitems_per_page:
+                    return filelist
+                return filelist[self.focus_detaillist + 1 + pos_before_focus - self.detaillistitems_per_page / 2
+                        : self.focus_detaillist + 1 + pos_before_focus + self.detaillistitems_per_page / 2]
+        return filelist[len(filelist) - self.detaillistitems_per_page:]
 
-    def create_filelist_transition(self, f, current_folder, filelist, current_depth):
+    def create_filelist_transition(self, f, current_folder, filelist, current_depth, pos):
         f_len = len(f) - 1
         current_folder_len = len(current_folder)
         same = 0
@@ -1414,12 +1420,14 @@ class Interface:
         for i in range(current_folder_len - same):
             current_depth -= 1
             filelist.append('  '*current_depth + ' '*31 + '/')
+            pos += 1
         if f_len < current_folder_len:
-            return current_depth
+            return [current_depth, pos]
         while current_depth < f_len:
             filelist.append('%s\\ %s' % ('  '*current_depth + ' '*31 , f[current_depth]))
             current_depth += 1
-        return current_depth
+            pos += 1
+        return [current_depth, pos]
 
     def create_filelist_line(self, name, index, percent, length, current_depth):
         line = "%s  %6.1f%%" % (str(index+1).rjust(3), percent) + \

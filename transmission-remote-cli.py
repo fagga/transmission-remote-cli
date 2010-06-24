@@ -1503,7 +1503,7 @@ class Interface:
                 peers = "%s peer%s" % (num2str(t['lastAnnouncePeerCount']), ('s', '')[t['lastAnnouncePeerCount']==1])
                 addstr(ypos,   2, t['announce'], curses.A_BOLD + curses.A_UNDERLINE)
                 addstr(ypos+2, 11, "Result: ")
-                addstr(ypos+2, 19, "%s" % peers, curses.A_BOLD)
+                addstr(ypos+2, 19, "%s received" % peers, curses.A_BOLD)
             else:
                 addstr(ypos,   2, t['announce'], curses.A_UNDERLINE)
                 addstr(ypos+2, 9, "Response:")

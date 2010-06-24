@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.6.6'
+VERSION='0.6.7'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.00'
@@ -833,10 +833,15 @@ class Interface:
 
         # pause/unpause torrent
         elif c == ord('p') and self.focus > -1:
-            if self.torrents[self.focus]['status'] == Transmission.STATUS_STOPPED:
-                self.server.start_torrent(self.torrents[self.focus]['id'])
+            if self.selected_torrent > -1:
+                t = self.torrent_details
             else:
-                self.server.stop_torrent(self.torrents[self.focus]['id'])
+                t = self.torrents[self.focus]
+               
+            if t['status'] == Transmission.STATUS_STOPPED:
+                self.server.start_torrent(t['id'])
+            else:
+                self.server.stop_torrent(t['id'])
 
         # pause/unpause all torrents
         elif c == ord('P'):

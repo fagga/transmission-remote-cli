@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.6.5'
+VERSION='0.6.6'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.00'
@@ -964,7 +964,7 @@ class Interface:
 
             # tracker list movement
             elif self.details_category_focus == 3:
-                list_len = len(self.torrent_details['trackerStats']) * 5 - 1
+                list_len = len(self.torrent_details['trackerStats']) * 5
 
             # pieces list movement
             elif self.details_category_focus == 4:
@@ -1482,35 +1482,41 @@ class Interface:
         ypos -= self.scrollpos_detaillist % 5
         start = self.scrollpos_detaillist / 5
         tlist = tlist[start:]
+        current_tier = -1
         for t in tlist:
             announce_msg_size = scrape_msg_size = 0
 
-            addstr(ypos+1, 0,  "Latest announce: %s" % timestamp(t['lastAnnounceTime']))
-            addstr(ypos+1, 55, "Latest scrape: %s" % timestamp(t['lastScrapeTime']))
+            if current_tier != t['tier']:
+                current_tier = t['tier']
+                addstr(ypos, 0, "Tier %d" % (current_tier+1), curses.A_BOLD + curses.A_REVERSE)
+                ypos += 1
+
+            addstr(ypos+1, 4,  "Last announce: %s" % timestamp(t['lastAnnounceTime']))
+            addstr(ypos+1, 57, "  Last scrape: %s" % timestamp(t['lastScrapeTime']))
 
             if t['lastAnnounceSucceeded']:
                 peers = "%s peer%s" % (num2str(t['lastAnnouncePeerCount']), ('s', '')[t['lastAnnouncePeerCount']==1])
-                addstr(ypos,   0, "#%i in tier #%i: %s" % (t['id']+1, t['tier'], t['announce']), curses.A_BOLD + curses.A_UNDERLINE)
-                addstr(ypos+2, 9, "Result: ")
-                addstr(ypos+2, 17, "%s" % peers, curses.A_BOLD)
+                addstr(ypos,   2, "#%i: %s" % (t['id']+1, t['announce']), curses.A_BOLD + curses.A_UNDERLINE)
+                addstr(ypos+2, 11, "Result: ")
+                addstr(ypos+2, 19, "%s" % peers, curses.A_BOLD)
             else:
-                addstr(ypos,   0, "#%i in tier #%i: %s" % (t['id']+1, t['tier'], t['announce']), curses.A_UNDERLINE)
-                addstr(ypos+2, 7, "Response:")
-                announce_msg_size = self.wrap_and_draw_result(top, ypos+2, 17, t['lastAnnounceResult'])
+                addstr(ypos,   2, "#%i: %s" % (t['id']+1, t['announce']), curses.A_UNDERLINE)
+                addstr(ypos+2, 9, "Response:")
+                announce_msg_size = self.wrap_and_draw_result(top, ypos+2, 19, t['lastAnnounceResult'])
 
             if t['lastScrapeSucceeded']:
                 seeds   = "%s seed%s" % (num2str(t['seederCount']), ('s', '')[t['seederCount']==1])
                 leeches = "%s leech%s" % (num2str(t['leecherCount']), ('es', '')[t['leecherCount']==1])
-                addstr(ypos+2, 55, "Tracker knows: ")
-                addstr(ypos+2, 70, "%s and %s" % (seeds, leeches), curses.A_BOLD)
+                addstr(ypos+2, 57, "Tracker knows: ")
+                addstr(ypos+2, 72, "%s and %s" % (seeds, leeches), curses.A_BOLD)
             else:
-                addstr(ypos+2, 60, "Response:")
-                scrape_msg_size += self.wrap_and_draw_result(top, ypos+2, 70, t['lastScrapeResult'])
+                addstr(ypos+2, 62, "Response:")
+                scrape_msg_size += self.wrap_and_draw_result(top, ypos+2, 72, t['lastScrapeResult'])
 
             ypos += max(announce_msg_size, scrape_msg_size)
 
-            addstr(ypos+3, 0,  "  Next announce: %s" % timestamp(t['nextAnnounceTime']))
-            addstr(ypos+3, 55, "  Next scrape: %s" % timestamp(t['nextScrapeTime']))
+            addstr(ypos+3, 4,  "Next announce: %s" % timestamp(t['nextAnnounceTime']))
+            addstr(ypos+3, 57, "  Next scrape: %s" % timestamp(t['nextScrapeTime']))
 
             ypos += 5
 

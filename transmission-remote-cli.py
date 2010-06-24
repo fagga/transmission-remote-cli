@@ -1493,7 +1493,7 @@ class Interface:
 
             if current_tier != t['tier']:
                 current_tier = t['tier']
-                addstr(ypos, 0, "Tier %d" % (current_tier+1), curses.A_BOLD + curses.A_REVERSE)
+                addstr(ypos, 0, ("Tier %d" % (current_tier+1)).ljust(self.width), curses.A_REVERSE)
                 ypos += 1
 
             addstr(ypos+1, 4,  "Last announce: %s" % timestamp(t['lastAnnounceTime']))
@@ -1501,11 +1501,11 @@ class Interface:
 
             if t['lastAnnounceSucceeded']:
                 peers = "%s peer%s" % (num2str(t['lastAnnouncePeerCount']), ('s', '')[t['lastAnnouncePeerCount']==1])
-                addstr(ypos,   2, "#%i: %s" % (t['id']+1, t['announce']), curses.A_BOLD + curses.A_UNDERLINE)
+                addstr(ypos,   2, t['announce'], curses.A_BOLD + curses.A_UNDERLINE)
                 addstr(ypos+2, 11, "Result: ")
                 addstr(ypos+2, 19, "%s" % peers, curses.A_BOLD)
             else:
-                addstr(ypos,   2, "#%i: %s" % (t['id']+1, t['announce']), curses.A_UNDERLINE)
+                addstr(ypos,   2, t['announce'], curses.A_UNDERLINE)
                 addstr(ypos+2, 9, "Response:")
                 announce_msg_size = self.wrap_and_draw_result(top, ypos+2, 19, t['lastAnnounceResult'])
 
@@ -1530,8 +1530,9 @@ class Interface:
         i = 0
         for i, line in enumerate(result):
             if ypos+i > top and ypos+i < self.height - 2:
-                self.pad.addstr(ypos+i, xpos, line, curses.A_BOLD)
+                self.pad.addstr(ypos+i, xpos, line, curses.A_UNDERLINE)
         return i
+
 
     def draw_pieces_map(self, ypos):
         pieces = self.torrent_details['pieces']

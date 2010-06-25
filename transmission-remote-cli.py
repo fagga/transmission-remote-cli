@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.6.7'
+VERSION='0.6.8'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.00'
@@ -28,13 +28,24 @@ CONNECTION_ERROR = 1
 JSON_ERROR       = 2
 CONFIGFILE_ERROR = 3
 
+
+try:
+    import json  # python 2.6
+
+    # There seem to be an old module named json that doesn't support
+    # .loads/.dumps; we don't want that.
+    json.dumps ; json.dumps
+
+except (ImportError,AttributeError):
+    try:
+        import simplejson as json  # python <2.6
+    except ImportError:
+        quit("Please install simplejson or Python 2.6 or higher.")
+
+
 import time
 import re
 import base64
-try:
-    import json
-except ImportError:
-    import simplejson as json
 import httplib
 import urllib2
 import socket

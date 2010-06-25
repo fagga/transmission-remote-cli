@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.6.8'
+VERSION='0.6.9'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.00'
@@ -1397,10 +1397,11 @@ class Interface:
                 self.pad.addstr(ypos, 0, ' '*self.width, curses_tags)
             self.pad.addstr(ypos, 0, line, curses_tags)
             ypos += 1
+            if ypos > self.height:
+                break
 
     def create_filelist(self):
         filelist = []
-
         files = self.torrent_details['files']
         current_folder = []
         current_depth = 0

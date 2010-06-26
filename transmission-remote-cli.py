@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.6.9'
+VERSION='0.7.0'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.00'
@@ -612,16 +612,20 @@ class Interface:
         # enable colors if available
         try:
             curses.start_color()
-            curses.init_pair(1,  curses.COLOR_BLACK,    curses.COLOR_BLUE)  # download rate
-            curses.init_pair(2,  curses.COLOR_BLACK,    curses.COLOR_RED)   # upload rate
-            curses.init_pair(3,  curses.COLOR_BLUE,     curses.COLOR_BLACK) # unfinished progress
-            curses.init_pair(4,  curses.COLOR_GREEN,    curses.COLOR_BLACK) # finished progress
-            curses.init_pair(5,  curses.COLOR_BLACK,    curses.COLOR_WHITE) # eta/ratio
-            curses.init_pair(6,  curses.COLOR_CYAN,     curses.COLOR_BLACK) # idle progress
-            curses.init_pair(7,  curses.COLOR_MAGENTA,  curses.COLOR_BLACK) # verifying
-            curses.init_pair(8,  curses.COLOR_WHITE,    curses.COLOR_BLACK) # button
-            curses.init_pair(9,  curses.COLOR_BLACK,    curses.COLOR_WHITE) # focused button
-            curses.init_pair(10, curses.COLOR_WHITE,    curses.COLOR_RED)   # stats filter
+            curses.init_pair(1,  curses.COLOR_BLACK,    curses.COLOR_BLUE)   # download rate
+            curses.init_pair(2,  curses.COLOR_BLACK,    curses.COLOR_RED)    # upload rate
+            curses.init_pair(3,  curses.COLOR_BLUE,     curses.COLOR_BLACK)  # unfinished progress
+            curses.init_pair(4,  curses.COLOR_GREEN,    curses.COLOR_BLACK)  # finished progress
+            curses.init_pair(5,  curses.COLOR_BLACK,    curses.COLOR_WHITE)  # eta/ratio
+            curses.init_pair(6,  curses.COLOR_CYAN,     curses.COLOR_BLACK)  # idle progress
+            curses.init_pair(7,  curses.COLOR_MAGENTA,  curses.COLOR_BLACK)  # verifying
+            curses.init_pair(8,  curses.COLOR_WHITE,    curses.COLOR_BLACK)  # button
+            curses.init_pair(9,  curses.COLOR_BLACK,    curses.COLOR_WHITE)  # focused button
+            curses.init_pair(10, curses.COLOR_WHITE,    curses.COLOR_RED)    # stats filter
+            curses.init_pair(11, curses.COLOR_RED,      curses.COLOR_BLACK)  # high   file priority
+            curses.init_pair(12, curses.COLOR_WHITE,    curses.COLOR_BLACK)  # normal file priority
+            curses.init_pair(13, curses.COLOR_YELLOW,   curses.COLOR_BLACK)  # low    file priority
+            curses.init_pair(14, curses.COLOR_BLUE,     curses.COLOR_BLACK)  # off    file priority
         except:
             pass
 
@@ -1377,16 +1381,13 @@ class Interface:
                     self.pad.addstr(ypos+6+i, 2, line)
 
     def draw_filelist(self, ypos):
-
-        # TODO: This would be nice with coloured priorities to make it more
-        # user friendly.
-
         column_names = '  #  Progress  Size  Priority  Filename'
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
         ypos += 1
 
         for line in self.create_filelist():
             curses_tags = 0
+            # highlight focused/selected line(s)
             while line.startswith('_'):
                 if line[1] == 'S':
                     curses_tags  = curses.A_BOLD
@@ -1395,7 +1396,23 @@ class Interface:
                     curses_tags += curses.A_REVERSE
                     line = line[2:]
                 self.pad.addstr(ypos, 0, ' '*self.width, curses_tags)
-            self.pad.addstr(ypos, 0, line, curses_tags)
+
+            # colored priority
+            xpos = 0
+            for part in re.split('(high|normal|low|off)', line, 1):
+                if part == 'high':
+                    self.pad.addstr(ypos, xpos, part, curses_tags + curses.color_pair(11))
+                elif part == 'normal':
+                    self.pad.addstr(ypos, xpos, part, curses_tags + curses.color_pair(12))
+                elif part == 'low':
+                    self.pad.addstr(ypos, xpos, part, curses_tags + curses.color_pair(13))
+                elif part == 'off':
+                    self.pad.addstr(ypos, xpos, part, curses_tags + curses.color_pair(14))
+
+                else:
+                    self.pad.addstr(ypos, xpos, part, curses_tags)
+                xpos += len(part)
+
             ypos += 1
             if ypos > self.height:
                 break

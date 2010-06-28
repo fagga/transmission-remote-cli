@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.7.0'
+VERSION='0.7.1'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.01'
@@ -1293,7 +1293,6 @@ class Interface:
         sizes.extend(["%s left" % scale_bytes(t['leftUntilDone'], 'long')])
         info.append(sizes)
 
-
         info.append(['Files: ', "%d;  " % len(t['files'])])
         complete     = map(lambda x: x['bytesCompleted'] == x['length'], t['files']).count(True)
         not_complete = filter(lambda x: x['bytesCompleted'] != x['length'], t['files'])
@@ -1339,6 +1338,22 @@ class Interface:
                      "connected to %d;  "                   % t['peersConnected'],
                      "downloading from %d;  "               % t['peersSendingToUs'],
                      "uploading to %d"                      % t['peersGettingFromUs']])
+
+        # average peer speed
+        if self.torrent_details['peers']:
+            active_peers = [peer for peer in self.torrent_details['peers'] if peer['download_speed']]
+            # use at least 2/3 of connected peers to make an estimation
+            if len(active_peers) >= int(len(self.torrent_details['peers'])*0.666):
+                swarm_speed  = sum([peer['download_speed'] for peer in active_peers]) / len(active_peers)
+                info.append(['Swarm speed: ', "%s on average;  " % scale_bytes(swarm_speed),
+                             "distribution of 1 copy takes %s" % \
+                                 scale_time(int(t['totalSize'] / swarm_speed), 'long')])
+            else:
+                info.append(['Swarm speed: ', "<gathering info from %d peers, %d done>" % \
+                                 (int(len(self.torrent_details['peers'])*0.666), len(active_peers))])
+        else:
+            info.append(['Swarm speed: ', "<no peers connected>"])
+
 
         info.append(['Privacy: '])
         if t['isPrivate']:
@@ -2137,7 +2152,6 @@ def scale_time(seconds, type='short'):
 
     elif seconds < month_in_sec:
         days = round(seconds / day_in_sec, 0)
-
         if type == 'long':
             return "%d day%s" % (days, ('', 's')[days>1])
         else:

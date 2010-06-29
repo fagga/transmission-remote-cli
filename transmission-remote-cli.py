@@ -306,13 +306,13 @@ class Transmission:
                 if self.peer_progress_cache[peerid]['last_progress'] and progress_diff > 0 and time_diff > 5:
                     downloaded = self.torrent_details_cache['totalSize'] * progress_diff
                     avg_speed  = downloaded / time_diff
-                    debug("%s:\n" % peerid +\
-                              "\tlast_time.....: %-13s   this_time.......: %-13s  diff: %s\n" \
-                              % (self.peer_progress_cache[peerid]['last_update'], this_time, time_diff) +\
-                              "\tlast_progress.: %-13s   this_progress...: %-13s  diff: %s\n" \
-                              % (self.peer_progress_cache[peerid]['last_progress'], peer['progress'], progress_diff) +\
-                              "\tformula: (%s * %s) / %s = %s/s\n" \
-                              % (self.torrent_details_cache['totalSize'], progress_diff, time_diff, scale_bytes(avg_speed)))
+                    # debug("%s:\n" % peerid +\
+                    #           "\tlast_time.....: %-13s   this_time.......: %-13s  diff: %s\n" \
+                    #           % (self.peer_progress_cache[peerid]['last_update'], this_time, time_diff) +\
+                    #           "\tlast_progress.: %-13s   this_progress...: %-13s  diff: %s\n" \
+                    #           % (self.peer_progress_cache[peerid]['last_progress'], peer['progress'], progress_diff) +\
+                    #           "\tformula: (%s * %s) / %s = %s/s\n" \
+                    #           % (self.torrent_details_cache['totalSize'], progress_diff, time_diff, scale_bytes(avg_speed)))
 
                     if self.peer_progress_cache[peerid]['download_speed'] > 0:  # make it less jumpy
                         avg_speed = (self.peer_progress_cache[peerid]['download_speed'] + avg_speed) /2
@@ -320,7 +320,7 @@ class Transmission:
                     download_left = self.torrent_details_cache['totalSize'] - \
                         (self.torrent_details_cache['totalSize']*peer['progress'])
                     time_left  = download_left / avg_speed
-                    debug("  %s  --  will finish %s\n\n" % (timestamp(this_time), timestamp(time_left + this_time)))
+                    # debug("  %s  --  will finish %s\n\n" % (timestamp(this_time), timestamp(time_left + this_time)))
 
                     self.peer_progress_cache[peerid]['last_update']    = this_time  # remember update time
                     self.peer_progress_cache[peerid]['download_speed'] = avg_speed
@@ -521,13 +521,10 @@ class Transmission:
     def wait_for_status_update(self):
         self.wait_for_update(22)
     def wait_for_update(self, update_id):
-        start = time.time()
         self.update(0) # send request
         while True:    # wait for response
-            debug("still waiting for %d\n" % update_id)
             if self.update(0, update_id): break
             time.sleep(0.1)
-        debug("delay was %dms\n\n" % ((time.time() - start) * 1000))
 
 
     def get_status(self, torrent):
@@ -1339,12 +1336,18 @@ class Interface:
                      "downloading from %d;  "               % t['peersSendingToUs'],
                      "uploading to %d"                      % t['peersGettingFromUs']])
 
+        debug("connected peers: %d\n" % len(self.torrent_details['peers']))
+
         # average peer speed
         if self.torrent_details['peers']:
             active_peers = [peer for peer in self.torrent_details['peers'] if peer['download_speed']]
+            debug("   active peers: %d\n" % len(active_peers))
+
             # use at least 2/3 of connected peers to make an estimation
             if len(active_peers) >= int(len(self.torrent_details['peers'])*0.666):
+                debug("swarm_speed = %d / %d\n\n" % (sum([peer['download_speed'] for peer in active_peers]), len(active_peers)))
                 swarm_speed  = sum([peer['download_speed'] for peer in active_peers]) / len(active_peers)
+
                 info.append(['Swarm speed: ', "%s on average;  " % scale_bytes(swarm_speed),
                              "distribution of 1 copy takes %s" % \
                                  scale_time(int(t['totalSize'] / swarm_speed), 'long')])
@@ -1644,7 +1647,7 @@ class Interface:
 
         missing_pieces = piece_count - counter - 1
         if missing_pieces:
-            line = "%d further piece%s not listed" % (missing_pieces, ('','s')[missing_pieces>1])
+            line = "%d further piece%s" % (missing_pieces, ('','s')[missing_pieces>1])
             xpos = (self.width - len(line)) / 2
             self.pad.addstr(self.height-3, xpos, line, curses.A_REVERSE)
 

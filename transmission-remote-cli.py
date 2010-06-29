@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.7.1'
+VERSION='0.7.2'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.01'
@@ -1341,10 +1341,11 @@ class Interface:
         # average peer speed
         if self.torrent_details['peers']:
             active_peers = [peer for peer in self.torrent_details['peers'] if peer['download_speed']]
-            debug("   active peers: %d\n" % len(active_peers))
+            min_active_peers = max(1, round(len(self.torrent_details['peers'])*0.666))
+            debug("   active peers: %d (min:%d)\n" % (len(active_peers), min_active_peers))
 
             # use at least 2/3 of connected peers to make an estimation
-            if len(active_peers) >= int(len(self.torrent_details['peers'])*0.666):
+            if 1 <= len(active_peers) >= min_active_peers:
                 debug("swarm_speed = %d / %d\n\n" % (sum([peer['download_speed'] for peer in active_peers]), len(active_peers)))
                 swarm_speed  = sum([peer['download_speed'] for peer in active_peers]) / len(active_peers)
 
@@ -1353,7 +1354,7 @@ class Interface:
                                  scale_time(int(t['totalSize'] / swarm_speed), 'long')])
             else:
                 info.append(['Swarm speed: ', "<gathering info from %d peers, %d done>" % \
-                                 (int(len(self.torrent_details['peers'])*0.666), len(active_peers))])
+                                 (min_active_peers, len(active_peers))])
         else:
             info.append(['Swarm speed: ', "<no peers connected>"])
 

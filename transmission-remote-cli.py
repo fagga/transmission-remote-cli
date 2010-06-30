@@ -1336,19 +1336,14 @@ class Interface:
                      "downloading from %d;  "               % t['peersSendingToUs'],
                      "uploading to %d"                      % t['peersGettingFromUs']])
 
-        debug("connected peers: %d\n" % len(self.torrent_details['peers']))
-
         # average peer speed
-        if self.torrent_details['peers']:
-            active_peers = [peer for peer in self.torrent_details['peers'] if peer['download_speed']]
-            min_active_peers = max(1, round(len(self.torrent_details['peers'])*0.666))
-            debug("   active peers: %d (min:%d)\n" % (len(active_peers), min_active_peers))
-
-            # use at least 2/3 of connected peers to make an estimation
+        incomplete_peers = [peer for peer in self.torrent_details['peers'] if peer['progress'] < 1]
+        if incomplete_peers:
+            # use at least 2/3 or 10 of incomplete peers to make an estimation
+            active_peers = [peer for peer in incomplete_peers if peer['download_speed']]
+            min_active_peers = min(10, max(1, round(len(incomplete_peers)*0.666)))
             if 1 <= len(active_peers) >= min_active_peers:
-                debug("swarm_speed = %d / %d\n\n" % (sum([peer['download_speed'] for peer in active_peers]), len(active_peers)))
                 swarm_speed  = sum([peer['download_speed'] for peer in active_peers]) / len(active_peers)
-
                 info.append(['Swarm speed: ', "%s on average;  " % scale_bytes(swarm_speed),
                              "distribution of 1 copy takes %s" % \
                                  scale_time(int(t['totalSize'] / swarm_speed), 'long')])
@@ -1356,7 +1351,7 @@ class Interface:
                 info.append(['Swarm speed: ', "<gathering info from %d peers, %d done>" % \
                                  (min_active_peers, len(active_peers))])
         else:
-            info.append(['Swarm speed: ', "<no peers connected>"])
+            info.append(['Swarm speed: ', "<no downloading peers connected>"])
 
 
         info.append(['Privacy: '])
@@ -2246,7 +2241,12 @@ def middlecut(string, width):
 def debug(data):
     if cmd_args.DEBUG:
         file = open("debug.log", 'a')
-        file.write(data.encode('utf-8'))
+        if type(data) == type(str()):
+            file.write(data.encode('utf-8'))
+        else:
+            import pprint
+            pp = pprint.PrettyPrinter(indent=4)
+            file.write(pp.pformat(data) + "\n====================\n\n")
         file.close
 
 def quit(msg='', exitcode=0):

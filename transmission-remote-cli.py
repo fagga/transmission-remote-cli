@@ -256,35 +256,39 @@ class Transmission:
 
 
     def parse_response(self, response):
-        # response is a reply to torrent-get
-        if response['tag'] == self.TAG_TORRENT_LIST or response['tag'] == self.TAG_TORRENT_DETAILS:
-            for t in response['arguments']['torrents']:
-                t['uploadRatio'] = round(float(t['uploadRatio']), 2)
-                t['percent_done'] = percent(float(t['sizeWhenDone']),
-                                            float(t['haveValid'] + t['haveUnchecked']))
-                try:
-                    t['seeders']  = max(map(lambda x: x['seederCount'],  t['trackerStats']))
-                    t['leechers'] = max(map(lambda x: x['leecherCount'], t['trackerStats']))
-                except ValueError:
-                    t['seeders']  = t['leechers'] = -1
+        try:
+            # response is a reply to torrent-get
+            if response['tag'] == self.TAG_TORRENT_LIST or response['tag'] == self.TAG_TORRENT_DETAILS:
+                for t in response['arguments']['torrents']:
+                    t['uploadRatio'] = round(float(t['uploadRatio']), 2)
+                    t['percent_done'] = percent(float(t['sizeWhenDone']),
+                                                float(t['haveValid'] + t['haveUnchecked']))
+                    try:
+                        t['seeders']  = max(map(lambda x: x['seederCount'],  t['trackerStats']))
+                        t['leechers'] = max(map(lambda x: x['leecherCount'], t['trackerStats']))
+                    except ValueError:
+                        t['seeders']  = t['leechers'] = -1
 
-                t['available'] = t['desiredAvailable'] + t['haveValid'] + t['haveUnchecked']
+                    t['available'] = t['desiredAvailable'] + t['haveValid'] + t['haveUnchecked']
 
-            if response['tag'] == self.TAG_TORRENT_LIST:
-                self.torrent_cache = response['arguments']['torrents']
+                if response['tag'] == self.TAG_TORRENT_LIST:
+                    self.torrent_cache = response['arguments']['torrents']
 
-            elif response['tag'] == self.TAG_TORRENT_DETAILS:
-                torrent_details = response['arguments']['torrents'][0]
-                torrent_details['pieces'] = base64.decodestring(torrent_details['pieces'])
+                elif response['tag'] == self.TAG_TORRENT_DETAILS:
+                    torrent_details = response['arguments']['torrents'][0]
+                    torrent_details['pieces'] = base64.decodestring(torrent_details['pieces'])
 
-                self.torrent_details_cache = torrent_details
-                self.upgrade_peerlist()
+                    self.torrent_details_cache = torrent_details
+                    self.upgrade_peerlist()
 
-        elif response['tag'] == self.TAG_SESSION_STATS:
-            self.status_cache.update(response['arguments'])
+            elif response['tag'] == self.TAG_SESSION_STATS:
+                self.status_cache.update(response['arguments'])
 
-        elif response['tag'] == self.TAG_SESSION_GET:
-            self.status_cache.update(response['arguments'])
+            elif response['tag'] == self.TAG_SESSION_GET:
+                self.status_cache.update(response['arguments'])
+        except:
+            debug(result)
+            raise
 
         return response['tag']
 
@@ -1795,6 +1799,8 @@ class Interface:
         self.draw_quick_help()
     def draw_connection_status(self):
         status = "Transmission @ %s:%s" % (self.server.host, self.server.port)
+        if cmd_args.DEBUG:
+            status = "%d x %d " % (self.width, self.height) + status 
         self.screen.addstr(0, 0, status.encode('utf-8'), curses.A_REVERSE)
 
     def draw_quick_help(self):

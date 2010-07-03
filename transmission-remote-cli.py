@@ -1461,7 +1461,8 @@ class Interface:
                     return filelist
                 return filelist[self.focus_detaillist + 1 + pos_before_focus - self.detaillistitems_per_page / 2
                         : self.focus_detaillist + 1 + pos_before_focus + self.detaillistitems_per_page / 2]
-        return filelist[len(filelist) - self.detaillistitems_per_page:]
+        begin = len(filelist) - self.detaillistitems_per_page
+        return filelist[begin > 0 and begin or 0:]
 
     def create_filelist_transition(self, f, current_folder, filelist, current_depth, pos):
         f_len = len(f) - 1

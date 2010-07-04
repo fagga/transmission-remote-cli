@@ -29,19 +29,17 @@ JSON_ERROR       = 2
 CONFIGFILE_ERROR = 3
 
 
+# use simplejson if available because it seems to be faster
 try:
-    import json  # python 2.6
-
-    # There seem to be an old module named json that doesn't support
-    # .loads/.dumps; we don't want that.
-    json.dumps ; json.dumps
-
-except (ImportError,AttributeError):
+    import simplejson as json
+except ImportError:
     try:
-        import simplejson as json  # python <2.6
-    except ImportError:
+        # Python 2.6 comes with a json module ...
+        import json
+        # ...but there is also an old json module that doesn't support .loads/.dumps.
+        json.dumps ; json.dumps
+    except (ImportError,AttributeError):
         quit("Please install simplejson or Python 2.6 or higher.")
-
 
 import time
 import re

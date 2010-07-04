@@ -273,11 +273,16 @@ class Transmission:
                     self.torrent_cache = response['arguments']['torrents']
 
                 elif response['tag'] == self.TAG_TORRENT_DETAILS:
-                    torrent_details = response['arguments']['torrents'][0]
-                    torrent_details['pieces'] = base64.decodestring(torrent_details['pieces'])
-
-                    self.torrent_details_cache = torrent_details
-                    self.upgrade_peerlist()
+                    # torrent list may be empty sometimes after deleting
+                    # torrents.  no idea why and why the server sends us
+                    # TAG_TORRENT_DETAILS, but just passing seems to help.(?)
+                    try:
+                        torrent_details = response['arguments']['torrents'][0]
+                        torrent_details['pieces'] = base64.decodestring(torrent_details['pieces'])
+                        self.torrent_details_cache = torrent_details
+                        self.upgrade_peerlist()
+                    except IndexError:
+                        pass
 
             elif response['tag'] == self.TAG_SESSION_STATS:
                 self.status_cache.update(response['arguments'])

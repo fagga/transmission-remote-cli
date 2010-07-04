@@ -285,7 +285,7 @@ class Transmission:
             elif response['tag'] == self.TAG_SESSION_GET:
                 self.status_cache.update(response['arguments'])
         except:
-            debug(result)
+            debug(response)
             raise
 
         return response['tag']

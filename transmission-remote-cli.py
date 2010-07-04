@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.7.3'
+VERSION='0.7.4'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.01'
@@ -764,7 +764,7 @@ class Interface:
         if self.focus > -1 and self.selected_torrent == -1:
             self.select_torrent_detail_view(c)
         elif self.selected_torrent > -1:
-            self.file_pritority_or_walk_throught(c)
+            self.file_pritority_or_switch_details(c)
 
     def t_key(self, c):
         if self.selected_torrent == -1:
@@ -782,7 +782,7 @@ class Interface:
         if self.focus > -1 and self.selected_torrent == -1:
             self.select_torrent_detail_view(c)
         else:
-            self.file_pritority_or_walk_throught(c)
+            self.file_pritority_or_switch_details(c)
 
     def select_torrent_detail_view(self, c):
         if self.focus > -1 and self.selected_torrent == -1:
@@ -969,7 +969,7 @@ class Interface:
                     if list_len > self.detaillistitems_per_page:
                         self.scrollpos_detaillist = list_len - self.detaillistitems_per_page
 
-    def file_pritority_or_walk_throught(self, c):
+    def file_pritority_or_switch_details(self, c):
         if self.selected_torrent > -1:
             # file priority OR walk through details
             if c == curses.KEY_RIGHT or c == ord('l'):
@@ -1011,7 +1011,7 @@ class Interface:
                 else:
                     self.selected_files = range(0, len(self.torrent_details['files']))
 
-    def move_in_detail(self, c):
+    def move_in_details(self, c):
         if self.selected_torrent > -1:
             if c == ord("\t"):
                 self.next_details()
@@ -1064,12 +1064,12 @@ class Interface:
                 curses.KEY_NPAGE:       self.movement_keys,
                 curses.KEY_HOME:        self.movement_keys,
                 curses.KEY_END:         self.movement_keys,
-                ord("\t"):              self.move_in_detail,
-                curses.KEY_BTAB:        self.move_in_detail,
-                ord('e'):               self.move_in_detail,
-                ord('c'):               self.move_in_detail,
-                ord('h'):               self.file_pritority_or_walk_throught,
-                curses.KEY_LEFT:        self.file_pritority_or_walk_throught,
+                ord("\t"):              self.move_in_details,
+                curses.KEY_BTAB:        self.move_in_details,
+                ord('e'):               self.move_in_details,
+                ord('c'):               self.move_in_details,
+                ord('h'):               self.file_pritority_or_switch_details,
+                curses.KEY_LEFT:        self.file_pritority_or_switch_details,
                 ord(' '):               self.select_unselect_file,
                 ord('a'):               self.select_unselect_file
                 }

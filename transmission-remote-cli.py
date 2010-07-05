@@ -157,7 +157,7 @@ class Transmission:
     TAG_SESSION_STATS   = 21
     TAG_SESSION_GET     = 22
 
-    LIST_FIELDS = [ 'id', 'name', 'status', 'trackerStats', 'desiredAvailable',
+    LIST_FIELDS = [ 'id', 'name', 'downloadDir', 'status', 'trackerStats', 'desiredAvailable',
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
                     'sizeWhenDone', 'haveValid', 'haveUnchecked', 'addedDate',
                     'uploadedEver', 'errorString', 'recheckProgress',
@@ -1423,6 +1423,8 @@ class Interface:
             info[-1].append('Private to this tracker -- DHT and PEX disabled')
         else:
             info[-1].append('Public torrent')
+
+        info.append(['Location: ',"%s" % t['downloadDir']])
 
         ypos = self.draw_details_list(ypos, info)
 

@@ -557,6 +557,11 @@ class Transmission:
         else:
             return '?'
 
+    def move_torrent_to_new_location(self, torrent_id, new_location):
+        request = TransmissionRequest(self.host, self.port, 'torrent-set-location', 1,
+                {'ids': torrent_id, 'location': new_location, 'move': True})
+        request.send_request()
+
 # End of Class Transmission
 
 
@@ -1030,6 +1035,12 @@ class Interface:
     def call_list_key_bindings(self, c):
         self.list_key_bindings()
 
+    def move_torrent(self, c):
+        if self.focus > -1 and self.selected_torrent == -1:
+            path = self.dialog_input_text("Enter new path:")
+            if path:
+                self.server.move_torrent_to_new_location(self.torrents[self.focus]['id'], path)
+
     def handle_user_input(self):
         c = self.screen.getch()
         if c == -1:
@@ -1076,7 +1087,8 @@ class Interface:
                 ord('h'):               self.file_pritority_or_switch_details,
                 curses.KEY_LEFT:        self.file_pritority_or_switch_details,
                 ord(' '):               self.select_unselect_file,
-                ord('a'):               self.select_unselect_file
+                ord('a'):               self.select_unselect_file,
+                ord('m'):               self.move_torrent
                 }
 
         f = keys.get(c, None)
@@ -2005,6 +2017,36 @@ class Interface:
                 return input
             elif c == 27 or c == curses.KEY_BREAK:
                 return -1
+
+    def dialog_input_text(self, message):
+        width  = self.width - 4
+        height = message.count("\n") + 4
+
+        win = self.window(height, width, message=message)
+        win.keypad(True)
+        input = ''
+
+        index = 0;
+        while True:
+            win.addstr(height - 2, 2, input.ljust(width - 4), curses.color_pair(5))
+            win.addch(height - 2, index + 2, index < len(input) and input[index] or ' ')
+            c = win.getch()
+            if c == 27 or c == curses.KEY_BREAK:
+                return ''
+            elif c == curses.KEY_RIGHT and index < len(input):
+                index += 1
+            elif c == curses.KEY_LEFT and index > 0:
+                index -= 1
+            elif c == curses.KEY_BACKSPACE and index > 0:
+                input = input[:index - 1] + (index < len(input) and input[index:] or '')
+                index -= 1
+            elif c == curses.KEY_DC and index < len(input):
+                input = input[:index] + input[index + 1:]
+            elif c == ord('\n'):
+                return input
+            elif c > 39 and c < 127 and len(input) + 1 < self.width - 7:
+                input = input[:index] + chr(c) + (index < len(input) and input[index:] or '')
+                index += 1
 
     def dialog_input_number(self, message, current_value, cursorkeys=True, floating_point=False):
         width  = max(max(map(lambda x: len(x), message.split("\n"))), 40) + 4

@@ -1906,17 +1906,18 @@ class Interface:
 
     def list_key_bindings(self):
         message = "          F1/?  Show this help\n" + \
-            "             p  Pause/Unpause focused torrent\n" + \
+            "             p  Pause/Unpause torrent\n" + \
             "             P  Pause/Unpause all torrents\n" + \
-            "             v  Verify focused torrent\n" + \
-            "         DEL/r  Remove focused torrent (and keep its content)\n" + \
+            "           v/y  Verify torrent\n" + \
+            "             m  Move torrent\n" + \
+            "         DEL/r  Remove torrent (and keep its content)\n" + \
             "           u/d  Adjust maximum global upload/download rate\n" + \
             "           U/D  Adjust maximum upload/download rate for focused torrent\n" + \
             "           +/-  Adjust bandwidth priority for focused torrent\n"
         if self.selected_torrent == -1:
             message += "             f  Filter torrent list\n" + \
                 "             s  Sort torrent list\n" \
-                "   Enter/right  View focused torrent's details\n" + \
+                "   Enter/right  View torrent's details\n" + \
                 "           ESC  Unfocus\n" + \
                 "             o  Configuration options\n" + \
                 "             t  Toggle turtle mode\n" + \

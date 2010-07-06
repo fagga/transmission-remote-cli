@@ -460,6 +460,12 @@ class Transmission:
         request.send_request()
         self.wait_for_torrentlist_update()
 
+    def move_torrent(self, torrent_id, new_location):
+        request = TransmissionRequest(self.host, self.port, 'torrent-set-location', 1,
+                                      {'ids': torrent_id, 'location': new_location, 'move': True})
+        request.send_request()
+        self.wait_for_torrentlist_update()
+
     def remove_torrent(self, id):
         request = TransmissionRequest(self.host, self.port, 'torrent-remove', 1, {'ids': [id]})
         request.send_request()
@@ -556,11 +562,6 @@ class Transmission:
             return '+'
         else:
             return '?'
-
-    def move_torrent_to_new_location(self, torrent_id, new_location):
-        request = TransmissionRequest(self.host, self.port, 'torrent-set-location', 1,
-                {'ids': torrent_id, 'location': new_location, 'move': True})
-        request.send_request()
 
 # End of Class Transmission
 
@@ -1036,12 +1037,12 @@ class Interface:
         self.list_key_bindings()
 
     def move_torrent(self, c):
-        if self.focus > -1 and self.selected_torrent == -1:
+        if self.focus > -1:
             location = homedir2tilde(self.torrents[self.focus]['downloadDir'])
             msg = 'Move "%s" from\n%s to' % (self.torrents[self.focus]['name'], location)
             path = self.dialog_input_text(msg, location)
             if path:
-                self.server.move_torrent_to_new_location(self.torrents[self.focus]['id'], tilde2homedir(path))
+                self.server.move_torrent(self.torrents[self.focus]['id'], tilde2homedir(path))
 
     def handle_user_input(self):
         c = self.screen.getch()

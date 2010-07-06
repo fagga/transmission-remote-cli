@@ -1037,7 +1037,9 @@ class Interface:
 
     def move_torrent(self, c):
         if self.focus > -1 and self.selected_torrent == -1:
-            path = self.dialog_input_text("Enter new path:")
+            location = homedir2tilde(self.torrents[self.focus]['downloadDir'])
+            msg = 'Move "%s" from\n%s to' % (self.torrents[self.focus]['name'], location)
+            path = self.dialog_input_text(msg, location)
             if path:
                 self.server.move_torrent_to_new_location(self.torrents[self.focus]['id'], tilde2homedir(path))
 
@@ -1972,9 +1974,10 @@ class Interface:
         win.bkgd(' ', curses.A_REVERSE + curses.A_BOLD)
 
         ypos = 1
-        for msg in message.split("\n"):
-            msg = msg[0:self.width-4]
-            win.addstr(ypos, 2, msg.encode('utf-8'))
+        for line in message.split("\n"):
+            if len(line) > width:
+                line = line[0:width-7] + '...'
+            win.addstr(ypos, 2, line.encode('utf-8'))
             ypos += 1
         return win
 
@@ -2020,18 +2023,17 @@ class Interface:
             elif c == 27 or c == curses.KEY_BREAK:
                 return -1
 
-    def dialog_input_text(self, message):
+    def dialog_input_text(self, message, input=''):
         width  = self.width - 4
         height = message.count("\n") + 4
 
         win = self.window(height, width, message=message)
         win.keypad(True)
-        input = ''
 
-        index = 0;
+        index = len(input)
         while True:
             win.addstr(height - 2, 2, input.ljust(width - 4), curses.color_pair(5))
-            win.addch(height - 2, index + 2, index < len(input) and input[index] or ' ')
+            win.addch(height - 2, index + 2, str(index < len(input) and input[index] or ' '))
             c = win.getch()
             if c == 27 or c == curses.KEY_BREAK:
                 return ''

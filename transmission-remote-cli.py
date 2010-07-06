@@ -1039,7 +1039,7 @@ class Interface:
         if self.focus > -1 and self.selected_torrent == -1:
             path = self.dialog_input_text("Enter new path:")
             if path:
-                self.server.move_torrent_to_new_location(self.torrents[self.focus]['id'], path)
+                self.server.move_torrent_to_new_location(self.torrents[self.focus]['id'], tilde2homedir(path))
 
     def handle_user_input(self):
         c = self.screen.getch()
@@ -1436,7 +1436,7 @@ class Interface:
         else:
             info[-1].append('Public torrent')
 
-        info.append(['Location: ',"%s" % t['downloadDir']])
+        info.append(['Location: ',"%s" % homedir2tilde(t['downloadDir'])])
 
         ypos = self.draw_details_list(ypos, info)
 
@@ -1601,9 +1601,10 @@ class Interface:
                 except adns.Error, msg:
                     host_name = msg
 
-            clientname = peer['clientName']
-            if len(clientname) > clientname_width:
-                clientname = middlecut(peer['clientName'], clientname_width)
+# I guess this isn't needed.
+#            clientname = peer['clientName']
+#            if len(clientname) > clientname_width:
+#                clientname = middlecut(peer['clientName'], clientname_width)
 
             upload_tag = download_tag = line_tag = 0
             if peer['rateToPeer']:   upload_tag   = curses.A_BOLD
@@ -1627,7 +1628,8 @@ class Interface:
             else:
                 self.pad.addstr("                ")
 
-            self.pad.addstr(clientname.ljust(clientname_width).encode('utf-8'))
+#            self.pad.addstr(clientname.ljust(clientname_width).encode('utf-8'))
+            self.pad.addstr(peer['clientName'].ljust(clientname_width).encode('utf-8'))
             self.pad.addstr("  %15s  " % peer['address'])
             if features['geoip']:
                 self.pad.addstr("  %2s     " % geo_ips[peer['address']])
@@ -2330,6 +2332,11 @@ def scale_bytes(bytes, type='short'):
         return scaled_bytes + unit
 
 
+def homedir2tilde(path):
+    return re.sub(r'^'+os.environ['HOME'], '~', path)
+def tilde2homedir(path):
+    return re.sub(r'^~', os.environ['HOME'], path)
+
 def html2text(str):
     str = re.sub(r'</h\d+>', "\n", str)
     str = re.sub(r'</p>', ' ', str)
@@ -2345,8 +2352,8 @@ def num2str(num):
         string = re.sub(r'(\d{3})', '\g<1>,', str(num)[::-1])[::-1]
         return string.lstrip(',')
 
-def middlecut(string, width):
-    return string[0:(width/2)-2] + '..' + string[len(string) - (width/2) :]
+# def middlecut(string, width):
+#     return string[0:(width/2)-2] + '..' + string[len(string) - (width/2) :]
 
 def debug(data):
     if cmd_args.DEBUG:

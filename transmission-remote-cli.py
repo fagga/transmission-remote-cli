@@ -596,6 +596,51 @@ class Interface:
         self.selected_files         = [] # marked files in details
         self.scrollpos_detaillist   = 0  # same as scrollpos but for details
 
+        self.keybindings = {
+            ord('?'):               self.call_list_key_bindings,
+            curses.KEY_F1:          self.call_list_key_bindings,
+            27:                     self.go_back_or_unfocus,
+            curses.KEY_BREAK:       self.go_back_or_unfocus,
+            12:                     self.go_back_or_unfocus,
+            curses.KEY_BACKSPACE:   self.leave_details,
+            ord('q'):               self.go_back_or_quit,
+            ord('o'):               self.o_key,
+            ord('\n'):              self.select_torrent_detail_view,
+            curses.KEY_RIGHT:       self.right_key,
+            ord('l'):               self.l_key,
+            ord('s'):               self.show_sort_order_menu,
+            ord('f'):               self.f_key,
+            ord('u'):               self.global_upload,
+            ord('d'):               self.global_download,
+            ord('U'):               self.torrent_upload,
+            ord('D'):               self.torrent_download,
+            ord('t'):               self.t_key,
+            ord('+'):               self.bandwidth_priority,
+            ord('-'):               self.bandwidth_priority,
+            ord('p'):               self.pause_unpause_torrent,
+            ord('P'):               self.pause_unpause_all_torrent,
+            ord('v'):               self.verify_torrent,
+            ord('y'):               self.verify_torrent,
+            ord('r'):               self.remove_torrent,
+            curses.KEY_DC:          self.remove_torrent,
+            curses.KEY_UP:          self.movement_keys,
+            ord('k'):               self.movement_keys,
+            curses.KEY_DOWN:        self.movement_keys,
+            ord('j'):               self.movement_keys,
+            curses.KEY_PPAGE:       self.movement_keys,
+            curses.KEY_NPAGE:       self.movement_keys,
+            curses.KEY_HOME:        self.movement_keys,
+            curses.KEY_END:         self.movement_keys,
+            ord("\t"):              self.move_in_details,
+            curses.KEY_BTAB:        self.move_in_details,
+            ord('e'):               self.move_in_details,
+            ord('c'):               self.move_in_details,
+            ord('h'):               self.file_pritority_or_switch_details,
+            curses.KEY_LEFT:        self.file_pritority_or_switch_details,
+            ord(' '):               self.select_unselect_file,
+            ord('a'):               self.select_unselect_file,
+            ord('m'):               self.move_torrent
+        }
 
         try:
             self.init_screen()
@@ -1049,52 +1094,7 @@ class Interface:
         if c == -1:
             return 0
 
-        keys = {ord('?'):               self.call_list_key_bindings,
-                curses.KEY_F1:          self.call_list_key_bindings,
-                27:                     self.go_back_or_unfocus,
-                curses.KEY_BREAK:       self.go_back_or_unfocus,
-                12:                     self.go_back_or_unfocus,
-                curses.KEY_BACKSPACE:   self.leave_details,
-                ord('q'):               self.go_back_or_quit,
-                ord('o'):               self.o_key,
-                ord('\n'):              self.select_torrent_detail_view,
-                curses.KEY_RIGHT:       self.right_key,
-                ord('l'):               self.l_key,
-                ord('s'):               self.show_sort_order_menu,
-                ord('f'):               self.f_key,
-                ord('u'):               self.global_upload,
-                ord('d'):               self.global_download,
-                ord('U'):               self.torrent_upload,
-                ord('D'):               self.torrent_download,
-                ord('t'):               self.t_key,
-                ord('+'):               self.bandwidth_priority,
-                ord('-'):               self.bandwidth_priority,
-                ord('p'):               self.pause_unpause_torrent,
-                ord('P'):               self.pause_unpause_all_torrent,
-                ord('v'):               self.verify_torrent,
-                ord('y'):               self.verify_torrent,
-                ord('r'):               self.remove_torrent,
-                curses.KEY_DC:          self.remove_torrent,
-                curses.KEY_UP:          self.movement_keys,
-                ord('k'):               self.movement_keys,
-                curses.KEY_DOWN:        self.movement_keys,
-                ord('j'):               self.movement_keys,
-                curses.KEY_PPAGE:       self.movement_keys,
-                curses.KEY_NPAGE:       self.movement_keys,
-                curses.KEY_HOME:        self.movement_keys,
-                curses.KEY_END:         self.movement_keys,
-                ord("\t"):              self.move_in_details,
-                curses.KEY_BTAB:        self.move_in_details,
-                ord('e'):               self.move_in_details,
-                ord('c'):               self.move_in_details,
-                ord('h'):               self.file_pritority_or_switch_details,
-                curses.KEY_LEFT:        self.file_pritority_or_switch_details,
-                ord(' '):               self.select_unselect_file,
-                ord('a'):               self.select_unselect_file,
-                ord('m'):               self.move_torrent
-                }
-
-        f = keys.get(c, None)
+        f = self.keybindings.get(c, None)
         if f:
             f(c)
 

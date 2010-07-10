@@ -1906,59 +1906,56 @@ class Interface:
 
 
     def list_key_bindings(self):
-        message = "          F1/?  Show this help\n" + \
-            "             p  Pause/Unpause torrent\n" + \
-            "             P  Pause/Unpause all torrents\n" + \
-            "           v/y  Verify torrent\n" + \
-            "             m  Move torrent\n" + \
-            "         DEL/r  Remove torrent (and keep its content)\n" + \
-            "           u/d  Adjust maximum global upload/download rate\n" + \
-            "           U/D  Adjust maximum upload/download rate for focused torrent\n" + \
-            "           +/-  Adjust bandwidth priority for focused torrent\n"
+        message = "           F1/?  Show this help\n" + \
+                  "              p  Pause/Unpause torrent\n" + \
+                  "              P  Pause/Unpause all torrents\n" + \
+                  "            v/y  Verify torrent\n" + \
+                  "              m  Move torrent\n" + \
+                  "          Del/r  Remove torrent (and keep its content)\n" + \
+                  "            u/d  Adjust maximum global upload/download rate\n" + \
+                  "            U/D  Adjust maximum upload/download rate for focused torrent\n" + \
+                  "            +/-  Adjust bandwidth priority for focused torrent\n"
         if self.selected_torrent == -1:
-            message += "             f  Filter torrent list\n" + \
-                "             s  Sort torrent list\n" \
-                "   Enter/right  View torrent's details\n" + \
-                "           ESC  Unfocus\n" + \
-                "             o  Configuration options\n" + \
-                "             t  Toggle turtle mode\n" + \
-                "             q  Quit\n\n"
+            message += "              f  Filter torrent list\n" + \
+                       "              s  Sort torrent list\n" \
+                       "    Enter/Right  View torrent's details\n" + \
+                       "              o  Configuration options\n" + \
+                       "              t  Toggle turtle mode\n" + \
+                       "            Esc  Unfocus\n" + \
+                       "              q  Quit"
         else:
-            if self.details_category_focus == 2:
-                message = "Flags:\n" + \
-                    "  O  Optimistic unchoke\n" + \
-                    "  D  Downloading from this peer\n" + \
-                    "  d  We would download from this peer if they'd let us\n" + \
-                    "  U  Uploading to peer\n" + \
-                    "  u  We would upload to this peer if they'd ask\n" + \
-                    "  K  Peer has unchoked us, but we're not interested\n" + \
-                    "  ?  We unchoked this peer, but they're not interested\n" + \
-                    "  E  Encrypted Connection\n" + \
-                    "  H  Peer was discovered through DHT\n" + \
-                    "  X  Peer was discovered through Peer Exchange (PEX)\n" + \
-                    "  I  Peer is an incoming connection \n\n"
+            if self.details_category_focus == 2:  # peers
+                message = " O  Optimistic unchoke\n" + \
+                          " D  Downloading from this peer\n" + \
+                          " d  We would download from this peer if they'd let us\n" + \
+                          " U  Uploading to peer\n" + \
+                          " u  We would upload to this peer if they'd ask\n" + \
+                          " K  Peer has unchoked us, but we're not interested\n" + \
+                          " ?  We unchoked this peer, but they're not interested\n" + \
+                          " E  Encrypted Connection\n" + \
+                          " H  Peer was discovered through DHT\n" + \
+                          " X  Peer was discovered through Peer Exchange (PEX)\n" + \
+                          " I  Peer is an incoming connection"
             else:
-                message += "             o  Jump to overview\n" + \
-                    "             f  Jump to file list\n" + \
-                    "             e  Jump to peer list\n" + \
-                    "             t  Jump to tracker information\n"
-                if self.details_category_focus == 1:
+                message += "              o  Jump to overview\n" + \
+                           "              f  Jump to file list\n" + \
+                           "              e  Jump to peer list\n" + \
+                           "              t  Jump to tracker information\n" + \
+                           "      Tab/Right  Jump to next view\n" + \
+                           " Shift+Tab/Left  Jump to previous view\n"
+                if self.details_category_focus == 1:  # files
                     if self.focus_detaillist > -1:
-                        message += "           TAB  Jump to next view\n"
-                        message += "           SHIFT+TAB  Jump to previous view\n"
-                        message += "    left/right  Decrease/Increase file priority\n"
-                    message += "       up/down  Select file\n"
-                    message += "         SPACE  Select/Deselect focused file\n"
-                    message += "             a  Select/Deselect all files\n"
-                    message += "           ESC  Unfocus\n"
+                        message += "     Left/Right  Decrease/Increase file priority\n"
+                    message += "        Up/Down  Select file\n" + \
+                               "          Space  Select/Deselect focused file\n" + \
+                               "              a  Select/Deselect all files\n" + \
+                               "            Esc  Unfocus+Unselect or Back to torrent list\n" + \
+                               "    q/Backspace  Back to torrent list"
                 else:
-                    message += "     TAB/right  Jump to next view\n"
-                    message += "SHIFT+TAB/left  Jump to previous view\n"
-                message += "   q/backspace  Back to list\n\n"
+                    message += "q/Backspace/Esc  Back to torrent list"
 
         width  = max(map(lambda x: len(x), message.split("\n"))) + 4
         width  = min(self.width, width)
-        message += "Hit any key to close".center(width-4)
         height = min(self.height, message.count("\n")+3)
         win = self.window(height, width, message=message)
         while True:
@@ -1974,6 +1971,11 @@ class Interface:
         win = curses.newwin(height, width, ypos, xpos)
         win.box()
         win.bkgd(' ', curses.A_REVERSE + curses.A_BOLD)
+
+        if width >= 20:
+            win.addch( height-1, width-19, curses.ACS_RTEE)
+            win.addstr(height-1, width-18, " Close with Esc ")
+            win.addch( height-1, width-2, curses.ACS_LTEE)
 
         ypos = 1
         for line in message.split("\n"):
@@ -2169,7 +2171,7 @@ class Interface:
                        ('Protocol En_cryption', "%s" % self.stats['encryption']),
                        ('_Seed Ratio Limit', "%s" % ('unlimited',self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']])]
             max_len = max([sum([len(re.sub('_', '', x)) for x in y[0]]) for y in options])
-            win = self.window(len(options)+4, max_len+15)
+            win = self.window(len(options)+2, max_len+15)
             win.addstr(0, 2, 'Global Options')
 
             line_num = 1
@@ -2182,8 +2184,6 @@ class Interface:
                     win.addstr(part[0], curses.A_UNDERLINE)
                     win.addstr(part[1:] + ': ' + option[1])
                 line_num += 1
-
-            win.addstr(line_num+1, int((max_len+15)/2) - 10, "Hit escape to close")
 
             c = win.getch()
             if c == 27 or c == ord('q') or c == ord("\n"):

@@ -859,7 +859,7 @@ class Interface:
             self.file_pritority_or_switch_details(c)
 
     def add_torrent(self):
-        location = self.dialog_input_text("Add torrent", os.getcwd())
+        location = self.dialog_input_text("Add torrent from file or URL", os.getcwd())
         if location:
             error = self.server.add_torrent(location)
             if error:
@@ -1934,14 +1934,15 @@ class Interface:
 
     def list_key_bindings(self):
         message = "           F1/?  Show this help\n" + \
+                  "            u/d  Adjust maximum global upload/download rate\n" + \
+                  "            U/D  Adjust maximum upload/download rate for focused torrent\n" + \
+                  "            +/-  Adjust bandwidth priority for focused torrent\n" + \
                   "              p  Pause/Unpause torrent\n" + \
                   "              P  Pause/Unpause all torrents\n" + \
                   "            v/y  Verify torrent\n" + \
                   "              m  Move torrent\n" + \
-                  "          Del/r  Remove torrent (and keep its content)\n" + \
-                  "            u/d  Adjust maximum global upload/download rate\n" + \
-                  "            U/D  Adjust maximum upload/download rate for focused torrent\n" + \
-                  "            +/-  Adjust bandwidth priority for focused torrent\n"
+                  "              a  Add torrent\n" + \
+                  "          Del/r  Remove torrent (and keep its content)\n"
         if self.selected_torrent == -1:
             message += "              f  Filter torrent list\n" + \
                        "              s  Sort torrent list\n" \

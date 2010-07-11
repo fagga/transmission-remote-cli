@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.7.5'
+VERSION='0.7.6'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.01'
@@ -445,6 +445,15 @@ class Transmission:
         self.set_option('alt-speed-enabled', not self.status_cache['alt-speed-enabled'])
 
 
+    def add_torrent(self, location):
+        request = TransmissionRequest(self.host, self.port, 'torrent-add', 1, {'filename': location})
+        request.send_request()
+        response = request.get_response()
+        if response['result'] != 'success':
+            return response['result']
+        else:
+            return ''
+
     def stop_torrent(self, id):
         request = TransmissionRequest(self.host, self.port, 'torrent-stop', 1, {'ids': [id]})
         request.send_request()
@@ -638,7 +647,7 @@ class Interface:
             ord('h'):               self.file_pritority_or_switch_details,
             curses.KEY_LEFT:        self.file_pritority_or_switch_details,
             ord(' '):               self.select_unselect_file,
-            ord('a'):               self.select_unselect_file,
+            ord('a'):               self.a_key,
             ord('m'):               self.move_torrent
         }
 
@@ -810,6 +819,12 @@ class Interface:
             self.scrollpos_detaillist   = 0
             self.selected_files         = []
 
+    def a_key(self, c):
+        if self.selected_torrent > -1:
+            self.select_unselect_file(c)
+        else:
+            self.add_torrent()
+
     def o_key(self, c):
         if self.selected_torrent == -1:
             self.draw_options_dialog()
@@ -839,6 +854,15 @@ class Interface:
             self.select_torrent_detail_view(c)
         else:
             self.file_pritority_or_switch_details(c)
+
+    def add_torrent(self):
+        location = self.dialog_input_text("Add torrent", os.getcwd())
+        if location:
+            error = self.server.add_torrent(location)
+            if error:
+                msg = wrap("Couldn't add torrent \"%s\":" % location)
+                msg.extend(wrap(error, self.width-4))
+                self.dialog_ok("\n".join(msg))
 
     def select_torrent_detail_view(self, c):
         if self.focus > -1 and self.selected_torrent == -1:
@@ -1984,6 +2008,14 @@ class Interface:
             win.addstr(ypos, 2, line.encode('utf-8'))
             ypos += 1
         return win
+
+
+    def dialog_ok(self, message):
+        height = 3 + message.count("\n")
+        width  = max(max(map(lambda x: len(x), message.split("\n"))), 40) + 4
+        win = self.window(height, width, message=message)
+        while True:
+            if win.getch() >= 0: return
 
 
     def dialog_yesno(self, message):

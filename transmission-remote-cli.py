@@ -2088,7 +2088,7 @@ class Interface:
                 input = input[:index] + input[index + 1:]
             elif c == ord('\n'):
                 return input
-            elif c > 39 and c < 127 and len(input) + 1 < self.width - 7:
+            elif c >= 32 and c < 127 and len(input) + 1 < self.width - 7:
                 input = input[:index] + chr(c) + (index < len(input) and input[index:] or '')
                 index += 1
 

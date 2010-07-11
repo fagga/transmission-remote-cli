@@ -113,7 +113,10 @@ class TransmissionRequest:
             # (happens sometimes with high cpu load[?])
             pass
         except urllib2.HTTPError, msg:
-            msg = html2text(str(msg.read()))
+            try:
+                msg = html2text(str(msg.read()))
+            except:
+                msg = str(msg)
             m = re.search('X-Transmission-Session-Id:\s*(\w+)', msg)
             try: # extract session id and send request again
                 self.http_request.add_header('X-Transmission-Session-Id', m.group(1))

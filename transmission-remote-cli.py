@@ -98,6 +98,9 @@ class TransmissionRequest:
     def set_request_data(self, method, tag, arguments=None):
         request_data = {'method':method, 'tag':tag}
         if arguments: request_data['arguments'] = arguments
+        if tag == 77:
+            debug("requesting " + str(json.dumps(request_data)) + "\n")
+            debug(str(arguments) + "\n\n")
         self.http_request = urllib2.Request(url=self.url, data=json.dumps(request_data))
 
     def send_request(self):
@@ -108,9 +111,11 @@ class TransmissionRequest:
             if session_id:
                 self.http_request.add_header('X-Transmission-Session-Id', session_id)
 
-            debug(self.http_request.get_data())
-            debug(self.http_request.headers)
-            debug("\n\n")
+            data = json.loads(self.http_request.get_data())
+            if data['tag'] == 77:
+                debug(self.http_request.get_data())
+                debug(self.http_request.headers)
+                debug("\n\n")
 
             self.open_request = urllib2.urlopen(self.http_request)
         except AttributeError:

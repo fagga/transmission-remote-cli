@@ -84,7 +84,7 @@ config.set('Filtering', 'filter', '')
 config.set('Filtering', 'invert', 'False')
 
 
-
+session_id = 0
 
 # Handle communication with Transmission server.
 class TransmissionRequest:
@@ -103,26 +103,41 @@ class TransmissionRequest:
     def send_request(self):
         """Ask for information from server OR submit command."""
 
+        global session_id
         try:
+            if session_id:
+                self.http_request.add_header('X-Transmission-Session-Id', session_id)
+
+            debug(self.http_request.get_data())
+            debug(self.http_request.headers)
+            debug("\n\n")
+
             self.open_request = urllib2.urlopen(self.http_request)
         except AttributeError:
             # request data (http_request) isn't specified yet -- data will be available on next call
             pass
-        except httplib.BadStatusLine, msg:
-            # server sends something httplib doesn't understand.
-            # (happens sometimes with high cpu load[?])
-            pass
-        except urllib2.HTTPError, msg:
+
+        # do we still need this?
+        # except httplib.BadStatusLine, msg:
+        #     # server sends something httplib doesn't understand.
+        #     # (happens sometimes with high cpu load[?])
+        #     pass
+
+        # authentication
+        except urllib2.HTTPError, e:
             try:
-                msg = html2text(str(msg.read()))
+                msg = html2text(str(e.read()))
             except:
-                msg = str(msg)
+                msg = str(e)
+
+            # extract session id and send request again
             m = re.search('X-Transmission-Session-Id:\s*(\w+)', msg)
-            try: # extract session id and send request again
-                self.http_request.add_header('X-Transmission-Session-Id', m.group(1))
+            try:
+                session_id = m.group(1)
                 self.send_request()
-            except AttributeError: # a real error occurred
+            except AttributeError:
                 quit(str(msg) + "\n", CONNECTION_ERROR)
+
         except urllib2.URLError, msg:
             try:
                 reason = msg.reason[1]
@@ -2403,7 +2418,7 @@ def debug(data):
         else:
             import pprint
             pp = pprint.PrettyPrinter(indent=4)
-            file.write(pp.pformat(data) + "\n====================\n\n")
+            file.write("\n====================\n" + pp.pformat(data) + "\n====================\n\n")
         file.close
 
 def quit(msg='', exitcode=0):

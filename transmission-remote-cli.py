@@ -1486,7 +1486,7 @@ class Interface:
         else:
             info[-1].append('Public torrent')
 
-        info.append(['Location: ',"%s" % homedir2tilde(t['downloadDir'])])
+        info.append(['Location: ',"%s" % homedir2tilde(t['downloadDir']).encode('utf-8')])
 
         ypos = self.draw_details_list(ypos, info)
 

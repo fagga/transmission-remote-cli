@@ -99,9 +99,6 @@ class TransmissionRequest:
     def set_request_data(self, method, tag, arguments=None):
         request_data = {'method':method, 'tag':tag}
         if arguments: request_data['arguments'] = arguments
-        if tag == 77:
-            debug("requesting " + str(json.dumps(request_data)) + "\n")
-            debug(str(arguments) + "\n\n")
         self.http_request = urllib2.Request(url=self.url, data=json.dumps(request_data))
 
     def send_request(self):
@@ -111,13 +108,6 @@ class TransmissionRequest:
         try:
             if session_id:
                 self.http_request.add_header('X-Transmission-Session-Id', session_id)
-
-            data = json.loads(self.http_request.get_data())
-            if data['tag'] == 77:
-                debug(self.http_request.get_data())
-                debug(self.http_request.headers)
-                debug("\n\n")
-
             self.open_request = urllib2.urlopen(self.http_request)
         except AttributeError:
             # request data (http_request) isn't specified yet -- data will be available on next call
@@ -282,44 +272,40 @@ class Transmission:
 
 
     def parse_response(self, response):
-        try:
-            # response is a reply to torrent-get
-            if response['tag'] == self.TAG_TORRENT_LIST or response['tag'] == self.TAG_TORRENT_DETAILS:
-                for t in response['arguments']['torrents']:
-                    t['uploadRatio'] = round(float(t['uploadRatio']), 2)
-                    t['percent_done'] = percent(float(t['sizeWhenDone']),
-                                                float(t['haveValid'] + t['haveUnchecked']))
-                    try:
-                        t['seeders']  = max(map(lambda x: x['seederCount'],  t['trackerStats']))
-                        t['leechers'] = max(map(lambda x: x['leecherCount'], t['trackerStats']))
-                    except ValueError:
-                        t['seeders']  = t['leechers'] = -1
+        # response is a reply to torrent-get
+        if response['tag'] == self.TAG_TORRENT_LIST or response['tag'] == self.TAG_TORRENT_DETAILS:
+            for t in response['arguments']['torrents']:
+                t['uploadRatio'] = round(float(t['uploadRatio']), 2)
+                t['percent_done'] = percent(float(t['sizeWhenDone']),
+                                            float(t['haveValid'] + t['haveUnchecked']))
+                try:
+                    t['seeders']  = max(map(lambda x: x['seederCount'],  t['trackerStats']))
+                    t['leechers'] = max(map(lambda x: x['leecherCount'], t['trackerStats']))
+                except ValueError:
+                    t['seeders']  = t['leechers'] = -1
 
-                    t['available'] = t['desiredAvailable'] + t['haveValid'] + t['haveUnchecked']
+                t['available'] = t['desiredAvailable'] + t['haveValid'] + t['haveUnchecked']
 
-                if response['tag'] == self.TAG_TORRENT_LIST:
-                    self.torrent_cache = response['arguments']['torrents']
+            if response['tag'] == self.TAG_TORRENT_LIST:
+                self.torrent_cache = response['arguments']['torrents']
 
-                elif response['tag'] == self.TAG_TORRENT_DETAILS:
-                    # torrent list may be empty sometimes after deleting
-                    # torrents.  no idea why and why the server sends us
-                    # TAG_TORRENT_DETAILS, but just passing seems to help.(?)
-                    try:
-                        torrent_details = response['arguments']['torrents'][0]
-                        torrent_details['pieces'] = base64.decodestring(torrent_details['pieces'])
-                        self.torrent_details_cache = torrent_details
-                        self.upgrade_peerlist()
-                    except IndexError:
-                        pass
+            elif response['tag'] == self.TAG_TORRENT_DETAILS:
+                # torrent list may be empty sometimes after deleting
+                # torrents.  no idea why and why the server sends us
+                # TAG_TORRENT_DETAILS, but just passing seems to help.(?)
+                try:
+                    torrent_details = response['arguments']['torrents'][0]
+                    torrent_details['pieces'] = base64.decodestring(torrent_details['pieces'])
+                    self.torrent_details_cache = torrent_details
+                    self.upgrade_peerlist()
+                except IndexError:
+                    pass
 
-            elif response['tag'] == self.TAG_SESSION_STATS:
-                self.status_cache.update(response['arguments'])
+        elif response['tag'] == self.TAG_SESSION_STATS:
+            self.status_cache.update(response['arguments'])
 
-            elif response['tag'] == self.TAG_SESSION_GET:
-                self.status_cache.update(response['arguments'])
-        except:
-            debug(response)
-            raise
+        elif response['tag'] == self.TAG_SESSION_GET:
+            self.status_cache.update(response['arguments'])
 
         return response['tag']
 

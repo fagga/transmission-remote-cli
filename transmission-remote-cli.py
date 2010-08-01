@@ -84,6 +84,7 @@ config.set('Filtering', 'filter', '')
 config.set('Filtering', 'invert', 'False')
 
 
+authhandler = None
 session_id = 0
 
 # Handle communication with Transmission server.
@@ -156,6 +157,9 @@ class TransmissionRequest:
         if self.open_request == None:
             return {'result': 'no open request'}
         response = self.open_request.read()
+        # work around regression in Python 2.6.5, caused by http://bugs.python.org/issue8797
+        if authhandler:
+            authhandler.retried = 0
         try:
             data = json.loads(response)
         except ValueError:
@@ -202,6 +206,7 @@ class Transmission:
             password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
             url = 'http://%s:%d/transmission/rpc' % (host, port)
             password_mgr.add_password(None, url, username, password)
+            global authhandler
             authhandler = urllib2.HTTPBasicAuthHandler(password_mgr)
             opener = urllib2.build_opener(authhandler)
             urllib2.install_opener(opener)

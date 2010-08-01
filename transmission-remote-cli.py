@@ -1601,7 +1601,7 @@ class Interface:
         if f_len < current_folder_len:
             return [current_depth, pos]
         while current_depth < f_len:
-            filelist.append('%s\\ %s' % ('  '*current_depth + ' '*31 , f[current_depth]))
+            filelist.append('%s\\ %s' % ('  '*current_depth + ' '*31 , f[current_depth].encode('utf-8')))
             current_depth += 1
             pos += 1
         return [current_depth, pos]

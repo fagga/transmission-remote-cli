@@ -1486,7 +1486,7 @@ class Interface:
         else:
             info[-1].append('Public torrent')
 
-        info.append(['Location: ',"%s" % homedir2tilde(t['downloadDir']).encode('utf-8')])
+        info.append(['Location: ',"%s" % homedir2tilde(t['downloadDir'])])
 
         ypos = self.draw_details_list(ypos, info)
 
@@ -1511,16 +1511,16 @@ class Interface:
         if t['comment']:
             if self.width >= 90:
                 width = self.width - 50
-                comment = wrap('Comment: ' + t['comment'].encode('utf8'), width)
+                comment = wrap('Comment: ' + t['comment'], width)
                 for i, line in enumerate(comment):
                     if(ypos+i > self.height-1):
                         break
-                    self.pad.addstr(ypos+i, 50, line)
+                    self.pad.addstr(ypos+i, 50, line.encode('utf8'))
             else:
                 width = self.width - 2
-                comment = wrap('Comment: ' + t['comment'].encode('utf8'), width)
+                comment = wrap('Comment: ' + t['comment'], width)
                 for i, line in enumerate(comment):
-                    self.pad.addstr(ypos+6+i, 2, line)
+                    self.pad.addstr(ypos+6+i, 2, line.encode('utf8'))
 
     def draw_filelist(self, ypos):
         column_names = '  #  Progress  Size  Priority  Filename'
@@ -1552,7 +1552,7 @@ class Interface:
                     self.pad.addstr(ypos, xpos, part, curses_tags + curses.color_pair(14))
 
                 else:
-                    self.pad.addstr(ypos, xpos, part, curses_tags)
+                    self.pad.addstr(ypos, xpos, part.encode('utf-8'), curses_tags)
                 xpos += len(part)
 
             ypos += 1
@@ -1601,7 +1601,7 @@ class Interface:
         if f_len < current_folder_len:
             return [current_depth, pos]
         while current_depth < f_len:
-            filelist.append('%s\\ %s' % ('  '*current_depth + ' '*31 , f[current_depth].encode('utf-8')))
+            filelist.append('%s\\ %s' % ('  '*current_depth + ' '*31 , f[current_depth]))
             current_depth += 1
             pos += 1
         return [current_depth, pos]
@@ -1610,7 +1610,7 @@ class Interface:
         line = "%s  %6.1f%%" % (str(index+1).rjust(3), percent) + \
             '  '+scale_bytes(length).rjust(5) + \
             '  '+self.server.get_file_priority(self.torrent_details['id'], index).center(8) + \
-            " %s| %s" % ('  '*current_depth, name[0:self.width-31-current_depth].encode('utf-8'))
+            " %s| %s" % ('  '*current_depth, name[0:self.width-31-current_depth])
         if index == self.focus_detaillist:
             line = '_F' + line
         if index in self.selected_files:
@@ -1781,14 +1781,14 @@ class Interface:
     def draw_details_list(self, ypos, info):
         key_width = max(map(lambda x: len(x[0]), info))
         for i in info:
-            self.pad.addstr(ypos, 1, i[0].rjust(key_width)) # key
+            self.pad.addstr(ypos, 1, i[0].rjust(key_width).encode('utf-8')) # key
             # value part may be wrapped if it gets too long
             for v in i[1:]:
                 y, x = self.pad.getyx()
                 if x + len(v) >= self.width:
                     ypos += 1
                     self.pad.move(ypos, key_width+1)
-                self.pad.addstr(v)
+                self.pad.addstr(v.encode('utf-8'))
             ypos += 1
         return ypos
 

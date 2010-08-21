@@ -1563,18 +1563,17 @@ class Interface:
         for file in files:
             f = file['name'].split('/')
             f_len = len(f) - 1
-            current_folder_len = len(current_folder)
             if f[:f_len] != current_folder:
                 [current_depth, pos] = self.create_filelist_transition(f, current_folder, filelist, current_depth, pos)
                 current_folder = f[:f_len]
             filelist.append(self.create_filelist_line(f[-1], index, percent(file['length'], file['bytesCompleted']),
                 file['length'], current_depth))
             index += 1
-            if self.focus_detaillist == index:
+            if self.focus_detaillist == index - 1:
                 pos_before_focus = pos
             if index + pos >= self.focus_detaillist + 1 + pos + self.detaillistitems_per_page/2 \
             and index + pos >= self.detaillistitems_per_page:
-                if self.focus_detaillist + 1 + pos < self.detaillistitems_per_page:
+                if self.focus_detaillist + 1 + pos < self.detaillistitems_per_page / 2:
                     return filelist
                 return filelist[self.focus_detaillist + 1 + pos_before_focus - self.detaillistitems_per_page / 2
                         : self.focus_detaillist + 1 + pos_before_focus + self.detaillistitems_per_page / 2]

@@ -594,6 +594,8 @@ class Transmission:
 
 # User Interface
 class Interface:
+    TRACKER_ITEM_HEIGHT = 6
+
     def __init__(self, server):
         self.server = server
 
@@ -1031,7 +1033,7 @@ class Interface:
 
             # tracker list movement
             elif self.details_category_focus == 3:
-                list_len = len(self.torrent_details['trackerStats']) * 5
+                list_len = len(self.torrent_details['trackerStats']) * self.TRACKER_ITEM_HEIGHT - 1
 
             # pieces list movement
             elif self.details_category_focus == 4:
@@ -1684,8 +1686,8 @@ class Interface:
             if ypos > top and ypos < self.height - 2:
                 self.pad.addstr(ypos, xpos, *args)
         tlist = self.torrent_details['trackerStats']
-        ypos -= self.scrollpos_detaillist % 5
-        start = self.scrollpos_detaillist / 5
+        ypos -= self.scrollpos_detaillist % self.TRACKER_ITEM_HEIGHT
+        start = self.scrollpos_detaillist / self.TRACKER_ITEM_HEIGHT
         tlist = tlist[start:]
         current_tier = -1
         for t in tlist:

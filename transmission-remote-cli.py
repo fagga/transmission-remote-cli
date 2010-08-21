@@ -1573,7 +1573,7 @@ class Interface:
                 pos_before_focus = pos
             if index + pos >= self.focus_detaillist + 1 + pos + self.detaillistitems_per_page/2 \
             and index + pos >= self.detaillistitems_per_page:
-                if self.focus_detaillist + 1 + pos < self.detaillistitems_per_page / 2:
+                if self.focus_detaillist + 1 + pos_before_focus < self.detaillistitems_per_page / 2:
                     return filelist
                 return filelist[self.focus_detaillist + 1 + pos_before_focus - self.detaillistitems_per_page / 2
                         : self.focus_detaillist + 1 + pos_before_focus + self.detaillistitems_per_page / 2]

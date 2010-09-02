@@ -983,6 +983,7 @@ class Interface:
                     self.selected_torrent = -1
                     self.details_category_focus = 0
                 self.server.remove_torrent(self.torrents[self.focus]['id'])
+                self.focus += 1
 
     def movement_keys(self, c):
         if self.selected_torrent == -1:

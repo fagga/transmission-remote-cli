@@ -16,12 +16,12 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.7.6'
+VERSION='0.7.7'
 
 TRNSM_VERSION_MIN = '1.80'
-TRNSM_VERSION_MAX = '2.01'
+TRNSM_VERSION_MAX = '2.10'
 RPC_VERSION_MIN = 7
-RPC_VERSION_MAX = 9
+RPC_VERSION_MAX = 10
 
 # error codes
 CONNECTION_ERROR = 1
@@ -1858,6 +1858,7 @@ class Interface:
                                                          ('s','')[self.torrent_details['peersConnected'] == 1]) + \
                                    " Trackers: %-3d" % self.torrent_details['peersFrom']['fromTracker'] + \
                                    " DHT: %-3d" % self.torrent_details['peersFrom']['fromDht'] + \
+                                   " LTEP: %-3d" % self.torrent_details['peersFrom']['fromLtep'] + \
                                    " PEX: %-3d" % self.torrent_details['peersFrom']['fromPex'] + \
                                    " Incoming: %-3d" % self.torrent_details['peersFrom']['fromIncoming'] + \
                                    " Cache: %-3d" % self.torrent_details['peersFrom']['fromCache'],

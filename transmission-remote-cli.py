@@ -530,6 +530,11 @@ class Transmission:
         request.send_request()
         self.wait_for_torrentlist_update()
 
+    def remove_torrent_local_data(self, id):
+        request = TransmissionRequest(self.host, self.port, 'torrent-remove', 1, {'ids': [id], 'delete-local-data':True})
+        request.send_request()
+        self.wait_for_torrentlist_update()
+
     def increase_file_priority(self, file_nums):
         file_nums = list(file_nums)
         ref_num = file_nums[0]
@@ -684,6 +689,7 @@ class Interface:
             ord('y'):               self.verify_torrent,
             ord('r'):               self.remove_torrent,
             curses.KEY_DC:          self.remove_torrent,
+            curses.KEY_SDC:         self.remove_torrent_local_data,
             curses.KEY_UP:          self.movement_keys,
             ord('k'):               self.movement_keys,
             curses.KEY_DOWN:        self.movement_keys,
@@ -1024,6 +1030,17 @@ class Interface:
                     self.selected_torrent = -1
                     self.details_category_focus = 0
                 self.server.remove_torrent(self.torrents[self.focus]['id'])
+                self.focus += 1
+
+    def remove_torrent_local_data(self, c):
+        if self.focus > -1:
+            name = self.torrents[self.focus]['name'][0:self.width - 15]
+            if self.dialog_yesno("Remove %s and local data?" % name, important=True) == True:
+                if self.selected_torrent > -1:  # leave details
+                    self.server.set_torrent_details_id(-1)
+                    self.selected_torrent = -1
+                    self.details_category_focus = 0
+                self.server.remove_torrent_local_data(self.torrents[self.focus]['id'])
                 self.focus += 1
 
     def movement_keys(self, c):
@@ -2080,11 +2097,14 @@ class Interface:
             if win.getch() >= 0: return
 
 
-    def dialog_yesno(self, message):
+    def dialog_yesno(self, message, important=False):
         height = 5 + message.count("\n")
         width  = max(len(message), 8) + 4
         win = self.window(height, width, message=message)
         win.keypad(True)
+
+        if important:
+            win.bkgd(' ', curses.color_pair(11) + curses.A_REVERSE)
 
         focus_tags   = curses.color_pair(9)
         unfocus_tags = 0

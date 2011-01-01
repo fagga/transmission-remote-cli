@@ -61,12 +61,38 @@ from subprocess import call
 
 
 # optional features provided by non-standard modules
-features = {'dns':False, 'geoip':False}
+features = {'dns':False, 'geoip':False, 'ipy':False}
 try:   import adns; features['dns'] = True     # resolve IP to host name
 except ImportError: features['dns'] = False
 
 try:   import GeoIP; features['geoip'] = True  # show country peer seems to be in
 except ImportError:  features['geoip'] = False
+
+try:   import IPy;  features['ipy'] = True  # extract ipv4 from ipv6 addresses
+except ImportError: features['ipy'] = False
+
+
+if features['ipy']:
+    IPV6_RANGE_6TO4 = IPy.IP('2002::/16')
+    IPV6_RANGE_TEREDO = IPy.IP('2001::/32')
+    IPV4_ONES = 0xffffffff
+
+if features['geoip']:
+    def country_code_by_addr_vany(geo_ip, geo_ip6, addr):
+        if '.' in addr:
+            return geo_ip.country_code_by_addr(addr)
+        if not ':' in addr:
+            return None
+        if features['ipy']:
+            ip = IPy.IP(addr)
+            if ip in IPV6_RANGE_6TO4:
+              addr = str(IPy.IP(ip.int() >> 80 & IPV4_ONES))
+              return geo_ip.country_code_by_addr(addr)
+            elif ip in IPV6_RANGE_TEREDO:
+              addr = str(IPy.IP(ip.int() & IPV4_ONES ^ IPV4_ONES))
+              return geo_ip.country_code_by_addr(addr)
+        if hasattr(geo_ip6, 'country_code_by_addr_v6'):
+            return geo_ip6.country_code_by_addr_v6(addr)
 
 
 # define config defaults
@@ -239,7 +265,12 @@ class Transmission:
         self.hosts_cache   = dict()
         self.geo_ips_cache = dict()
         if features['dns']:   self.resolver = adns.init()
-        if features['geoip']: self.geo_ip = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
+        if features['geoip']:
+            self.geo_ip = GeoIP.new(GeoIP.GEOIP_MEMORY_CACHE)
+            try:
+                self.geo_ip6 = GeoIP.open_type(GeoIP.GEOIP_COUNTRY_EDITION_V6, GeoIP.GEOIP_MEMORY_CACHE);
+            except AttributeError: self.geo_ip6 = None
+            except GeoIP.error: self.geo_ip6 = None
 
         # make sure there are no undefined values
         self.wait_for_torrentlist_update()
@@ -357,7 +388,7 @@ class Transmission:
                 except adns.Error:
                     pass
             if features['geoip'] and not self.geo_ips_cache.has_key(ip):
-                self.geo_ips_cache[ip] = self.geo_ip.country_code_by_addr(ip)
+                self.geo_ips_cache[ip] = country_code_by_addr_vany(self.geo_ip, self.geo_ip6, ip)
                 if self.geo_ips_cache[ip] == None:
                     self.geo_ips_cache[ip] = '?'
 

@@ -2069,7 +2069,7 @@ class Interface:
 
     def dialog_yesno(self, message):
         height = 5 + message.count("\n")
-        width  = len(message)+4
+        width  = max(len(message), 8) + 4
         win = self.window(height, width, message=message)
         win.keypad(True)
 
@@ -2078,17 +2078,17 @@ class Interface:
 
         input = False
         while True:
-            win.move(height-2, (width/2)-6)
+            win.move(height-2, (width/2)-4)
             if input:
                 win.addstr('Y',  focus_tags + curses.A_UNDERLINE)
                 win.addstr('es', focus_tags)
-                win.addstr('    ')
+                win.addstr('   ')
                 win.addstr('N',  curses.A_UNDERLINE)
                 win.addstr('o')
             else:
                 win.addstr('Y', curses.A_UNDERLINE)
                 win.addstr('es')
-                win.addstr('    ')
+                win.addstr('   ')
                 win.addstr('N',  focus_tags + curses.A_UNDERLINE)
                 win.addstr('o', focus_tags)
 

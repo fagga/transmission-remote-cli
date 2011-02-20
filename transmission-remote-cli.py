@@ -16,12 +16,12 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.7.9'
+VERSION='0.8'
 
 TRNSM_VERSION_MIN = '1.80'
-TRNSM_VERSION_MAX = '2.20'
+TRNSM_VERSION_MAX = '2.30'
 RPC_VERSION_MIN = 7
-RPC_VERSION_MAX = 12
+RPC_VERSION_MAX = 13
 
 # error codes
 CONNECTION_ERROR = 1

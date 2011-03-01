@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.8'
+VERSION='0.8.1'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.30'
@@ -518,7 +518,6 @@ class Transmission:
         request = TransmissionRequest(self.host, self.port, 'torrent-reannounce', 1, {'ids': [id]})
         request.send_request()
         self.wait_for_torrentlist_update()
-        debug("torrent %d re-announced\n" % id)
 
     def move_torrent(self, torrent_id, new_location):
         request = TransmissionRequest(self.host, self.port, 'torrent-set-location', 1,
@@ -1014,7 +1013,6 @@ class Interface:
 
     def reannounce_torrent(self, c):
         if self.focus > -1:
-            debug("re-announcing %d\n" % self.focus)
             self.server.reannounce_torrent(self.torrents[self.focus]['id'])
 
     def remove_torrent(self, c):
@@ -1998,6 +1996,7 @@ class Interface:
                   "              P  Pause/Unpause all torrents\n" + \
                   "            v/y  Verify torrent\n" + \
                   "              m  Move torrent\n" + \
+                  "              n  Reannounce torrent\n" + \
                   "              a  Add torrent\n" + \
                   "          Del/r  Remove torrent (and keep its content)\n"
         if self.selected_torrent == -1:

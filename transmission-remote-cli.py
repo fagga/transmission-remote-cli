@@ -514,6 +514,12 @@ class Transmission:
         request.send_request()
         self.wait_for_torrentlist_update()
 
+    def reannounce_torrent(self, id):
+        request = TransmissionRequest(self.host, self.port, 'torrent-reannounce', 1, {'ids': [id]})
+        request.send_request()
+        self.wait_for_torrentlist_update()
+        debug("torrent %d re-announced\n" % id)
+
     def move_torrent(self, torrent_id, new_location):
         request = TransmissionRequest(self.host, self.port, 'torrent-set-location', 1,
                                       {'ids': torrent_id, 'location': new_location, 'move': True})
@@ -695,7 +701,8 @@ class Interface:
             curses.KEY_LEFT:        self.file_pritority_or_switch_details,
             ord(' '):               self.select_unselect_file,
             ord('a'):               self.a_key,
-            ord('m'):               self.move_torrent
+            ord('m'):               self.move_torrent,
+            ord('n'):               self.reannounce_torrent
         }
 
         try:
@@ -1004,6 +1011,11 @@ class Interface:
         if self.focus > -1:
             if self.torrents[self.focus]['status'] != Transmission.STATUS_CHECK:
                 self.server.verify_torrent(self.torrents[self.focus]['id'])
+
+    def reannounce_torrent(self, c):
+        if self.focus > -1:
+            debug("re-announcing %d\n" % self.focus)
+            self.server.reannounce_torrent(self.torrents[self.focus]['id'])
 
     def remove_torrent(self, c):
         if self.focus > -1:

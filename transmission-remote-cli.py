@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.8.1'
+VERSION='0.8.2'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.30'
@@ -204,7 +204,7 @@ class Transmission:
                     'rateDownload', 'rateUpload', 'eta', 'uploadRatio',
                     'sizeWhenDone', 'haveValid', 'haveUnchecked', 'addedDate',
                     'uploadedEver', 'errorString', 'recheckProgress',
-                    'peersKnown', 'peersConnected', 'uploadLimit', 'downloadLimit',
+                    'peersConnected', 'uploadLimit', 'downloadLimit',
                     'uploadLimited', 'downloadLimited', 'bandwidthPriority',
                     'peersSendingToUs', 'peersGettingFromUs']
 
@@ -1353,8 +1353,7 @@ class Interface:
 
         # show tracker error if appropriate
         if torrent['errorString'] and \
-                not torrent['status'] == Transmission.STATUS_STOPPED and \
-                torrent['peersKnown'] == 0:
+                not torrent['status'] == Transmission.STATUS_STOPPED:
             parts[0] = torrent['errorString']
 
         else:
@@ -1492,10 +1491,10 @@ class Interface:
         else:
             info[-1].append("no transmission in progress")
 
-        info.append(['Peers: ', "%d reported by tracker;  " % t['peersKnown'],
-                     "connected to %d;  "                   % t['peersConnected'],
-                     "downloading from %d;  "               % t['peersSendingToUs'],
-                     "uploading to %d"                      % t['peersGettingFromUs']])
+        info.append(['Peers: ',
+                     "connected to %d;  "     % t['peersConnected'],
+                     "downloading from %d;  " % t['peersSendingToUs'],
+                     "uploading to %d"        % t['peersGettingFromUs']])
 
         # average peer speed
         incomplete_peers = [peer for peer in self.torrent_details['peers'] if peer['progress'] < 1]

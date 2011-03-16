@@ -1353,6 +1353,7 @@ class Interface:
 
         # show tracker error if appropriate
         if torrent['errorString'] and \
+                not torrent['seeders'] and not torrent['leechers'] and \
                 not torrent['status'] == Transmission.STATUS_STOPPED:
             parts[0] = torrent['errorString']
 

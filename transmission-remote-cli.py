@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.8.2'
+VERSION='0.8.3'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.30'
@@ -1572,7 +1572,9 @@ class Interface:
                 if line[1] == 'F':
                     curses_tags += curses.A_REVERSE
                     line = line[2:]
-                self.pad.addstr(ypos, 0, ' '*self.width, curses_tags)
+                try:
+                    self.pad.addstr(ypos, 0, ' '*self.width, curses_tags)
+                except: pass
 
             # colored priority
             xpos = 0

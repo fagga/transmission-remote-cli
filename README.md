@@ -2,10 +2,6 @@
 
 **Download the latest version from [here](http://github.com/fagga/transmission-remote-cli/raw/master/transmission-remote-cli.py).**
 
-## Screenshot
-![Screenshot](http://github.com/fagga/transmission-remote-cli/raw/master/screenshot.png)
-
-
 ## Modules
 
 For Python 2.5 or older, you need [simplejson](http://pypi.python.org/pypi/simplejson/) which should be

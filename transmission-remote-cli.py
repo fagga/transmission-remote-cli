@@ -2018,7 +2018,8 @@ class Interface:
                   "              m  Move torrent\n" + \
                   "              n  Reannounce torrent\n" + \
                   "              a  Add torrent\n" + \
-                  "          Del/r  Remove torrent (and keep its content)\n"
+                  "          Del/r  Remove torrent and keep content\n" + \
+                  "    Shift+Del/R  Remove torrent and delete content\n"
         if self.selected_torrent == -1:
             message += "              f  Filter torrent list\n" + \
                        "              s  Sort torrent list\n" \

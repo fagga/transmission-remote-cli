@@ -3,7 +3,7 @@
 **Download the latest version from [here](http://github.com/fagga/transmission-remote-cli/raw/master/transmission-remote-cli.py).**
 
 ## Screenshot
-![Screenshot](http://cloud.github.com/downloads/fagga/transmission-remote-cli/screenshot.png)
+![Screenshot](http://github.com/fagga/transmission-remote-cli/raw/master/screenshot.png)
 
 
 ## Modules

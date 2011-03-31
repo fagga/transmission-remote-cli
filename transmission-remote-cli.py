@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.8.3'
+VERSION='0.8.4'
 
 TRNSM_VERSION_MIN = '1.80'
 TRNSM_VERSION_MAX = '2.30'
@@ -689,6 +689,7 @@ class Interface:
             ord('y'):               self.verify_torrent,
             ord('r'):               self.remove_torrent,
             curses.KEY_DC:          self.remove_torrent,
+            ord('R'):               self.remove_torrent_local_data,
             curses.KEY_SDC:         self.remove_torrent_local_data,
             curses.KEY_UP:          self.movement_keys,
             ord('k'):               self.movement_keys,
@@ -1035,7 +1036,7 @@ class Interface:
     def remove_torrent_local_data(self, c):
         if self.focus > -1:
             name = self.torrents[self.focus]['name'][0:self.width - 15]
-            if self.dialog_yesno("Remove %s and local data?" % name, important=True) == True:
+            if self.dialog_yesno("Remove and delete %s?" % name, important=True) == True:
                 if self.selected_torrent > -1:  # leave details
                     self.server.set_torrent_details_id(-1)
                     self.selected_torrent = -1

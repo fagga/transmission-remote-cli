@@ -2283,6 +2283,7 @@ class Interface:
                        ('UP_nP/NAT-PMP', ('disabled','enabled ')[self.stats['port-forwarding-enabled']]),
                        ('Peer E_xchange', ('disabled','enabled ')[self.stats['pex-enabled']]),
                        ('_Distributed Hash Table', ('disabled','enabled ')[self.stats['dht-enabled']]),
+                       ('_Local Peer Discovery', ('disabled','enabled ')[self.stats['lpd-enabled']]),
                        ('_Global Peer Limit', "%d" % self.stats['peer-limit-global']),
                        ('Peer Limit per _Torrent', "%d" % self.stats['peer-limit-per-torrent']),
                        ('Protocol En_cryption', "%s" % self.stats['encryption']),
@@ -2317,6 +2318,8 @@ class Interface:
                 self.server.set_option('pex-enabled', (1,0)[self.stats['pex-enabled']])
             elif c == ord('d'):
                 self.server.set_option('dht-enabled', (1,0)[self.stats['dht-enabled']])
+            elif c == ord('l'):
+                self.server.set_option('lpd-enabled', (1,0)[self.stats['lpd-enabled']])
             elif c == ord('g'):
                 limit = self.dialog_input_number("Maximum number of connected peers",
                                                  self.stats['peer-limit-global'])

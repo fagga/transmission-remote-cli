@@ -2039,6 +2039,7 @@ class Interface:
                           " ?  We unchoked this peer, but they're not interested\n" + \
                           " E  Encrypted Connection\n" + \
                           " H  Peer was discovered through DHT\n" + \
+                          " T  uTP connected Peer\n" + \
                           " X  Peer was discovered through Peer Exchange (PEX)\n" + \
                           " I  Peer is an incoming connection"
             else:
@@ -2284,6 +2285,7 @@ class Interface:
                        ('Peer E_xchange', ('disabled','enabled ')[self.stats['pex-enabled']]),
                        ('_Distributed Hash Table', ('disabled','enabled ')[self.stats['dht-enabled']]),
                        ('_Local Peer Discovery', ('disabled','enabled ')[self.stats['lpd-enabled']]),
+                       ('_uTP', ('disabled','enabled ')[self.stats['utp-enabled']]),
                        ('_Global Peer Limit', "%d" % self.stats['peer-limit-global']),
                        ('Peer Limit per _Torrent', "%d" % self.stats['peer-limit-per-torrent']),
                        ('Protocol En_cryption', "%s" % self.stats['encryption']),
@@ -2320,6 +2322,8 @@ class Interface:
                 self.server.set_option('dht-enabled', (1,0)[self.stats['dht-enabled']])
             elif c == ord('l'):
                 self.server.set_option('lpd-enabled', (1,0)[self.stats['lpd-enabled']])
+            elif c == ord('u'):
+                self.server.set_option('utp-enabled', (1,0)[self.stats['utp-enabled']])
             elif c == ord('g'):
                 limit = self.dialog_input_number("Maximum number of connected peers",
                                                  self.stats['peer-limit-global'])

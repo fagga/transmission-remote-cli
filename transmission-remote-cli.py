@@ -206,7 +206,8 @@ class Transmission:
                     'uploadedEver', 'errorString', 'recheckProgress',
                     'peersConnected', 'uploadLimit', 'downloadLimit',
                     'uploadLimited', 'downloadLimited', 'bandwidthPriority',
-                    'peersSendingToUs', 'peersGettingFromUs']
+                    'peersSendingToUs', 'peersGettingFromUs',
+                    'seedRatioLimit', 'seedRatioMode' ]
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
@@ -463,6 +464,24 @@ class Transmission:
         self.wait_for_torrentlist_update()
 
 
+    def set_seed_ratio(self, new_limit, torrent_id=-1):
+        data = dict()
+        if new_limit < 0:
+            return
+        elif new_limit == 0:
+            new_limit     = None
+            limit_enabled = False
+        else:
+            limit_enabled = True
+
+        data['ids']            = [torrent_id]
+        data['seedRatioLimit'] = new_limit
+        data['seedRatioMode']  = limit_enabled
+        request = TransmissionRequest(self.host, self.port, 'torrent-set', 1, data)
+        request.send_request()
+        self.wait_for_torrentlist_update()
+
+
     def increase_bandwidth_priority(self, torrent_id):
         torrent = self.get_torrent_by_id(torrent_id)
         if torrent == None or torrent['bandwidthPriority'] >= 1:
@@ -680,6 +699,7 @@ class Interface:
             ord('d'):               self.global_download,
             ord('U'):               self.torrent_upload,
             ord('D'):               self.torrent_download,
+            ord('L'):               self.set_seed_limit,
             ord('t'):               self.t_key,
             ord('+'):               self.bandwidth_priority,
             ord('-'):               self.bandwidth_priority,
@@ -985,6 +1005,13 @@ class Interface:
             limit = self.dialog_input_number("Download limit in Kilobytes per second for\n%s" % \
                                                  self.torrents[self.focus]['name'], current_limit)
             self.server.set_rate_limit('down', limit, self.torrents[self.focus]['id'])
+
+    def seed_ratio(self, c):
+        if self.focus > -1:
+            current_limit = (0,self.torrents[self.focus]['seedRatioLimit'])[self.torrents[self.focus]['seedRatioMode']]
+            limit = self.dialog_input_number("Seed ratio limit in Kilobytes per second for\n%s" % \
+                                                 self.torrents[self.focus]['name'], current_limit, floating_point=True)
+            self.server.set_seed_ratio(limit, self.torrents[self.focus]['id'])
 
     def bandwidth_priority(self, c):
         if c == ord('-') and self.focus > -1:

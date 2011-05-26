@@ -699,7 +699,7 @@ class Interface:
             ord('d'):               self.global_download,
             ord('U'):               self.torrent_upload,
             ord('D'):               self.torrent_download,
-            ord('L'):               self.set_seed_limit,
+            ord('L'):               self.seed_ratio,
             ord('t'):               self.t_key,
             ord('+'):               self.bandwidth_priority,
             ord('-'):               self.bandwidth_priority,
@@ -1009,7 +1009,7 @@ class Interface:
     def seed_ratio(self, c):
         if self.focus > -1:
             current_limit = (0,self.torrents[self.focus]['seedRatioLimit'])[self.torrents[self.focus]['seedRatioMode']]
-            limit = self.dialog_input_number("Seed ratio limit in Kilobytes per second for\n%s" % \
+            limit = self.dialog_input_number("Seed ratio limit for\n%s" % \
                                                  self.torrents[self.focus]['name'], current_limit, floating_point=True)
             self.server.set_seed_ratio(limit, self.torrents[self.focus]['id'])
 
@@ -1536,6 +1536,17 @@ class Interface:
                 info[-1][-1] += " (throttled to %s)" % scale_bytes(t['uploadLimit']*1024, 'long')
         else:
             info[-1].append("no transmission in progress")
+
+        info.append(['Seed limit: '])
+        if t['seedRatioMode'] == 0:
+            if self.stats['seedRatioLimited']:
+                info[-1].append('default; stop seeding after distributing %s copies' % self.stats['seedRatioLimit'])
+            else:
+                info[-1].append('default; unlimited')
+        elif t['seedRatioMode'] == 1:
+            info[-1].append('stop seeding after distributing %s copies' % t['seedRatioLimit'])
+        elif t['seedRatioMode'] == 2:
+            info[-1].append('unlimited (ignore global limits)')
 
         info.append(['Peers: ',
                      "connected to %d;  "     % t['peersConnected'],

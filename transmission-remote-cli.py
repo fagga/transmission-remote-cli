@@ -1008,9 +1008,15 @@ class Interface:
 
     def seed_ratio(self, c):
         if self.focus > -1:
-            current_limit = (0,self.torrents[self.focus]['seedRatioLimit'])[self.torrents[self.focus]['seedRatioMode']]
+            if self.torrents[self.focus]['seedRatioMode'] == 0:
+                current_limit = 0
+            elif self.torrents[self.focus]['seedRatioMode'] == 1:
+                current_limit = self.torrents[self.focus]['seedRatioLimit']
+            elif self.torrents[self.focus]['seedRatioMode'] == 2:
+                current_limit = 0
             limit = self.dialog_input_number("Seed ratio limit for\n%s" % \
-                                                 self.torrents[self.focus]['name'], current_limit, floating_point=True)
+                                                 self.torrents[self.focus]['name'],
+                                             current_limit, floating_point=True)
             self.server.set_seed_ratio(limit, self.torrents[self.focus]['id'])
 
     def bandwidth_priority(self, c):

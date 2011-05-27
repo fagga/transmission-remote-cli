@@ -2055,6 +2055,7 @@ class Interface:
         message = "           F1/?  Show this help\n" + \
                   "            u/d  Adjust maximum global upload/download rate\n" + \
                   "            U/D  Adjust maximum upload/download rate for focused torrent\n" + \
+                  "              L  Set seed ratio limit for focused torrent\n" + \
                   "            +/-  Adjust bandwidth priority for focused torrent\n" + \
                   "              p  Pause/Unpause torrent\n" + \
                   "              P  Pause/Unpause all torrents\n" + \

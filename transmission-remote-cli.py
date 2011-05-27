@@ -359,13 +359,6 @@ class Transmission:
                 if self.peer_progress_cache[peerid]['last_progress'] and progress_diff > 0 and time_diff > 5:
                     downloaded = self.torrent_details_cache['totalSize'] * progress_diff
                     avg_speed  = downloaded / time_diff
-                    # debug("%s:\n" % peerid +\
-                    #           "\tlast_time.....: %-13s   this_time.......: %-13s  diff: %s\n" \
-                    #           % (self.peer_progress_cache[peerid]['last_update'], this_time, time_diff) +\
-                    #           "\tlast_progress.: %-13s   this_progress...: %-13s  diff: %s\n" \
-                    #           % (self.peer_progress_cache[peerid]['last_progress'], peer['progress'], progress_diff) +\
-                    #           "\tformula: (%s * %s) / %s = %s/s\n" \
-                    #           % (self.torrent_details_cache['totalSize'], progress_diff, time_diff, scale_bytes(avg_speed)))
 
                     if self.peer_progress_cache[peerid]['download_speed'] > 0:  # make it less jumpy
                         avg_speed = (self.peer_progress_cache[peerid]['download_speed'] + avg_speed) /2
@@ -373,7 +366,6 @@ class Transmission:
                     download_left = self.torrent_details_cache['totalSize'] - \
                         (self.torrent_details_cache['totalSize']*peer['progress'])
                     time_left  = download_left / avg_speed
-                    # debug("  %s  --  will finish %s\n\n" % (timestamp(this_time), timestamp(time_left + this_time)))
 
                     self.peer_progress_cache[peerid]['last_update']    = this_time  # remember update time
                     self.peer_progress_cache[peerid]['download_speed'] = avg_speed
@@ -1012,7 +1004,7 @@ class Interface:
     def seed_ratio(self, c):
         if self.focus > -1:
             if self.torrents[self.focus]['seedRatioMode'] == 0:
-                current_limit = 0
+                current_limit = ''
             elif self.torrents[self.focus]['seedRatioMode'] == 1:
                 current_limit = self.torrents[self.focus]['seedRatioLimit']
             elif self.torrents[self.focus]['seedRatioMode'] == 2:

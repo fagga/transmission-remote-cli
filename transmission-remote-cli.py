@@ -20,7 +20,7 @@ VERSION='0.9.1'
 
 TRNSM_VERSION_MIN = '2.30'
 TRNSM_VERSION_MAX = '2.31'
-RPC_VERSION_MIN = 13
+RPC_VERSION_MIN = 10
 RPC_VERSION_MAX = 13
 
 # error codes
@@ -466,17 +466,20 @@ class Transmission:
 
     def set_seed_ratio(self, new_limit, torrent_id=-1):
         data = dict()
-        if new_limit < 0:
-            return
+        if new_limit == -2:
+            new_limit = None
+            mode      = 0
         elif new_limit == 0:
-            new_limit     = None
-            limit_enabled = False
+            new_limit = None
+            mode      = 2
+        elif new_limit > 0:
+            mode = 1
         else:
-            limit_enabled = True
+            return
 
         data['ids']            = [torrent_id]
         data['seedRatioLimit'] = new_limit
-        data['seedRatioMode']  = limit_enabled
+        data['seedRatioMode']  = mode
         request = TransmissionRequest(self.host, self.port, 'torrent-set', 1, data)
         request.send_request()
         self.wait_for_torrentlist_update()
@@ -1016,7 +1019,7 @@ class Interface:
                 current_limit = 0
             limit = self.dialog_input_number("Seed ratio limit for\n%s" % \
                                                  self.torrents[self.focus]['name'],
-                                             current_limit, floating_point=True)
+                                             current_limit, floating_point=True, allow_empty=True)
             self.server.set_seed_ratio(limit, self.torrents[self.focus]['id'])
 
     def bandwidth_priority(self, c):
@@ -1546,11 +1549,11 @@ class Interface:
         info.append(['Seed limit: '])
         if t['seedRatioMode'] == 0:
             if self.stats['seedRatioLimited']:
-                info[-1].append('default; stop seeding after distributing %s copies' % self.stats['seedRatioLimit'])
+                info[-1].append('default (pause torrent after distributing %s copies)' % self.stats['seedRatioLimit'])
             else:
-                info[-1].append('default; unlimited')
+                info[-1].append('default (unlimited)')
         elif t['seedRatioMode'] == 1:
-            info[-1].append('stop seeding after distributing %s copies' % t['seedRatioLimit'])
+            info[-1].append('pause torrent after distributing %s copies' % t['seedRatioLimit'])
         elif t['seedRatioMode'] == 2:
             info[-1].append('unlimited (ignore global limits)')
 
@@ -2218,7 +2221,8 @@ class Interface:
                 input = input[:index] + chr(c) + (index < len(input) and input[index:] or '')
                 index += 1
 
-    def dialog_input_number(self, message, current_value, cursorkeys=True, floating_point=False):
+    def dialog_input_number(self, message, current_value,
+                            cursorkeys=True, floating_point=False, allow_empty=False):
         width  = max(max(map(lambda x: len(x), message.split("\n"))), 40) + 4
         width  = min(self.width, width)
         height = message.count("\n") + (4,6)[cursorkeys]
@@ -2236,6 +2240,8 @@ class Interface:
             win.addstr(height-4, 2, ("   up/down +/- %-3s" % bigstep).rjust(width-4))
             win.addstr(height-3, 2, ("left/right +/- %3s" % smallstep).rjust(width-4))
             win.addstr(height-3, 2, "0 means unlimited")
+            if allow_empty:
+                win.addstr(height-4, 2, "leave empty for default")
 
         while True:
             win.addstr(height-2, 2, input.ljust(width-4), curses.color_pair(5))
@@ -2244,9 +2250,15 @@ class Interface:
             if c == 27 or c == ord('q') or c == curses.KEY_BREAK:
                 return -1
             elif c == ord("\n"):
+                debug("allow_empty:%s  input:'%s'\n" % (allow_empty, len(input)))
                 try:
-                    if floating_point: return float(input)
-                    else:              return int(input)
+                    if allow_empty and len(input) <= 0:
+                        debug("returning -2\n")
+                        return -2
+                    elif floating_point:
+                        return float(input)
+                    else:
+                        return int(input)
                 except ValueError:
                     return -1
 

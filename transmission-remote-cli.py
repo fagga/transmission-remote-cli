@@ -58,6 +58,7 @@ locale.setlocale(locale.LC_ALL, '')
 import curses
 from textwrap import wrap
 from subprocess import call
+import netrc
 
 
 # optional features provided by non-standard modules
@@ -2581,6 +2582,29 @@ def explode_connection_string(connection):
     return host, port, username, password
 
 
+def read_netrc(file=os.environ['HOME'] + '/.netrc', hostname=None):
+    try:
+        login = password = ''
+        try:
+            login, account, password = netrc.netrc(file).authenticators(hostname)
+        except TypeError:
+            pass
+        try:
+            netrc.netrc(file).hosts[hostname]
+        except KeyError:
+            if hostname != 'localhost':
+                print "Unknown machine in %s: %s" % (file, hostname)
+                if login and password:
+                    print "Using default login: %s" % login
+                else:
+                    exit(CONFIGFILE_ERROR)
+    except netrc.NetrcParseError, e:
+        quit("Error in %s at line %s: %s\n" % (e.filename, e.lineno, e.msg))
+    except IOError, msg:
+        quit("Cannot read %s: %s\n" % (file, msg))
+    return login, password
+
+
 # create initial config file
 def create_config(option, opt_str, value, parser):
     configfile = parser.values.configfile
@@ -2624,6 +2648,8 @@ parser.add_option("-f", "--config", action="store", dest="configfile", default=d
                   help="Path to configuration file.")
 parser.add_option("--create-config", action="callback", callback=create_config,
                   help="Create configuration file CONFIGFILE with default values.")
+parser.add_option("-n", "--netrc", action="store_true", dest="use_netrc", default=False,
+                  help="Get authentication info from your ~/.netrc file.")
 (cmd_args, transmissionremote_args) = parser.parse_args()
 
 
@@ -2637,6 +2663,11 @@ if cmd_args.connection:
     config.set('Connection', 'port', str(port))
     config.set('Connection', 'username', username)
     config.set('Connection', 'password', password)
+if cmd_args.use_netrc:
+    username, password = read_netrc(hostname=config.get('Connection','host'))
+    config.set('Connection', 'username', username)
+    config.set('Connection', 'password', password)
+
 
 
 # forward arguments after '--' to transmission-remote
@@ -2663,6 +2694,7 @@ if transmissionremote_args:
     except OSError, msg:
         quit("Could not execute the above command: %s\n" % msg, 128)
     quit('', retcode)
+
 
 # run interface
 ui = Interface(Transmission(config.get('Connection', 'host'),

@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.9.1'
+VERSION='0.9.2'
 
 TRNSM_VERSION_MIN = '2.30'
 TRNSM_VERSION_MAX = '2.31'
@@ -953,8 +953,8 @@ class Interface:
                       ('seeders','_Seeds'), ('leechers','Lee_ches'), ('sizeWhenDone', 'Si_ze'),
                       ('status','S_tatus'), ('uploadedEver','Up_loaded'),
                       ('rateUpload','_Upload Speed'), ('rateDownload','_Download Speed'),
-                      ('uploadRatio','_Ratio'),
-                      ('peersConnected','P_eers'), ('reverse','Re_verse')]
+                      ('uploadRatio','_Ratio'), ('peersConnected','P_eers'),
+                      ('downloadDir', 'L_ocation'), ('reverse','Re_verse')]
            choice = self.dialog_menu('Sort order', options,
                                      map(lambda x: x[0]==self.sort_orders[-1], options).index(True)+1)
            if choice == 'reverse':

@@ -16,12 +16,12 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.9.2'
+VERSION='0.10.0'
 
-TRNSM_VERSION_MIN = '2.30'
-TRNSM_VERSION_MAX = '2.31'
-RPC_VERSION_MIN = 13
-RPC_VERSION_MAX = 13
+TRNSM_VERSION_MIN = '2.40'
+TRNSM_VERSION_MAX = '2.40'
+RPC_VERSION_MIN = 14
+RPC_VERSION_MAX = 14
 
 # error codes
 CONNECTION_ERROR = 1
@@ -190,11 +190,13 @@ class TransmissionRequest:
 
 # Higher level of data exchange
 class Transmission:
-    STATUS_CHECK_WAIT = 1 << 0
-    STATUS_CHECK      = 1 << 1
-    STATUS_DOWNLOAD   = 1 << 2
-    STATUS_SEED       = 1 << 3
-    STATUS_STOPPED    = 1 << 4
+    STATUS_STOPPED       = 0   # Torrent is stopped
+    STATUS_CHECK_WAIT    = 1   # Queued to check files
+    STATUS_CHECK         = 2   # Checking files
+    STATUS_DOWNLOAD_WAIT = 3   # Queued to download
+    STATUS_DOWNLOAD      = 4   # Downloading
+    STATUS_SEED_WAIT     = 5   # Queued to seed
+    STATUS_SEED          = 6   # Seeding
 
     TAG_TORRENT_LIST    = 7
     TAG_TORRENT_DETAILS = 77
@@ -618,16 +620,20 @@ class Transmission:
 
 
     def get_status(self, torrent):
-        if torrent['status'] == Transmission.STATUS_CHECK_WAIT:
+        if torrent['status'] == Transmission.STATUS_STOPPED:
+            status = 'paused'
+        elif torrent['status'] == Transmission.STATUS_CHECK_WAIT:
             status = 'will verify'
         elif torrent['status'] == Transmission.STATUS_CHECK:
             status = "verifying"
-        elif torrent['status'] == Transmission.STATUS_SEED:
-            status = 'seeding'
+        elif torrent['status'] == Transmission.STATUS_DOWNLOAD_WAIT:
+            status = 'will download'
         elif torrent['status'] == Transmission.STATUS_DOWNLOAD:
             status = ('idle','downloading')[torrent['rateDownload'] > 0]
-        elif torrent['status'] == Transmission.STATUS_STOPPED:
-            status = 'paused'
+        elif torrent['status'] == Transmission.STATUS_SEED_WAIT:
+            status = 'seeding'
+        elif torrent['status'] == Transmission.STATUS_SEED:
+            status = 'will seed'
         else:
             status = 'unknown state'
         return status
@@ -1044,7 +1050,8 @@ class Interface:
 
     def verify_torrent(self, c):
         if self.focus > -1:
-            if self.torrents[self.focus]['status'] != Transmission.STATUS_CHECK:
+            if self.torrents[self.focus]['status'] != Transmission.STATUS_CHECK \
+           and self.torrents[self.focus]['status'] != Transmission.STATUS_CHECK_WAIT:
                 self.server.verify_torrent(self.torrents[self.focus]['id'])
 
     def reannounce_torrent(self, c):
@@ -1242,13 +1249,14 @@ class Interface:
         elif self.filter_list == 'paused':
             self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_STOPPED]
         elif self.filter_list == 'seeding':
-            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_SEED]
+            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_SEED \
+                                 or t['status'] == Transmission.STATUS_SEED_WAIT]
         elif self.filter_list == 'incomplete':
             self.torrents = [t for t in self.torrents if t['percent_done'] < 100]
         elif self.filter_list == 'active':
             self.torrents = [t for t in self.torrents if t['peersGettingFromUs'] > 0 \
-                                 or t['peersSendingToUs'] > 0 or t['status'] == Transmission.STATUS_CHECK]
-            #self.torrents = [t for t in self.torrents if t['peersConnected'] > 0]
+                                 or t['peersSendingToUs'] > 0 \
+                                 or t['status'] == Transmission.STATUS_CHECK]
         elif self.filter_list == 'verifying':
             self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_CHECK \
                                  or t['status'] == Transmission.STATUS_CHECK_WAIT]
@@ -1365,12 +1373,13 @@ class Interface:
         size = '| ' + size
         title = title[:-len(size)] + size
 
-        if torrent['status'] == Transmission.STATUS_SEED:
+        if torrent['status'] == Transmission.STATUS_SEED \
+        or torrent['status'] == Transmission.STATUS_SEED_WAIT:
             color = curses.color_pair(4)
         elif torrent['status'] == Transmission.STATUS_STOPPED:
             color = curses.color_pair(5) + curses.A_UNDERLINE
-        elif torrent['status'] == Transmission.STATUS_CHECK or \
-                torrent['status'] == Transmission.STATUS_CHECK_WAIT:
+        elif torrent['status'] == Transmission.STATUS_CHECK \
+          or torrent['status'] == Transmission.STATUS_CHECK_WAIT:
             color = curses.color_pair(7)
         elif torrent['rateDownload'] == 0:
             color = curses.color_pair(6)

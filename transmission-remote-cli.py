@@ -631,9 +631,9 @@ class Transmission:
         elif torrent['status'] == Transmission.STATUS_DOWNLOAD:
             status = ('idle','downloading')[torrent['rateDownload'] > 0]
         elif torrent['status'] == Transmission.STATUS_SEED_WAIT:
-            status = 'seeding'
-        elif torrent['status'] == Transmission.STATUS_SEED:
             status = 'will seed'
+        elif torrent['status'] == Transmission.STATUS_SEED:
+            status = 'seeding'
         else:
             status = 'unknown state'
         return status

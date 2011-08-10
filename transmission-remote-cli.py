@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.10.0'
+VERSION='0.10.3'
 
 TRNSM_VERSION_MIN = '2.40'
 TRNSM_VERSION_MAX = '2.40'
@@ -1643,9 +1643,9 @@ class Interface:
                     self.pad.addstr(ypos, 0, ' '*self.width, curses_tags)
                 except: pass
 
-            # colored priority
+            # colored priority (only in the first 30 chars, the rest is filename)
             xpos = 0
-            for part in re.split('(high|normal|low|off)', line, 1):
+            for part in re.split('(high|normal|low|off)', line[0:30], 1):
                 if part == 'high':
                     self.pad.addstr(ypos, xpos, part, curses_tags + curses.color_pair(11))
                 elif part == 'normal':
@@ -1654,11 +1654,10 @@ class Interface:
                     self.pad.addstr(ypos, xpos, part, curses_tags + curses.color_pair(13))
                 elif part == 'off':
                     self.pad.addstr(ypos, xpos, part, curses_tags + curses.color_pair(14))
-
                 else:
                     self.pad.addstr(ypos, xpos, part.encode('utf-8'), curses_tags)
                 xpos += len(part)
-
+            self.pad.addstr(ypos, xpos, line[30:].encode('utf-8'), curses_tags)
             ypos += 1
             if ypos > self.height:
                 break

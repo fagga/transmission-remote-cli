@@ -1715,20 +1715,25 @@ class Interface:
         end   = self.scrollpos_detaillist + self.detaillistitems_per_page
         peers = self.torrent_details['peers'][start:end]
 
+        # Find width of columns
         clientname_width = 0
+        address_width = 0
         for peer in peers:
-            if len(peer['clientName']) > clientname_width:
-                clientname_width = len(peer['clientName'])
+            if len(peer['clientName']) > clientname_width: clientname_width = len(peer['clientName'])
+            if len(peer['address']) > address_width: address_width = len(peer['address'])
 
-        column_names = "Flags %3d Down %3d Up   Progress      ETA   " % \
+        # Column names
+        column_names = "Flags %3d Down %3d Up  Progress      ETA " % \
             (self.torrent_details['peersSendingToUs'], self.torrent_details['peersGettingFromUs'])
-        column_names += 'Client'.ljust(clientname_width) + "          Address"
+        column_names += '  Client'.ljust(clientname_width + 2) \
+            + "  Address".ljust(address_width + 2)
         if features['geoip']: column_names += "  Country"
         if features['dns']: column_names += "  Host"
 
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
         ypos += 1
 
+        # Peers
         hosts = self.server.get_hosts()
         geo_ips = self.server.get_geo_ips()
         for index, peer in enumerate(peers):
@@ -1744,24 +1749,23 @@ class Interface:
                 except adns.Error, msg:
                     host_name = msg
 
-# I guess this isn't needed.
-#            clientname = peer['clientName']
-#            if len(clientname) > clientname_width:
-#                clientname = middlecut(peer['clientName'], clientname_width)
-
             upload_tag = download_tag = line_tag = 0
             if peer['rateToPeer']:   upload_tag   = curses.A_BOLD
             if peer['rateToClient']: download_tag = curses.A_BOLD
 
             self.pad.move(ypos, 0)
+            # Flags
             self.pad.addstr("%-6s   " % peer['flagStr'])
+            # Down
             self.pad.addstr("%5s  " % scale_bytes(peer['rateToClient']), download_tag)
-            self.pad.addstr("%5s   " % scale_bytes(peer['rateToPeer']), upload_tag)
+            # Up
+            self.pad.addstr("%5s  " % scale_bytes(peer['rateToPeer']), upload_tag)
 
-            if peer['progress'] < 1:
-                self.pad.addstr("%3d%%" % (float(peer['progress'])*100))
-            else:
-                self.pad.addstr("%3d%%" % (float(peer['progress'])*100), curses.A_BOLD)
+            # Progress
+            if peer['progress'] < 1: self.pad.addstr("%3d%%" % (float(peer['progress'])*100))
+            else: self.pad.addstr("%3d%%" % (float(peer['progress'])*100), curses.A_BOLD)
+
+            # ETA
             if peer['progress'] < 1 and peer['download_speed'] > 1024:
                 self.pad.addstr(" @ ")
                 self.pad.addch(curses.ACS_PLMINUS)
@@ -1770,14 +1774,14 @@ class Interface:
                 self.pad.addstr("%-4s " % scale_time(peer['time_left']))
             else:
                 self.pad.addstr("                ")
-
-#            self.pad.addstr(clientname.ljust(clientname_width).encode('utf-8'))
-            self.pad.addstr(peer['clientName'].ljust(clientname_width).encode('utf-8'))
-            self.pad.addstr("  %15s  " % peer['address'])
-            if features['geoip']:
-                self.pad.addstr("  %2s     " % geo_ips[peer['address']])
-            if features['dns']:
-                self.pad.addstr(host_name.encode('utf-8'), curses.A_DIM)
+            # Client
+            self.pad.addstr(peer['clientName'].ljust(clientname_width + 2).encode('utf-8'))
+            # Address
+            self.pad.addstr(peer['address'].ljust(address_width + 2))
+            # Country
+            if features['geoip']: self.pad.addstr("  %2s     " % geo_ips[peer['address']])
+            # Host
+            if features['dns']: self.pad.addstr(host_name.encode('utf-8'), curses.A_DIM)
             ypos += 1
 
     def draw_trackerlist(self, ypos):

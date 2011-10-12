@@ -787,7 +787,8 @@ class Interface:
             curses.endwin()
             self.screen.refresh()
             self.height, self.width = self.screen.getmaxyx()
-            if self.width < 60 or self.height < 16:
+            # Tracker list breaks if width smaller than 73
+            if self.width < 73 or self.height < 16:
                 self.screen.erase()
                 self.screen.addstr(0,0, "Terminal too small", curses.A_REVERSE + curses.A_BOLD)
                 time.sleep(1)
@@ -2034,7 +2035,7 @@ class Interface:
     def draw_connection_status(self):
         status = "Transmission @ %s:%s" % (self.server.host, self.server.port)
         if cmd_args.DEBUG:
-            status = "%d x %d " % (self.width, self.height) + status 
+            status = "%d x %d " % (self.width, self.height) + status
         self.screen.addstr(0, 0, status.encode('utf-8'), curses.A_REVERSE)
 
     def draw_quick_help(self):
@@ -2060,6 +2061,7 @@ class Interface:
 
 
     def list_key_bindings(self):
+        title = 'Help Menu'
         message = "           F1/?  Show this help\n" + \
                   "            u/d  Adjust maximum global upload/download rate\n" + \
                   "            U/D  Adjust maximum upload/download rate for focused torrent\n" + \
@@ -2073,6 +2075,7 @@ class Interface:
                   "              a  Add torrent\n" + \
                   "          Del/r  Remove torrent and keep content\n" + \
                   "    Shift+Del/R  Remove torrent and delete content\n"
+        # Torrent list
         if self.selected_torrent == -1:
             message += "              f  Filter torrent list\n" + \
                        "              s  Sort torrent list\n" \
@@ -2082,7 +2085,9 @@ class Interface:
                        "            Esc  Unfocus\n" + \
                        "              q  Quit"
         else:
-            if self.details_category_focus == 2:  # peers
+            # Peer list
+            if self.details_category_focus == 2:
+                title = 'Peer status flags'
                 message = " O  Optimistic unchoke\n" + \
                           " D  Downloading from this peer\n" + \
                           " d  We would download from this peer if they'd let us\n" + \
@@ -2092,10 +2097,11 @@ class Interface:
                           " ?  We unchoked this peer, but they're not interested\n" + \
                           " E  Encrypted Connection\n" + \
                           " H  Peer was discovered through DHT\n" + \
-                          " T  uTP connected Peer\n" + \
                           " X  Peer was discovered through Peer Exchange (PEX)\n" + \
-                          " I  Peer is an incoming connection"
+                          " I  Peer is an incoming connection\n" + \
+                          " T  Peer is connected via uTP"
             else:
+                # Viewing torrent details
                 message += "              o  Jump to overview\n" + \
                            "              f  Jump to file list\n" + \
                            "              e  Jump to peer list\n" + \
@@ -2116,13 +2122,12 @@ class Interface:
         width  = max(map(lambda x: len(x), message.split("\n"))) + 4
         width  = min(self.width, width)
         height = min(self.height, message.count("\n")+3)
-        win = self.window(height, width, message=message)
+        win = self.window(height, width, message=message, title=title)
         while True:
             if win.getch() >= 0: return
 
 
-
-    def window(self, height, width, message=''):
+    def window(self, height, width, message='', title=''):
         height = min(self.height, height)
         width  = min(self.width, width)
         ypos = (self.height - height)/2
@@ -2132,9 +2137,14 @@ class Interface:
         win.bkgd(' ', curses.A_REVERSE + curses.A_BOLD)
 
         if width >= 20:
-            win.addch( height-1, width-19, curses.ACS_RTEE)
+            win.addch(height-1, width-19, curses.ACS_RTEE)
             win.addstr(height-1, width-18, " Close with Esc ")
-            win.addch( height-1, width-2, curses.ACS_LTEE)
+            win.addch(height-1, width-2, curses.ACS_LTEE)
+
+        if width >= (len(title) + 6) and title != '':
+            win.addch(0, 1, curses.ACS_RTEE)
+            win.addstr(0, 2, " " + title + " ")
+            win.addch(0, len(title) + 4 , curses.ACS_LTEE)
 
         ypos = 1
         for line in message.split("\n"):
@@ -2337,7 +2347,6 @@ class Interface:
             i+=1
         return keys
 
-
     def draw_options_dialog(self):
         enc_options = [('required','_required'), ('preferred','_preferred'), ('tolerated','_tolerated')]
 
@@ -2353,8 +2362,7 @@ class Interface:
                        ('Protocol En_cryption', "%s" % self.stats['encryption']),
                        ('_Seed Ratio Limit', "%s" % ('unlimited',self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']])]
             max_len = max([sum([len(re.sub('_', '', x)) for x in y[0]]) for y in options])
-            win = self.window(len(options)+2, max_len+15)
-            win.addstr(0, 2, 'Global Options')
+            win = self.window(len(options)+2, max_len+15, '', "Global Options")
 
             line_num = 1
             for option in options:
@@ -2370,7 +2378,6 @@ class Interface:
             c = win.getch()
             if c == 27 or c == ord('q') or c == ord("\n"):
                 return
-
             elif c == ord('p'):
                 port = self.dialog_input_number("Port for incoming connections",
                                                 self.stats['peer-port'], cursorkeys=False)

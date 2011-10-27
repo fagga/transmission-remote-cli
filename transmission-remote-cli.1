@@ -18,15 +18,15 @@ Show version number and exit
 .It Fl h Fl -help
 Show this help message and exit
 .It Fl "c \fICONNECTION\fR" Fl -connect=\fICONNECTION\fR
-Point to the server using patter: [username:password@]host[:port]
+Point to the server using pattern: [username:password@]host[:port]
 .It Fl "f \fICONFIGFILE\fR" Fl -config=\fICONFIGFILE\fR
 Path to configuration file
 .It Fl -create-config
-Create configuration file \fICONFIGFILE\fR with default values
+Create configuration file \fICONFIGFILE\fR
 .It Fl n Fl -netrc
-Ger authentication info from your ~/.netrc file
+Get authentication info from your ~/.netrc file
 .It Fl -
-Send command after '--' to transmission-remote
+Forward options after '--' and auth info to transmission-remote
 .Sh FILES
 Settings can be saved in ~/.config/transmission-remote-cli/settings.cfg, authentication settings in ~/.netrc
 .Sh EXAMPLES
@@ -44,7 +44,7 @@ $ transmission-remote-cli \-c johndoe:secretbirthday@homeserver:1234
 Configuration file
 
 .Ed
-You can write this (and other) stuff into a configuration file:
+You can write this (and other stuff) to a configuration file:
 .Bd -literal -offset indent
 $ transmission-remote-cli.py \-c johndoe:secretbirthday@homeserver:1234 \-\-create-config
 

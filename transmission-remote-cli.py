@@ -342,6 +342,7 @@ class Transmission:
 
         elif response['tag'] == self.TAG_SESSION_STATS:
             self.status_cache.update(response['arguments'])
+            debug(self.status_cache)
 
         elif response['tag'] == self.TAG_SESSION_GET:
             self.status_cache.update(response['arguments'])
@@ -2272,10 +2273,10 @@ class Interface:
             if c == 27 or c == ord('q') or c == curses.KEY_BREAK:
                 return -1
             elif c == ord("\n"):
-                debug("allow_empty:%s  input:'%s'\n" % (allow_empty, len(input)))
+#                debug("allow_empty:%s  input:'%s'\n" % (allow_empty, len(input)))
                 try:
                     if allow_empty and len(input) <= 0:
-                        debug("returning -2\n")
+#                        debug("returning -2\n")
                         return -2
                     elif floating_point:
                         return float(input)

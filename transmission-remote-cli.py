@@ -1618,14 +1618,14 @@ class Interface:
         if t['comment']:
             if self.width >= 90:
                 width = self.width - 50
-                comment = wrap('Comment: ' + t['comment'], width)
+                comment = wrap_multiline(t['comment'], width, initial_indent='Comment: ')
                 for i, line in enumerate(comment):
                     if(ypos+i > self.height-1):
                         break
                     self.pad.addstr(ypos+i, 50, line.encode('utf8'))
             else:
                 width = self.width - 2
-                comment = wrap('Comment: ' + t['comment'], width)
+                comment = wrap_multiline(t['comment'], width, initial_indent='Comment: ')
                 for i, line in enumerate(comment):
                     self.pad.addstr(ypos+6+i, 2, line.encode('utf8'))
 
@@ -2554,6 +2554,19 @@ def html2text(str):
     str = re.sub(r'</p>', ' ', str)
     str = re.sub(r'<[^>]*?>', '', str)
     return str
+
+def wrap_multiline(text, width, initial_indent='', subsequent_indent=None):
+    if subsequent_indent is None:
+        subsequent_indent = ' ' * len(initial_indent)
+    for line in text.splitlines():
+        # this is required because wrap() strips empty lines
+        if not line.strip():
+            yield line
+            continue
+        for line in wrap(line, width, replace_whitespace=False,
+                initial_indent=initial_indent, subsequent_indent=subsequent_indent):
+            yield line
+        initial_indent = subsequent_indent
 
 def num2str(num):
     if int(num) == -1:

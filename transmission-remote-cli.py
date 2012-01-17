@@ -2233,11 +2233,15 @@ class Interface:
                 index += 1
             elif c == curses.KEY_LEFT and index > 0:
                 index -= 1
-            elif c == curses.KEY_BACKSPACE and index > 0:
+            elif (c == curses.KEY_BACKSPACE or c == 127) and index > 0:
                 input = input[:index - 1] + (index < len(input) and input[index:] or '')
                 index -= 1
             elif c == curses.KEY_DC and index < len(input):
                 input = input[:index] + input[index + 1:]
+            elif c == curses.KEY_HOME and index > 0:
+                index = 0
+            elif c == curses.KEY_END and index < len(input):
+                index = len(input)
             elif c == ord('\n'):
                 return input
             elif c >= 32 and c < 127 and len(input) + 1 < self.width - 7:

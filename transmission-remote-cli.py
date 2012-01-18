@@ -56,6 +56,7 @@ import signal
 import locale
 locale.setlocale(locale.LC_ALL, '')
 import curses
+import curses.ascii
 from textwrap import wrap
 from subprocess import call
 import netrc
@@ -338,7 +339,6 @@ class Transmission:
 
         elif response['tag'] == self.TAG_SESSION_STATS:
             self.status_cache.update(response['arguments'])
-            debug(self.status_cache)
 
         elif response['tag'] == self.TAG_SESSION_GET:
             self.status_cache.update(response['arguments'])
@@ -2222,18 +2222,18 @@ class Interface:
             c = win.getch()
             if c == 27 or c == curses.KEY_BREAK:
                 return ''
-            elif c == curses.KEY_RIGHT and index < len(input):
+            elif index < len(input) and ( c == curses.KEY_RIGHT or c == curses.ascii.ctrl(ord('f')) ):
                 index += 1
-            elif c == curses.KEY_LEFT and index > 0:
+            elif index > 0 and ( c == curses.KEY_LEFT or c == curses.ascii.ctrl(ord('b')) ):
                 index -= 1
             elif (c == curses.KEY_BACKSPACE or c == 127) and index > 0:
                 input = input[:index - 1] + (index < len(input) and input[index:] or '')
                 index -= 1
             elif c == curses.KEY_DC and index < len(input):
                 input = input[:index] + input[index + 1:]
-            elif c == curses.KEY_HOME and index > 0:
+            elif c == curses.KEY_HOME or c == curses.ascii.ctrl(ord('a')):
                 index = 0
-            elif c == curses.KEY_END and index < len(input):
+            elif c == curses.KEY_END or c == curses.ascii.ctrl(ord('e')):
                 index = len(input)
             elif c == ord('\n'):
                 return input

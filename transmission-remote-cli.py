@@ -672,7 +672,8 @@ class Interface:
         self.stats            = self.server.get_global_stats()
         self.torrent_details  = []
         self.selected_torrent = -1  # changes to >-1 when focus >-1 & user hits return
-        self.all_paused = False
+        self.all_paused       = False
+        self.highlight_dialog = False
 
         self.focus     = -1  # -1: nothing focused; 0: top of list; <# of torrents>-1: bottom of list
         self.scrollpos = 0   # start of torrentlist
@@ -1308,6 +1309,10 @@ class Interface:
             if matched_torrents:
                 self.focus = 0
                 focused_id = matched_torrents[0]['id']
+                self.highlight_dialog = False
+            else:
+                self.highlight_dialog = True
+                curses.beep()
         self.follow_list_focus(focused_id)
         self.manage_layout()
 
@@ -2224,7 +2229,8 @@ class Interface:
 
         index = len(input)
         while True:
-            win.addstr(height - 2, 2, input.ljust(width - 4), curses.color_pair(5))
+            color = (curses.color_pair(11) if self.highlight_dialog else curses.color_pair(5))
+            win.addstr(height - 2, 2, input.ljust(width - 4), color)
             win.addch(height - 2, index + 2, str(index < len(input) and input[index] or ' '))
             c = win.getch()
             if c == 27 or c == curses.KEY_BREAK:

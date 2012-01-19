@@ -737,7 +737,8 @@ class Interface:
             ord(' '):               self.select_unselect_file,
             ord('a'):               self.a_key,
             ord('m'):               self.move_torrent,
-            ord('n'):               self.reannounce_torrent
+            ord('n'):               self.reannounce_torrent,
+            ord('/'):               self.dialog_filter_torrentlist
         }
 
         try:
@@ -1299,13 +1300,18 @@ class Interface:
         self.scrollpos = min(self.scrollpos, (len(self.torrents) - self.torrents_per_page) * 3)
         self.scrollpos = max(0, self.scrollpos)
 
-    def draw_torrent_list(self):
+    def draw_torrent_list(self, search_keyword=''):
+        self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
+        self.filter_torrent_list()
         try:
             focused_id = self.torrents[self.focus]['id']
         except IndexError:
             focused_id = -1
-        self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
-        self.filter_torrent_list()
+        if search_keyword:
+            matched_torrents = [t for t in self.torrents if search_keyword.lower() in t['name'].lower()]
+            if matched_torrents:
+                self.focus = 0
+                focused_id = matched_torrents[0]['id']
         self.follow_list_focus(focused_id)
         self.manage_layout()
 
@@ -2051,7 +2057,7 @@ class Interface:
             if self.focus >= 0:
                 help = [('enter','View Details'), ('p','Pause/Unpause'), ('r','Remove'), ('v','Verify')]
             else:
-                help = [('f','Filter'), ('s','Sort')] + help + [('o','Options'), ('q','Quit')]
+                help = [('/','Search'), ('f','Filter'), ('s','Sort')] + help + [('o','Options'), ('q','Quit')]
         else:
             help = [('Move with','cursor keys'), ('q','Back to List')]
             if self.details_category_focus == 1 and self.focus_detaillist > -1:
@@ -2083,7 +2089,8 @@ class Interface:
                   "    Shift+Del/R  Remove torrent and delete content\n"
         # Torrent list
         if self.selected_torrent == -1:
-            message += "              f  Filter torrent list\n" + \
+            message += "              /  Search in torrent list\n" + \
+                       "              f  Filter torrent list\n" + \
                        "              s  Sort torrent list\n" \
                        "    Enter/Right  View torrent's details\n" + \
                        "              o  Configuration options\n" + \
@@ -2138,8 +2145,8 @@ class Interface:
     def window(self, height, width, message='', title=''):
         height = min(self.height, height)
         width  = min(self.width, width)
-        ypos = (self.height - height)/2
-        xpos = (self.width  - width)/2
+        ypos = int( (self.height - height) / 2 )
+        xpos = int( (self.width  - width) / 2 )
         win = curses.newwin(height, width, ypos, xpos)
         win.box()
         win.bkgd(' ', curses.A_REVERSE + curses.A_BOLD)
@@ -2215,7 +2222,7 @@ class Interface:
             elif c == 27 or c == curses.KEY_BREAK:
                 return -1
 
-    def dialog_input_text(self, message, input=''):
+    def dialog_input_text(self, message, input='', on_change=''):
         width  = self.width - 4
         height = message.count("\n") + 4
 
@@ -2236,8 +2243,10 @@ class Interface:
             elif (c == curses.KEY_BACKSPACE or c == 127) and index > 0:
                 input = input[:index - 1] + (index < len(input) and input[index:] or '')
                 index -= 1
+                if on_change: on_change(input)
             elif c == curses.KEY_DC and index < len(input):
                 input = input[:index] + input[index + 1:]
+                if on_change: on_change(input)
             elif c == curses.KEY_HOME or c == curses.ascii.ctrl(ord('a')):
                 index = 0
             elif c == curses.KEY_END or c == curses.ascii.ctrl(ord('e')):
@@ -2247,6 +2256,12 @@ class Interface:
             elif c >= 32 and c < 127 and len(input) + 1 < self.width - 7:
                 input = input[:index] + chr(c) + (index < len(input) and input[index:] or '')
                 index += 1
+                if on_change: on_change(input)
+            if on_change: win.redrawwin()
+
+    def dialog_filter_torrentlist(self, c):
+        self.dialog_input_text('Search torrent by title:',
+                               on_change=self.draw_torrent_list)
 
     def dialog_input_number(self, message, current_value,
                             cursorkeys=True, floating_point=False, allow_empty=False):
@@ -2277,10 +2292,8 @@ class Interface:
             if c == 27 or c == ord('q') or c == curses.KEY_BREAK:
                 return -1
             elif c == ord("\n"):
-#                debug("allow_empty:%s  input:'%s'\n" % (allow_empty, len(input)))
                 try:
                     if allow_empty and len(input) <= 0:
-#                        debug("returning -2\n")
                         return -2
                     elif floating_point:
                         return float(input)
@@ -2311,7 +2324,6 @@ class Interface:
                     input = str(number)
                 except ValueError:
                     pass
-
 
     def dialog_menu(self, title, options, focus=1):
         height = len(options) + 2
@@ -2580,9 +2592,6 @@ def num2str(num):
     else:
         string = re.sub(r'(\d{3})', '\g<1>,', str(num)[::-1])[::-1]
         return string.lstrip(',')
-
-# def middlecut(string, width):
-#     return string[0:(width/2)-2] + '..' + string[len(string) - (width/2) :]
 
 def debug(data):
     if cmd_args.DEBUG:

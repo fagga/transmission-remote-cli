@@ -680,7 +680,7 @@ class Interface:
         self.selected_torrent = -1  # changes to >-1 when focus >-1 & user hits return
         self.all_paused       = False
         self.highlight_dialog = False
-
+        self.search_focus = 0
         self.focus     = -1  # -1: nothing focused; 0: top of list; <# of torrents>-1: bottom of list
         self.scrollpos = 0   # start of torrentlist
         self.torrents_per_page  = 0 # will be set by manage_layout()
@@ -739,7 +739,7 @@ class Interface:
             ord('a'):               self.a_key,
             ord('m'):               self.move_torrent,
             ord('n'):               self.reannounce_torrent,
-            ord('/'):               self.dialog_filter_torrentlist
+            ord('/'):               self.dialog_search_torrentlist
         }
 
         try:
@@ -1312,11 +1312,15 @@ class Interface:
             matched_torrents = [t for t in self.torrents if search_keyword.lower() in t['name'].lower()]
             if matched_torrents:
                 self.focus = 0
-                focused_id = matched_torrents[0]['id']
+                if self.search_focus >= len(matched_torrents):
+                    self.search_focus = 0
+                focused_id = matched_torrents[self.search_focus]['id']
                 self.highlight_dialog = False
             else:
                 self.highlight_dialog = True
                 curses.beep()
+        else:
+            self.search_focus = 0
         self.follow_list_focus(focused_id)
         self.manage_layout()
 
@@ -2227,7 +2231,7 @@ class Interface:
             elif c == 27 or c == curses.KEY_BREAK:
                 return -1
 
-    def dialog_input_text(self, message, input='', on_change=''):
+    def dialog_input_text(self, message, input='', on_change=None, on_enter=None):
         width  = self.width - 4
         height = message.count("\n") + 4
 
@@ -2262,17 +2266,28 @@ class Interface:
             elif c == curses.KEY_END or c == curses.ascii.ctrl(ord('e')):
                 index = len(input)
             elif c == ord('\n'):
-                curses.curs_set(0)
-                return input
+                if on_enter:
+                    on_enter(input)
+                else:
+                    curses.curs_set(0)
+                    return input
             elif c >= 32 and c < 127 and len(input) + 1 < self.width - 7:
                 input = input[:index] + chr(c) + (index < len(input) and input[index:] or '')
                 index += 1
                 if on_change: on_change(input)
             if on_change: win.redrawwin()
 
-    def dialog_filter_torrentlist(self, c):
+    def dialog_search_torrentlist(self, c):
         self.dialog_input_text('Search torrent by title:',
-                               on_change=self.draw_torrent_list)
+                               on_change=self.draw_torrent_list,
+                               on_enter=self.increment_search)
+
+    def increment_search(self, input):
+        debug(self.search_focus)
+        self.search_focus += 1
+        self.draw_torrent_list(input)
+        debug(self.search_focus)
+
 
     def dialog_input_number(self, message, current_value,
                             cursorkeys=True, floating_point=False, allow_empty=False):

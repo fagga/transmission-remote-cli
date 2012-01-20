@@ -2233,14 +2233,15 @@ class Interface:
 
         win = self.window(height, width, message=message)
         win.keypad(True)
-
+        curses.curs_set(1)  # make cursor visible
         index = len(input)
         while True:
             color = (curses.color_pair(11) if self.highlight_dialog else curses.color_pair(5))
             win.addstr(height - 2, 2, input.ljust(width - 4), color)
-            win.addch(height - 2, index + 2, str(index < len(input) and input[index] or ' '))
+            win.move(height - 2, index + 2)
             c = win.getch()
             if c == 27 or c == curses.KEY_BREAK:
+                curses.curs_set(0)
                 return ''
             elif index < len(input) and ( c == curses.KEY_RIGHT or c == curses.ascii.ctrl(ord('f')) ):
                 index += 1
@@ -2250,14 +2251,18 @@ class Interface:
                 input = input[:index - 1] + (index < len(input) and input[index:] or '')
                 index -= 1
                 if on_change: on_change(input)
-            elif c == curses.KEY_DC and index < len(input):
+            elif index < len(input) and ( c == curses.KEY_DC or c == curses.ascii.ctrl(ord('d')) ):
                 input = input[:index] + input[index + 1:]
+                if on_change: on_change(input)
+            elif index < len(input) and c == curses.ascii.ctrl(ord('k')):
+                input = input[:index]
                 if on_change: on_change(input)
             elif c == curses.KEY_HOME or c == curses.ascii.ctrl(ord('a')):
                 index = 0
             elif c == curses.KEY_END or c == curses.ascii.ctrl(ord('e')):
                 index = len(input)
             elif c == ord('\n'):
+                curses.curs_set(0)
                 return input
             elif c >= 32 and c < 127 and len(input) + 1 < self.width - 7:
                 input = input[:index] + chr(c) + (index < len(input) and input[index:] or '')
@@ -2275,6 +2280,7 @@ class Interface:
         width  = min(self.width, width)
         height = message.count("\n") + (4,6)[cursorkeys]
 
+        curses.curs_set(1)  # make cursor visible
         win = self.window(height, width, message=message)
         win.keypad(True)
         input = str(current_value)
@@ -2293,19 +2299,24 @@ class Interface:
 
         while True:
             win.addstr(height-2, 2, input.ljust(width-4), curses.color_pair(5))
-            win.addch(height-2, len(input)+2, ' ')
+            win.move(height - 2, len(input) + 2)
             c = win.getch()
             if c == 27 or c == ord('q') or c == curses.KEY_BREAK:
+                curses.curs_set(0)
                 return -1
             elif c == ord("\n"):
                 try:
                     if allow_empty and len(input) <= 0:
+                        curses.curs_set(0)
                         return -2
                     elif floating_point:
+                        curses.curs_set(0)
                         return float(input)
                     else:
+                        curses.curs_set(0)
                         return int(input)
                 except ValueError:
+                    curses.curs_set(0)
                     return -1
 
             elif c == curses.KEY_BACKSPACE or c == curses.KEY_DC or c == 127 or c == 8:

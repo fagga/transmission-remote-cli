@@ -796,7 +796,7 @@ class Interface:
         while True:
             curses.endwin()
             self.screen.refresh()
-            self.height, self.width = self.screen.getmaxyx()
+            self.height, self.width = self.getheightwidth()
             # Tracker list breaks if width smaller than 73
             if self.width < 73 or self.height < 16:
                 self.screen.erase()
@@ -806,6 +806,14 @@ class Interface:
                 break
         self.manage_layout()
 
+    def getheightwidth(self):
+        try:
+            return int(os.environ["LINES"]), int(os.environ["COLUMNS"])
+        except KeyError:
+            height, width = self.screen.getmaxyx()
+            if not height or not width:
+                return 25, 80
+            return height, width 
 
     def manage_layout(self):
         self.pad_height = max((len(self.torrents)+1)*3, self.height)

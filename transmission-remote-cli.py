@@ -2723,7 +2723,6 @@ default_config_path = os.environ['HOME'] + '/.config/transmission-remote-cli/set
 parser = OptionParser(usage="%prog [options] [-- transmission-remote options]",
                       version="%%prog %s" % VERSION,
                       description="%%prog %s" % VERSION)
-parser.add_option("--debug", action="store_true", dest="DEBUG", default=False, help=SUPPRESS_HELP)
 parser.add_option("-c", "--connect", action="store", dest="connection", default="",
                   help="Point to the server using pattern [username:password@]host[:port]")
 parser.add_option("-f", "--config", action="store", dest="configfile", default=default_config_path,
@@ -2732,6 +2731,8 @@ parser.add_option("--create-config", action="callback", callback=create_config,
                   help="Create configuration file CONFIGFILE with default values.")
 parser.add_option("-n", "--netrc", action="store_true", dest="use_netrc", default=False,
                   help="Get authentication info from your ~/.netrc file.")
+parser.add_option("--debug", action="store_true", dest="DEBUG", default=False,
+                  help="Everything passed to the debug() function will be added to the file debug.log.")
 (cmd_args, transmissionremote_args) = parser.parse_args()
 
 

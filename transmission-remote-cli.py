@@ -674,9 +674,10 @@ class Interface:
         self.selected_torrent = -1  # changes to >-1 when focus >-1 & user hits return
         self.all_paused       = False
         self.highlight_dialog = False
-        self.search_focus = 0
-        self.focus     = -1  # -1: nothing focused; 0: top of list; <# of torrents>-1: bottom of list
-        self.scrollpos = 0   # start of torrentlist
+        self.search_focus = 0   # like self.focus but for searches in torrent list
+        self.focused_id   = -1  # the id (provided by Transmission) of self.torrents[self.focus]
+        self.focus        = -1  # -1: nothing focused; 0: top of list; <# of torrents>-1: bottom of list
+        self.scrollpos    = 0   # start of torrentlist
         self.torrents_per_page  = 0 # will be set by manage_layout()
         self.rateDownload_width = self.rateUpload_width = 2
 
@@ -1071,7 +1072,6 @@ class Interface:
                     self.selected_torrent = -1
                     self.details_category_focus = 0
                 self.server.remove_torrent(self.torrents[self.focus]['id'])
-                self.focus += 1
 
     def remove_torrent_local_data(self, c):
         if self.focus > -1:
@@ -1082,7 +1082,6 @@ class Interface:
                     self.selected_torrent = -1
                     self.details_category_focus = 0
                 self.server.remove_torrent_local_data(self.torrents[self.focus]['id'])
-                self.focus += 1
 
     def movement_keys(self, c):
         if self.selected_torrent == -1:
@@ -1101,6 +1100,7 @@ class Interface:
                 self.focus, self.scrollpos = self.move_to_top()
             elif c == curses.KEY_END:
                 self.focus, self.scrollpos = self.move_to_end(3, self.torrents_per_page, len(self.torrents))
+            self.focused_id = self.torrents[self.focus]['id']
         elif self.selected_torrent > -1:
             # file list
             if self.details_category_focus == 1:
@@ -1268,24 +1268,25 @@ class Interface:
         if self.filter_inverse:
             self.torrents = [t for t in unfiltered if t not in self.torrents]
 
-    def follow_list_focus(self, id):
+    def follow_list_focus(self):
         if self.focus == -1:
             return
-        elif len(self.torrents) == 0:
+
+        # check if list is empty or id to look for isn't in list
+        ids = [t['id'] for t in self.torrents]
+        if len(self.torrents) == 0 or self.focused_id not in ids:
             self.focus, self.scrollpos = -1, 0
             return
 
-        self.focus = min(self.focus, len(self.torrents)-1)
-        if self.torrents[self.focus]['id'] != id:
+# [not needed?]
+#        self.focus = min(self.focus, len(self.torrents)-1)
+
+        # find focused_id
+        if self.torrents[self.focus]['id'] != self.focused_id:
             for i,t in enumerate(self.torrents):
-                if id == t['id']:
-                    new_focus = i
+                if t['id'] == self.focused_id:
+                    self.focus = i
                     break
-            try:
-                self.focus = new_focus
-            except UnboundLocalError:
-                self.focus, self.scrollpos = -1, 0
-                return
 
         # make sure the focus is not above the visible area
         while self.focus < (self.scrollpos/3):
@@ -1300,24 +1301,22 @@ class Interface:
     def draw_torrent_list(self, search_keyword=''):
         self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
         self.filter_torrent_list()
-        try:
-            focused_id = self.torrents[self.focus]['id']
-        except IndexError:
-            focused_id = -1
+
         if search_keyword:
             matched_torrents = [t for t in self.torrents if search_keyword.lower() in t['name'].lower()]
             if matched_torrents:
                 self.focus = 0
                 if self.search_focus >= len(matched_torrents):
                     self.search_focus = 0
-                focused_id = matched_torrents[self.search_focus]['id']
+                self.focused_id = matched_torrents[self.search_focus]['id']
                 self.highlight_dialog = False
             else:
                 self.highlight_dialog = True
                 curses.beep()
         else:
             self.search_focus = 0
-        self.follow_list_focus(focused_id)
+
+        self.follow_list_focus()
         self.manage_layout()
 
         ypos = 0
@@ -2276,10 +2275,8 @@ class Interface:
                                on_enter=self.increment_search)
 
     def increment_search(self, input):
-        debug(self.search_focus)
         self.search_focus += 1
         self.draw_torrent_list(input)
-        debug(self.search_focus)
 
 
     def dialog_input_number(self, message, current_value,

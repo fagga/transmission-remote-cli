@@ -2232,6 +2232,7 @@ class Interface:
 
     def dialog_input_text(self, message, input='', on_change=None, on_enter=None):
         width  = self.width - 4
+        textwidth = self.width - 8
         height = message.count("\n") + 4
 
         win = self.window(height, width, message=message)
@@ -2239,9 +2240,15 @@ class Interface:
         curses.curs_set(1)  # make cursor visible
         index = len(input)
         while True:
+            # Cut the text into pages, each as long as the text field
+            # The current page is determined by index position
+            page = index // textwidth
+            displaytext = input[textwidth*page:textwidth*(page + 1)]
+            displayindex = index - textwidth*page
+
             color = (curses.color_pair(11) if self.highlight_dialog else curses.color_pair(5))
-            win.addstr(height - 2, 2, input.ljust(width - 4), color)
-            win.move(height - 2, index + 2)
+            win.addstr(height - 2, 2, displaytext.ljust(textwidth), color)
+            win.move(height - 2, displayindex + 2)
             c = win.getch()
             if c == 27 or c == curses.KEY_BREAK:
                 curses.curs_set(0)
@@ -2270,7 +2277,7 @@ class Interface:
                 else:
                     curses.curs_set(0)
                     return input
-            elif c >= 32 and c < 127 and len(input) + 1 < self.width - 7:
+            elif c >= 32 and c < 127:
                 input = input[:index] + chr(c) + (index < len(input) and input[index:] or '')
                 index += 1
                 if on_change: on_change(input)

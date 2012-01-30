@@ -817,10 +817,11 @@ class Interface:
 
 
     def manage_layout(self):
-        self.pad_height = max((len(self.torrents)+1)*3, self.height)
+        distance = 3 if not self.compact_torrentlist else 1
+        self.pad_height = max((len(self.torrents)+1)*distance, self.height)
         self.pad = curses.newpad(self.pad_height, self.width)
         self.mainview_height = self.height - 2
-        self.torrents_per_page = self.mainview_height/3
+        self.torrents_per_page = self.mainview_height / distance
         self.detaillistitems_per_page = self.height - 8
 
         if self.selected_torrent > -1:
@@ -832,7 +833,7 @@ class Interface:
                 self.torrent_title_width -= self.rateDownload_width + 2
 
         elif self.torrents:
-            visible_torrents = self.torrents[self.scrollpos/3 : self.scrollpos/3 + self.torrents_per_page + 1]
+            visible_torrents = self.torrents[self.scrollpos/distance : self.scrollpos/distance + self.torrents_per_page + 1]
             self.rateDownload_width = self.get_rateDownload_width(visible_torrents)
             self.rateUpload_width   = self.get_rateUpload_width(visible_torrents)
 
@@ -1099,21 +1100,22 @@ class Interface:
 
     def movement_keys(self, c):
         if self.selected_torrent == -1:
+            distance = 3 if not self.compact_torrentlist else 1
             if   c == curses.KEY_UP or c == ord('k'):
-                self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, 3)
+                self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, distance)
             elif c == curses.KEY_DOWN or c == ord('j'):
-                self.focus, self.scrollpos = self.move_down(self.focus, self.scrollpos, 3,
+                self.focus, self.scrollpos = self.move_down(self.focus, self.scrollpos, distance,
                                                             self.torrents_per_page, len(self.torrents))
             elif c == curses.KEY_PPAGE:
-                self.focus, self.scrollpos = self.move_page_up(self.focus, self.scrollpos, 3,
+                self.focus, self.scrollpos = self.move_page_up(self.focus, self.scrollpos, distance,
                                                                self.torrents_per_page)
             elif c == curses.KEY_NPAGE:
-                self.focus, self.scrollpos = self.move_page_down(self.focus, self.scrollpos, 3,
+                self.focus, self.scrollpos = self.move_page_down(self.focus, self.scrollpos, distance,
                                                                  self.torrents_per_page, len(self.torrents))
             elif c == curses.KEY_HOME:
                 self.focus, self.scrollpos = self.move_to_top()
             elif c == curses.KEY_END:
-                self.focus, self.scrollpos = self.move_to_end(3, self.torrents_per_page, len(self.torrents))
+                self.focus, self.scrollpos = self.move_to_end(distance, self.torrents_per_page, len(self.torrents))
             self.focused_id = self.torrents[self.focus]['id']
         elif self.selected_torrent > -1:
             # file list
@@ -1301,14 +1303,15 @@ class Interface:
                     self.focus = i
                     break
 
+        distance = 3 if not self.compact_torrentlist else 1
         # make sure the focus is not above the visible area
-        while self.focus < (self.scrollpos/3):
-            self.scrollpos -= 3
+        while self.focus < (self.scrollpos/distance):
+            self.scrollpos -= distance
         # make sure the focus is not below the visible area
-        while self.focus > (self.scrollpos/3) + self.torrents_per_page-1:
-            self.scrollpos += 3
+        while self.focus > (self.scrollpos/distance) + self.torrents_per_page-1:
+            self.scrollpos += distance
         # keep min and max bounds
-        self.scrollpos = min(self.scrollpos, (len(self.torrents) - self.torrents_per_page) * 3)
+        self.scrollpos = min(self.scrollpos, (len(self.torrents) - self.torrents_per_page) * distance)
         self.scrollpos = max(0, self.scrollpos)
 
     def draw_torrent_list(self, search_keyword=''):

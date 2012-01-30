@@ -1859,12 +1859,15 @@ class Interface:
         start = self.scrollpos_detaillist / self.TRACKER_ITEM_HEIGHT
         tlist = tlist[start:]
         current_tier = -1
-        for t in tlist:
+        for index, t in enumerate(tlist):
             announce_msg_size = scrape_msg_size = 0
 
             if current_tier != t['tier']:
                 current_tier = t['tier']
-                addstr(ypos, 0, ("Tier %d" % (current_tier+1)).ljust(self.width), curses.A_REVERSE)
+
+                tiercolor = curses.A_BOLD + curses.A_REVERSE \
+                            if index == self.scrollpos_detaillist else curses.A_REVERSE
+                addstr(ypos, 0, ("Tier %d" % (current_tier+1)).ljust(self.width), tiercolor)
                 ypos += 1
 
             addstr(ypos+1, 4,  "Last announce: %s" % timestamp(t['lastAnnounceTime']))

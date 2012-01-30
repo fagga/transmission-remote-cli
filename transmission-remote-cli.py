@@ -1169,7 +1169,7 @@ class Interface:
 
             # tracker list movement
             elif self.details_category_focus == 3:
-                list_len = len(self.torrent_details['trackerStats']) * self.TRACKER_ITEM_HEIGHT - 1
+                list_len = len(self.torrent_details['trackerStats'])
 
             # pieces list movement
             elif self.details_category_focus == 4:
@@ -1183,23 +1183,20 @@ class Interface:
                     if self.scrollpos_detaillist > 0:
                         self.scrollpos_detaillist -= 1
                 elif c == curses.KEY_DOWN or c == ord('j'):
-                    if self.scrollpos_detaillist < list_len - self.detaillistitems_per_page:
+                    if self.scrollpos_detaillist < list_len - 1:
                         self.scrollpos_detaillist += 1
                 elif c == curses.KEY_PPAGE:
-                    if self.scrollpos_detaillist > self.detaillistitems_per_page - 1:
-                        self.scrollpos_detaillist -= self.detaillistitems_per_page - 1
-                    else:
-                        self.scrollpos_detaillist = 0
+                    self.scrollpos_detaillist = \
+                        max(self.scrollpos_detaillist - self.detaillistitems_per_page - 1, 0)
                 elif c == curses.KEY_NPAGE:
-                    if self.scrollpos_detaillist < list_len - self.detaillistitems_per_page * 2 + 1:
-                        self.scrollpos_detaillist += self.detaillistitems_per_page - 1
-                    elif list_len > self.detaillistitems_per_page:
-                        self.scrollpos_detaillist = list_len - self.detaillistitems_per_page
+                    if self.scrollpos_detaillist + self.detaillistitems_per_page >= list_len:
+                        self.scrollpos_detaillist = list_len - 1
+                    else:
+                        self.scrollpos_detaillist += self.detaillistitems_per_page
                 elif c == curses.KEY_HOME:
                     self.scrollpos_detaillist = 0
                 elif c == curses.KEY_END:
-                    if list_len > self.detaillistitems_per_page:
-                        self.scrollpos_detaillist = list_len - self.detaillistitems_per_page
+                    self.scrollpos_detaillist = list_len - 1
 
     def file_pritority_or_switch_details(self, c):
         if self.selected_torrent > -1:

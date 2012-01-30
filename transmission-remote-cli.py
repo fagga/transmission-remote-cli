@@ -685,6 +685,7 @@ class Interface:
         self.focus_detaillist       = -1 # same as focus but for details
         self.selected_files         = [] # marked files in details
         self.scrollpos_detaillist   = 0  # same as scrollpos but for details
+        self.compact_torrentlist    = False # draw only one line for each torrent in compact mode
 
         self.keybindings = {
             ord('?'):               self.call_list_key_bindings,
@@ -728,6 +729,7 @@ class Interface:
             curses.KEY_BTAB:        self.move_in_details,
             ord('e'):               self.move_in_details,
             ord('c'):               self.move_in_details,
+            ord('C'):               self.toggle_compact_torrentlist,
             ord('h'):               self.file_pritority_or_switch_details,
             curses.KEY_LEFT:        self.file_pritority_or_switch_details,
             ord(' '):               self.select_unselect_file,
@@ -1229,6 +1231,9 @@ class Interface:
     def call_list_key_bindings(self, c):
         self.list_key_bindings()
 
+    def toggle_compact_torrentlist(self, c):
+        self.compact_torrentlist = not self.compact_torrentlist
+
     def move_torrent(self, c):
         if self.focus > -1:
             location = homedir2tilde(self.torrents[self.focus]['downloadDir'])
@@ -1329,14 +1334,15 @@ class Interface:
 
         ypos = 0
         for i in range(len(self.torrents)):
-            self.draw_torrentlist_item(self.torrents[i], (i == self.focus), ypos)
-            ypos += 3
+            ypos += self.draw_torrentlist_item(self.torrents[i],
+                                               (i == self.focus),
+                                               self.compact_torrentlist, ypos)
 
         self.pad.refresh(self.scrollpos,0, 1,0, self.mainview_height,self.width-1)
         self.screen.refresh()
 
 
-    def draw_torrentlist_item(self, torrent, focused, y):
+    def draw_torrentlist_item(self, torrent, focused, compact, y):
         # the torrent name is also a progress bar
         self.draw_torrentlist_title(torrent, focused, self.torrent_title_width, y)
 
@@ -1345,15 +1351,18 @@ class Interface:
             self.draw_downloadrate(torrent, y)
         if torrent['status'] == Transmission.STATUS_DOWNLOAD or torrent['status'] == Transmission.STATUS_SEED:
             self.draw_uploadrate(torrent, y)
-        if torrent['percent_done'] < 100 and torrent['status'] == Transmission.STATUS_DOWNLOAD:
-            self.draw_eta(torrent, y)
 
-        self.draw_ratio(torrent, y)
+        if not compact:
+            # the line below the title/progress
+            if torrent['percent_done'] < 100 and torrent['status'] == Transmission.STATUS_DOWNLOAD:
+                self.draw_eta(torrent, y)
 
-        # the line below the title/progress
-        self.draw_torrentlist_status(torrent, focused, y)
+            self.draw_ratio(torrent, y)
+            self.draw_torrentlist_status(torrent, focused, y)
 
-
+            return 3 # number of lines that were used for drawing the list item
+        else:
+            return 1
 
     def draw_downloadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateDownload_width-self.rateUpload_width-3)
@@ -1482,7 +1491,7 @@ class Interface:
         self.pad = curses.newpad(self.pad_height, self.width)
 
         # torrent name + progress bar
-        self.draw_torrentlist_item(self.torrent_details, False, 0)
+        self.draw_torrentlist_item(self.torrent_details, False, False, 0)
 
         # divider + menu
         menu_items = ['_Overview', "_Files", 'P_eers', '_Trackers', 'Pie_ces' ]
@@ -2106,6 +2115,7 @@ class Interface:
                        "    Enter/Right  View torrent's details\n" + \
                        "              o  Configuration options\n" + \
                        "              t  Toggle turtle mode\n" + \
+                       "              C  Toggle compact list mode\n" + \
                        "            Esc  Unfocus\n" + \
                        "              q  Quit"
         else:

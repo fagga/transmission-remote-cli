@@ -561,6 +561,16 @@ class Transmission:
         response = request.get_response()
         return response['result'] if response['result'] != 'success' else ''
 
+    def remove_torrent_tracker(self, id, tracker):
+        data = { 'ids' : [id],
+                 'trackerRemove' : [tracker] }
+        request = TransmissionRequest(self.host, self.port, 'torrent-set', 1, data)
+        request.send_request()
+        response = request.get_response()
+        self.wait_for_torrentlist_update()
+
+        return response['result'] if response['result'] != 'success' else ''
+
     def increase_file_priority(self, file_nums):
         file_nums = list(file_nums)
         ref_num = file_nums[0]
@@ -721,8 +731,8 @@ class Interface:
             ord('P'):               self.pause_unpause_all_torrent,
             ord('v'):               self.verify_torrent,
             ord('y'):               self.verify_torrent,
-            ord('r'):               self.remove_torrent,
-            curses.KEY_DC:          self.remove_torrent,
+            ord('r'):               self.r_key,
+            curses.KEY_DC:          self.r_key,
             ord('R'):               self.remove_torrent_local_data,
             curses.KEY_SDC:         self.remove_torrent_local_data,
             curses.KEY_UP:          self.movement_keys,
@@ -961,6 +971,14 @@ class Interface:
         elif self.selected_torrent > -1:
             self.details_category_focus = 1
 
+    def r_key(self, c):
+        # Torrent list
+        if self.selected_torrent == -1:
+            self.remove_torrent(c)
+        # Trackers
+        elif self.selected_torrent > -1 and self.details_category_focus == 3:
+            self.remove_tracker()
+
     def right_key(self, c):
         if self.focus > -1 and self.selected_torrent == -1:
             self.select_torrent_detail_view(c)
@@ -1117,6 +1135,19 @@ class Interface:
 
             if response:
                 msg = wrap("Couldn't add tracker: %s" % response)
+                self.dialog_ok("\n".join(msg))
+
+    def remove_tracker(self):
+        t = self.torrent_details
+        if (self.scrollpos_detaillist >= 0 and \
+            self.scrollpos_detaillist < len(t['trackerStats']) and \
+            self.dialog_yesno("Do you want to remove this tracker?") is True):
+
+            tracker = t['trackerStats'][self.scrollpos_detaillist]
+            response = self.server.remove_torrent_tracker(t['id'], tracker['id'])
+
+            if response:
+                msg = wrap("Couldn't remove tracker: %s" % response)
                 self.dialog_ok("\n".join(msg))
 
     def movement_keys(self, c):

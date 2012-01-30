@@ -553,6 +553,14 @@ class Transmission:
         request.send_request()
         self.wait_for_torrentlist_update()
 
+    def add_torrent_tracker(self, id, tracker):
+        data = { 'ids' : [id],
+                 'trackerAdd' : [tracker] }
+        request = TransmissionRequest(self.host, self.port, 'torrent-set', 1, data)
+        request.send_request()
+        response = request.get_response()
+        return response['result'] if response['result'] != 'success' else ''
+
     def increase_file_priority(self, file_nums):
         file_nums = list(file_nums)
         ref_num = file_nums[0]
@@ -917,8 +925,15 @@ class Interface:
             self.selected_files         = []
 
     def a_key(self, c):
-        if self.selected_torrent > -1:
+        # File list
+        if self.selected_torrent > -1 and self.details_category_focus == 1:
             self.select_unselect_file(c)
+        # Trackers
+        elif self.selected_torrent > -1 and self.details_category_focus == 3:
+            self.add_tracker()
+        # Do nothing in other detail tabs
+        elif self.selected_torrent > -1:
+            pass
         else:
             self.add_torrent()
 
@@ -1092,6 +1107,17 @@ class Interface:
                     self.selected_torrent = -1
                     self.details_category_focus = 0
                 self.server.remove_torrent_local_data(self.torrents[self.focus]['id'])
+
+    def add_tracker(self):
+        tracker = self.dialog_input_text('Add tracker URL:')
+
+        if tracker:
+            t = self.torrent_details
+            response = self.server.add_torrent_tracker(t['id'], tracker)
+
+            if response:
+                msg = wrap("Couldn't add tracker: %s" % response)
+                self.dialog_ok("\n".join(msg))
 
     def movement_keys(self, c):
         if self.selected_torrent == -1:

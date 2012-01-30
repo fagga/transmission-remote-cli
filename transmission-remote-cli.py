@@ -1755,8 +1755,9 @@ class Interface:
         return line
 
     def draw_peerlist(self, ypos):
-        start = self.scrollpos_detaillist
-        end   = self.scrollpos_detaillist + self.detaillistitems_per_page
+        page = self.scrollpos_detaillist // self.detaillistitems_per_page
+        start = self.detaillistitems_per_page * page
+        end = self.detaillistitems_per_page * (page + 1)
         peers = self.torrent_details['peers'][start:end]
 
         # Find width of columns
@@ -1793,13 +1794,14 @@ class Interface:
                 except adns.Error, msg:
                     host_name = msg
 
+            selected = peer == self.torrent_details['peers'][self.scrollpos_detaillist]
             upload_tag = download_tag = line_tag = 0
             if peer['rateToPeer']:   upload_tag   = curses.A_BOLD
             if peer['rateToClient']: download_tag = curses.A_BOLD
 
             self.pad.move(ypos, 0)
             # Flags
-            self.pad.addstr("%-6s   " % peer['flagStr'])
+            self.pad.addstr("%-6s   " % peer['flagStr'], curses.A_BOLD if selected else 0)
             # Down
             self.pad.addstr("%5s  " % scale_bytes(peer['rateToClient']), download_tag)
             # Up

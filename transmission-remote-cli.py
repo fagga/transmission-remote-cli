@@ -1837,19 +1837,23 @@ class Interface:
         def addstr(ypos, xpos, *args):
             if ypos > top and ypos < self.height - 2:
                 self.pad.addstr(ypos, xpos, *args)
-        tlist = self.torrent_details['trackerStats']
-        ypos -= self.scrollpos_detaillist % self.TRACKER_ITEM_HEIGHT
-        start = self.scrollpos_detaillist / self.TRACKER_ITEM_HEIGHT
-        tlist = tlist[start:]
+
+        tracker_per_page = self.detaillistitems_per_page // self.TRACKER_ITEM_HEIGHT
+        page = self.scrollpos_detaillist // tracker_per_page
+        start = tracker_per_page * page
+        end = tracker_per_page * (page + 1)
+        tlist = self.torrent_details['trackerStats'][start:end]
+
         current_tier = -1
         for index, t in enumerate(tlist):
             announce_msg_size = scrape_msg_size = 0
+            selected = t == self.torrent_details['trackerStats'][self.scrollpos_detaillist]
 
             if current_tier != t['tier']:
                 current_tier = t['tier']
 
                 tiercolor = curses.A_BOLD + curses.A_REVERSE \
-                            if index == self.scrollpos_detaillist else curses.A_REVERSE
+                            if selected else curses.A_REVERSE
                 addstr(ypos, 0, ("Tier %d" % (current_tier+1)).ljust(self.width), tiercolor)
                 ypos += 1
 

@@ -128,6 +128,8 @@ config.set('Colors', 'file_prio_high',   'bg:red,fg:black')
 config.set('Colors', 'file_prio_normal', 'bg:white,fg:black')
 config.set('Colors', 'file_prio_low',    'bg:yellow,fg:black')
 config.set('Colors', 'file_prio_off',    'bg:blue,fg:black')
+config.add_section('Misc')
+config.set('Misc', 'compact_list', 'False')
 
 
 class ColorManager:
@@ -745,7 +747,6 @@ class Interface:
         self.focus_detaillist       = -1 # same as focus but for details
         self.selected_files         = [] # marked files in details
         self.scrollpos_detaillist   = 0  # same as scrollpos but for details
-        self.compact_torrentlist    = False # draw only one line for each torrent in compact mode
 
         self.keybindings = {
             ord('?'):               self.call_list_key_bindings,
@@ -862,7 +863,7 @@ class Interface:
 
 
     def manage_layout(self):
-        distance = 3 if not self.compact_torrentlist else 1
+        distance = 3 if not config.getboolean('Misc', 'compact_list') else 1
         self.pad_height = max((len(self.torrents)+1)*distance, self.height)
         self.pad = curses.newpad(self.pad_height, self.width)
         self.mainview_height = self.height - 2
@@ -1185,7 +1186,7 @@ class Interface:
 
     def movement_keys(self, c):
         if self.selected_torrent == -1:
-            distance = 3 if not self.compact_torrentlist else 1
+            distance = 3 if not config.getboolean('Misc', 'compact_list') else 1
             if   c == curses.KEY_UP or c == ord('k'):
                 self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, distance)
             elif c == curses.KEY_DOWN or c == ord('j'):
@@ -1320,7 +1321,8 @@ class Interface:
         self.list_key_bindings()
 
     def toggle_compact_torrentlist(self, c):
-        self.compact_torrentlist = not self.compact_torrentlist
+        config.set('Misc', 'compact_list',
+                   str(not config.getboolean('Misc', 'compact_list')))
 
     def move_torrent(self, c):
         if self.focus > -1:
@@ -1389,7 +1391,7 @@ class Interface:
                     self.focus = i
                     break
 
-        distance = 3 if not self.compact_torrentlist else 1
+        distance = 3 if not config.getboolean('Misc', 'compact_list') else 1
         # make sure the focus is not above the visible area
         while self.focus < (self.scrollpos/distance):
             self.scrollpos -= distance
@@ -1425,13 +1427,13 @@ class Interface:
         for i in range(len(self.torrents)):
             ypos += self.draw_torrentlist_item(self.torrents[i],
                                                (i == self.focus),
-                                               self.compact_torrentlist, ypos)
+                                               ypos)
 
         self.pad.refresh(self.scrollpos,0, 1,0, self.mainview_height,self.width-1)
         self.screen.refresh()
 
 
-    def draw_torrentlist_item(self, torrent, focused, compact, y):
+    def draw_torrentlist_item(self, torrent, focused, y):
         # the torrent name is also a progress bar
         self.draw_torrentlist_title(torrent, focused, self.torrent_title_width, y)
 
@@ -1441,7 +1443,7 @@ class Interface:
         if torrent['status'] == Transmission.STATUS_DOWNLOAD or torrent['status'] == Transmission.STATUS_SEED:
             self.draw_uploadrate(torrent, y)
 
-        if not compact:
+        if not config.getboolean('Misc', 'compact_list'):
             # the line below the title/progress
             if torrent['percent_done'] < 100 and torrent['status'] == Transmission.STATUS_DOWNLOAD:
                 self.draw_eta(torrent, y)

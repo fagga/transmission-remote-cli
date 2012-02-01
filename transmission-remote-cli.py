@@ -1946,6 +1946,10 @@ class Interface:
                 addstr(ypos, 0, ("Tier %d" % (current_tier+1)).ljust(self.width), tiercolor)
                 ypos += 1
 
+            if selected:
+                for i in range(4):
+                    addstr(ypos+i, 0, ' ', curses.A_BOLD + curses.A_REVERSE)
+
             addstr(ypos+1, 4,  "Last announce: %s" % timestamp(t['lastAnnounceTime']))
             addstr(ypos+1, 57, "  Last scrape: %s" % timestamp(t['lastScrapeTime']))
 

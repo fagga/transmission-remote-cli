@@ -595,6 +595,24 @@ class Transmission:
         request.send_request()
         self.wait_for_torrentlist_update()
 
+    def add_torrent_tracker(self, id, tracker):
+        data = { 'ids' : [id],
+                 'trackerAdd' : [tracker] }
+        request = TransmissionRequest(self.host, self.port, 'torrent-set', 1, data)
+        request.send_request()
+        response = request.get_response()
+        return response['result'] if response['result'] != 'success' else ''
+
+    def remove_torrent_tracker(self, id, tracker):
+        data = { 'ids' : [id],
+                 'trackerRemove' : [tracker] }
+        request = TransmissionRequest(self.host, self.port, 'torrent-set', 1, data)
+        request.send_request()
+        response = request.get_response()
+        self.wait_for_torrentlist_update()
+
+        return response['result'] if response['result'] != 'success' else ''
+
     def increase_file_priority(self, file_nums):
         file_nums = list(file_nums)
         ref_num = file_nums[0]
@@ -727,6 +745,7 @@ class Interface:
         self.focus_detaillist       = -1 # same as focus but for details
         self.selected_files         = [] # marked files in details
         self.scrollpos_detaillist   = 0  # same as scrollpos but for details
+        self.compact_torrentlist    = False # draw only one line for each torrent in compact mode
 
         self.keybindings = {
             ord('?'):               self.call_list_key_bindings,
@@ -754,8 +773,8 @@ class Interface:
             ord('P'):               self.pause_unpause_all_torrent,
             ord('v'):               self.verify_torrent,
             ord('y'):               self.verify_torrent,
-            ord('r'):               self.remove_torrent,
-            curses.KEY_DC:          self.remove_torrent,
+            ord('r'):               self.r_key,
+            curses.KEY_DC:          self.r_key,
             ord('R'):               self.remove_torrent_local_data,
             curses.KEY_SDC:         self.remove_torrent_local_data,
             curses.KEY_UP:          self.movement_keys,
@@ -770,6 +789,7 @@ class Interface:
             curses.KEY_BTAB:        self.move_in_details,
             ord('e'):               self.move_in_details,
             ord('c'):               self.move_in_details,
+            ord('C'):               self.toggle_compact_torrentlist,
             ord('h'):               self.file_pritority_or_switch_details,
             curses.KEY_LEFT:        self.file_pritority_or_switch_details,
             ord(' '):               self.select_unselect_file,
@@ -842,10 +862,11 @@ class Interface:
 
 
     def manage_layout(self):
-        self.pad_height = max((len(self.torrents)+1)*3, self.height)
+        distance = 3 if not self.compact_torrentlist else 1
+        self.pad_height = max((len(self.torrents)+1)*distance, self.height)
         self.pad = curses.newpad(self.pad_height, self.width)
         self.mainview_height = self.height - 2
-        self.torrents_per_page = self.mainview_height/3
+        self.torrents_per_page = self.mainview_height / distance
         self.detaillistitems_per_page = self.height - 8
 
         if self.selected_torrent > -1:
@@ -857,7 +878,7 @@ class Interface:
                 self.torrent_title_width -= self.rateDownload_width + 2
 
         elif self.torrents:
-            visible_torrents = self.torrents[self.scrollpos/3 : self.scrollpos/3 + self.torrents_per_page + 1]
+            visible_torrents = self.torrents[self.scrollpos/distance : self.scrollpos/distance + self.torrents_per_page + 1]
             self.rateDownload_width = self.get_rateDownload_width(visible_torrents)
             self.rateUpload_width   = self.get_rateUpload_width(visible_torrents)
 
@@ -947,8 +968,15 @@ class Interface:
             self.selected_files         = []
 
     def a_key(self, c):
-        if self.selected_torrent > -1:
+        # File list
+        if self.selected_torrent > -1 and self.details_category_focus == 1:
             self.select_unselect_file(c)
+        # Trackers
+        elif self.selected_torrent > -1 and self.details_category_focus == 3:
+            self.add_tracker()
+        # Do nothing in other detail tabs
+        elif self.selected_torrent > -1:
+            pass
         else:
             self.add_torrent()
 
@@ -975,6 +1003,14 @@ class Interface:
             self.show_state_filter_menu(c)
         elif self.selected_torrent > -1:
             self.details_category_focus = 1
+
+    def r_key(self, c):
+        # Torrent list
+        if self.selected_torrent == -1:
+            self.remove_torrent(c)
+        # Trackers
+        elif self.selected_torrent > -1 and self.details_category_focus == 3:
+            self.remove_tracker()
 
     def right_key(self, c):
         if self.focus > -1 and self.selected_torrent == -1:
@@ -1123,23 +1159,48 @@ class Interface:
                     self.details_category_focus = 0
                 self.server.remove_torrent_local_data(self.torrents[self.focus]['id'])
 
+    def add_tracker(self):
+        tracker = self.dialog_input_text('Add tracker URL:')
+
+        if tracker:
+            t = self.torrent_details
+            response = self.server.add_torrent_tracker(t['id'], tracker)
+
+            if response:
+                msg = wrap("Couldn't add tracker: %s" % response)
+                self.dialog_ok("\n".join(msg))
+
+    def remove_tracker(self):
+        t = self.torrent_details
+        if (self.scrollpos_detaillist >= 0 and \
+            self.scrollpos_detaillist < len(t['trackerStats']) and \
+            self.dialog_yesno("Do you want to remove this tracker?") is True):
+
+            tracker = t['trackerStats'][self.scrollpos_detaillist]
+            response = self.server.remove_torrent_tracker(t['id'], tracker['id'])
+
+            if response:
+                msg = wrap("Couldn't remove tracker: %s" % response)
+                self.dialog_ok("\n".join(msg))
+
     def movement_keys(self, c):
         if self.selected_torrent == -1:
+            distance = 3 if not self.compact_torrentlist else 1
             if   c == curses.KEY_UP or c == ord('k'):
-                self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, 3)
+                self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, distance)
             elif c == curses.KEY_DOWN or c == ord('j'):
-                self.focus, self.scrollpos = self.move_down(self.focus, self.scrollpos, 3,
+                self.focus, self.scrollpos = self.move_down(self.focus, self.scrollpos, distance,
                                                             self.torrents_per_page, len(self.torrents))
             elif c == curses.KEY_PPAGE:
-                self.focus, self.scrollpos = self.move_page_up(self.focus, self.scrollpos, 3,
+                self.focus, self.scrollpos = self.move_page_up(self.focus, self.scrollpos, distance,
                                                                self.torrents_per_page)
             elif c == curses.KEY_NPAGE:
-                self.focus, self.scrollpos = self.move_page_down(self.focus, self.scrollpos, 3,
+                self.focus, self.scrollpos = self.move_page_down(self.focus, self.scrollpos, distance,
                                                                  self.torrents_per_page, len(self.torrents))
             elif c == curses.KEY_HOME:
                 self.focus, self.scrollpos = self.move_to_top()
             elif c == curses.KEY_END:
-                self.focus, self.scrollpos = self.move_to_end(3, self.torrents_per_page, len(self.torrents))
+                self.focus, self.scrollpos = self.move_to_end(distance, self.torrents_per_page, len(self.torrents))
             self.focused_id = self.torrents[self.focus]['id']
         elif self.selected_torrent > -1:
             # file list
@@ -1173,7 +1234,7 @@ class Interface:
 
             # tracker list movement
             elif self.details_category_focus == 3:
-                list_len = len(self.torrent_details['trackerStats']) * self.TRACKER_ITEM_HEIGHT - 1
+                list_len = len(self.torrent_details['trackerStats'])
 
             # pieces list movement
             elif self.details_category_focus == 4:
@@ -1187,23 +1248,20 @@ class Interface:
                     if self.scrollpos_detaillist > 0:
                         self.scrollpos_detaillist -= 1
                 elif c == curses.KEY_DOWN or c == ord('j'):
-                    if self.scrollpos_detaillist < list_len - self.detaillistitems_per_page:
+                    if self.scrollpos_detaillist < list_len - 1:
                         self.scrollpos_detaillist += 1
                 elif c == curses.KEY_PPAGE:
-                    if self.scrollpos_detaillist > self.detaillistitems_per_page - 1:
-                        self.scrollpos_detaillist -= self.detaillistitems_per_page - 1
-                    else:
-                        self.scrollpos_detaillist = 0
+                    self.scrollpos_detaillist = \
+                        max(self.scrollpos_detaillist - self.detaillistitems_per_page - 1, 0)
                 elif c == curses.KEY_NPAGE:
-                    if self.scrollpos_detaillist < list_len - self.detaillistitems_per_page * 2 + 1:
-                        self.scrollpos_detaillist += self.detaillistitems_per_page - 1
-                    elif list_len > self.detaillistitems_per_page:
-                        self.scrollpos_detaillist = list_len - self.detaillistitems_per_page
+                    if self.scrollpos_detaillist + self.detaillistitems_per_page >= list_len:
+                        self.scrollpos_detaillist = list_len - 1
+                    else:
+                        self.scrollpos_detaillist += self.detaillistitems_per_page
                 elif c == curses.KEY_HOME:
                     self.scrollpos_detaillist = 0
                 elif c == curses.KEY_END:
-                    if list_len > self.detaillistitems_per_page:
-                        self.scrollpos_detaillist = list_len - self.detaillistitems_per_page
+                    self.scrollpos_detaillist = list_len - 1
 
     def file_pritority_or_switch_details(self, c):
         if self.selected_torrent > -1:
@@ -1260,6 +1318,9 @@ class Interface:
 
     def call_list_key_bindings(self, c):
         self.list_key_bindings()
+
+    def toggle_compact_torrentlist(self, c):
+        self.compact_torrentlist = not self.compact_torrentlist
 
     def move_torrent(self, c):
         if self.focus > -1:
@@ -1328,14 +1389,15 @@ class Interface:
                     self.focus = i
                     break
 
+        distance = 3 if not self.compact_torrentlist else 1
         # make sure the focus is not above the visible area
-        while self.focus < (self.scrollpos/3):
-            self.scrollpos -= 3
+        while self.focus < (self.scrollpos/distance):
+            self.scrollpos -= distance
         # make sure the focus is not below the visible area
-        while self.focus > (self.scrollpos/3) + self.torrents_per_page-1:
-            self.scrollpos += 3
+        while self.focus > (self.scrollpos/distance) + self.torrents_per_page-1:
+            self.scrollpos += distance
         # keep min and max bounds
-        self.scrollpos = min(self.scrollpos, (len(self.torrents) - self.torrents_per_page) * 3)
+        self.scrollpos = min(self.scrollpos, (len(self.torrents) - self.torrents_per_page) * distance)
         self.scrollpos = max(0, self.scrollpos)
 
     def draw_torrent_list(self, search_keyword=''):
@@ -1361,14 +1423,15 @@ class Interface:
 
         ypos = 0
         for i in range(len(self.torrents)):
-            self.draw_torrentlist_item(self.torrents[i], (i == self.focus), ypos)
-            ypos += 3
+            ypos += self.draw_torrentlist_item(self.torrents[i],
+                                               (i == self.focus),
+                                               self.compact_torrentlist, ypos)
 
         self.pad.refresh(self.scrollpos,0, 1,0, self.mainview_height,self.width-1)
         self.screen.refresh()
 
 
-    def draw_torrentlist_item(self, torrent, focused, y):
+    def draw_torrentlist_item(self, torrent, focused, compact, y):
         # the torrent name is also a progress bar
         self.draw_torrentlist_title(torrent, focused, self.torrent_title_width, y)
 
@@ -1377,15 +1440,18 @@ class Interface:
             self.draw_downloadrate(torrent, y)
         if torrent['status'] == Transmission.STATUS_DOWNLOAD or torrent['status'] == Transmission.STATUS_SEED:
             self.draw_uploadrate(torrent, y)
-        if torrent['percent_done'] < 100 and torrent['status'] == Transmission.STATUS_DOWNLOAD:
-            self.draw_eta(torrent, y)
 
-        self.draw_ratio(torrent, y)
+        if not compact:
+            # the line below the title/progress
+            if torrent['percent_done'] < 100 and torrent['status'] == Transmission.STATUS_DOWNLOAD:
+                self.draw_eta(torrent, y)
 
-        # the line below the title/progress
-        self.draw_torrentlist_status(torrent, focused, y)
+            self.draw_ratio(torrent, y)
+            self.draw_torrentlist_status(torrent, focused, y)
 
-
+            return 3 # number of lines that were used for drawing the list item
+        else:
+            return 1
 
     def draw_downloadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateDownload_width-self.rateUpload_width-3)
@@ -1514,7 +1580,7 @@ class Interface:
         self.pad = curses.newpad(self.pad_height, self.width)
 
         # torrent name + progress bar
-        self.draw_torrentlist_item(self.torrent_details, False, 0)
+        self.draw_torrentlist_item(self.torrent_details, False, False, 0)
 
         # divider + menu
         menu_items = ['_Overview', "_Files", 'P_eers', '_Trackers', 'Pie_ces' ]
@@ -1780,8 +1846,9 @@ class Interface:
         return line
 
     def draw_peerlist(self, ypos):
-        start = self.scrollpos_detaillist
-        end   = self.scrollpos_detaillist + self.detaillistitems_per_page
+        page = self.scrollpos_detaillist // self.detaillistitems_per_page
+        start = self.detaillistitems_per_page * page
+        end = self.detaillistitems_per_page * (page + 1)
         peers = self.torrent_details['peers'][start:end]
 
         # Find width of columns
@@ -1818,13 +1885,14 @@ class Interface:
                 except adns.Error, msg:
                     host_name = msg
 
+            selected = peer == self.torrent_details['peers'][self.scrollpos_detaillist]
             upload_tag = download_tag = line_tag = 0
             if peer['rateToPeer']:   upload_tag   = curses.A_BOLD
             if peer['rateToClient']: download_tag = curses.A_BOLD
 
             self.pad.move(ypos, 0)
             # Flags
-            self.pad.addstr("%-6s   " % peer['flagStr'])
+            self.pad.addstr("%-6s   " % peer['flagStr'], curses.A_BOLD if selected else 0)
             # Down
             self.pad.addstr("%5s  " % scale_bytes(peer['rateToClient']), download_tag)
             # Up
@@ -1858,17 +1926,24 @@ class Interface:
         def addstr(ypos, xpos, *args):
             if ypos > top and ypos < self.height - 2:
                 self.pad.addstr(ypos, xpos, *args)
-        tlist = self.torrent_details['trackerStats']
-        ypos -= self.scrollpos_detaillist % self.TRACKER_ITEM_HEIGHT
-        start = self.scrollpos_detaillist / self.TRACKER_ITEM_HEIGHT
-        tlist = tlist[start:]
+
+        tracker_per_page = self.detaillistitems_per_page // self.TRACKER_ITEM_HEIGHT
+        page = self.scrollpos_detaillist // tracker_per_page
+        start = tracker_per_page * page
+        end = tracker_per_page * (page + 1)
+        tlist = self.torrent_details['trackerStats'][start:end]
+
         current_tier = -1
-        for t in tlist:
+        for index, t in enumerate(tlist):
             announce_msg_size = scrape_msg_size = 0
+            selected = t == self.torrent_details['trackerStats'][self.scrollpos_detaillist]
 
             if current_tier != t['tier']:
                 current_tier = t['tier']
-                addstr(ypos, 0, ("Tier %d" % (current_tier+1)).ljust(self.width), curses.A_REVERSE)
+
+                tiercolor = curses.A_BOLD + curses.A_REVERSE \
+                            if selected else curses.A_REVERSE
+                addstr(ypos, 0, ("Tier %d" % (current_tier+1)).ljust(self.width), tiercolor)
                 ypos += 1
 
             addstr(ypos+1, 4,  "Last announce: %s" % timestamp(t['lastAnnounceTime']))
@@ -2146,6 +2221,7 @@ class Interface:
                        "    Enter/Right  View torrent's details\n" + \
                        "              o  Configuration options\n" + \
                        "              t  Toggle turtle mode\n" + \
+                       "              C  Toggle compact list mode\n" + \
                        "            Esc  Unfocus\n" + \
                        "              q  Quit"
         else:

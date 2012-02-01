@@ -1582,7 +1582,7 @@ class Interface:
         self.pad = curses.newpad(self.pad_height, self.width)
 
         # torrent name + progress bar
-        self.draw_torrentlist_item(self.torrent_details, False, False, 0)
+        self.draw_torrentlist_item(self.torrent_details, False, 0)
 
         # divider + menu
         menu_items = ['_Overview', "_Files", 'P_eers', '_Trackers', 'Pie_ces' ]

@@ -1433,13 +1433,14 @@ class Interface:
         for i in range(len(self.torrents)):
             ypos += self.draw_torrentlist_item(self.torrents[i],
                                                (i == self.focus),
+                                               config.getboolean('Misc', 'compact_list'),
                                                ypos)
 
         self.pad.refresh(self.scrollpos,0, 1,0, self.mainview_height,self.width-1)
         self.screen.refresh()
 
 
-    def draw_torrentlist_item(self, torrent, focused, y):
+    def draw_torrentlist_item(self, torrent, focused, compact, y):
         # the torrent name is also a progress bar
         self.draw_torrentlist_title(torrent, focused, self.torrent_title_width, y)
 
@@ -1449,7 +1450,7 @@ class Interface:
         if torrent['status'] == Transmission.STATUS_DOWNLOAD or torrent['status'] == Transmission.STATUS_SEED:
             self.draw_uploadrate(torrent, y)
 
-        if not config.getboolean('Misc', 'compact_list'):
+        if not compact:
             # the line below the title/progress
             if torrent['percent_done'] < 100 and torrent['status'] == Transmission.STATUS_DOWNLOAD:
                 self.draw_eta(torrent, y)

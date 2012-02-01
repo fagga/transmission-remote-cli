@@ -1264,6 +1264,12 @@ class Interface:
                 elif c == curses.KEY_END:
                     self.scrollpos_detaillist = list_len - 1
 
+            # Disallow scrolling past the last item that would cause blank
+            # space to be displayed in pieces and peer lists.
+            if self.details_category_focus in (2, 4):
+                self.scrollpos_detaillist = min(self.scrollpos_detaillist,
+                    max(0, list_len - self.detaillistitems_per_page))
+
     def file_pritority_or_switch_details(self, c):
         if self.selected_torrent > -1:
             # file priority OR walk through details
@@ -1848,9 +1854,11 @@ class Interface:
         return line
 
     def draw_peerlist(self, ypos):
-        page = self.scrollpos_detaillist // self.detaillistitems_per_page
-        start = self.detaillistitems_per_page * page
-        end = self.detaillistitems_per_page * (page + 1)
+        # Start drawing list either at the "selected" index, or at the index
+        # that is required to display all remaining items without further scrolling.
+        last_possible_index = max(0, len(self.torrent_details['peers']) - self.detaillistitems_per_page)
+        start = min(self.scrollpos_detaillist, last_possible_index)
+        end = start + self.detaillistitems_per_page
         peers = self.torrent_details['peers'][start:end]
 
         # Find width of columns

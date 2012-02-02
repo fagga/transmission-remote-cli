@@ -2130,7 +2130,7 @@ class Interface:
                                    " Cache: %-3d" % self.torrent_details['peersFrom']['fromCache'],
                                curses.A_REVERSE)
         else:
-            self.screen.addstr((self.height-1), 0, "Torrent%s: " % ('s','')[len(self.torrents) == 1],
+            self.screen.addstr((self.height-1), 0, "Torrent%s:" % ('s','')[len(self.torrents) == 1],
                                    curses.A_REVERSE)
             self.screen.addstr("%d (" % len(self.torrents), curses.A_REVERSE)
 
@@ -2138,15 +2138,15 @@ class Interface:
             seeding = len(filter(lambda x: x['status']==Transmission.STATUS_SEED, self.torrents))
             paused = self.stats['pausedTorrentCount']
 
-            self.screen.addstr("Downloading: ", curses.A_REVERSE)
+            self.screen.addstr("Downloading:", curses.A_REVERSE)
             self.screen.addstr("%d " % downloading, curses.A_REVERSE)
-            self.screen.addstr("Seeding: ", curses.A_REVERSE)
+            self.screen.addstr("Seeding:", curses.A_REVERSE)
             self.screen.addstr("%d " % seeding, curses.A_REVERSE)
-            self.screen.addstr("Paused: ", curses.A_REVERSE)
+            self.screen.addstr("Paused:", curses.A_REVERSE)
             self.screen.addstr("%d) " % paused, curses.A_REVERSE)
 
             if self.filter_list:
-                self.screen.addstr("Showing only: ", curses.A_REVERSE)
+                self.screen.addstr("Showing only:", curses.A_REVERSE)
                 self.screen.addstr("%s%s" % (('','not ')[self.filter_inverse], self.filter_list),
                                    curses.color_pair(self.colors.get_id('filter_status'))
                                    + curses.A_REVERSE)

@@ -130,6 +130,7 @@ config.set('Colors', 'file_prio_low',    'bg:yellow,fg:black')
 config.set('Colors', 'file_prio_off',    'bg:blue,fg:black')
 config.add_section('Misc')
 config.set('Misc', 'compact_list', 'False')
+config.set('Misc', 'torrentname_is_progressbar', 'True')
 
 
 class ColorManager:
@@ -1525,13 +1526,16 @@ class Interface:
             tag += curses.A_BOLD
             tag_done += curses.A_BOLD
 
-        # addstr() dies when you tell it to draw on the last column of the
-        # terminal, so we have to catch this exception.
-        try:
-            self.pad.addstr(ypos, 0, title[0:bar_width].encode('utf-8'), tag_done)
-            self.pad.addstr(ypos, bar_width, title[bar_width:].encode('utf-8'), tag)
-        except:
-            pass
+        if config.getboolean('Misc', 'torrent_title_is_progressbar'):
+            # addstr() dies when you tell it to draw on the last column of the
+            # terminal, so we have to catch this exception.
+            try:
+                self.pad.addstr(ypos, 0, title[0:bar_width].encode('utf-8'), tag_done)
+                self.pad.addstr(ypos, bar_width, title[bar_width:].encode('utf-8'), tag)
+            except:
+                pass
+        else:
+            self.pad.addstr(ypos, 0, title.encode('utf-8'), tag_done)
 
 
     def draw_torrentlist_status(self, torrent, focused, ypos):

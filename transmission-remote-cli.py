@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION='0.10.4'
+VERSION='four billion'
 
 TRNSM_VERSION_MIN = '2.40'
 TRNSM_VERSION_MAX = '2.40'
@@ -2864,9 +2864,7 @@ def create_config(option, opt_str, value, parser):
 
 # command line parameters
 default_config_path = os.environ['HOME'] + '/.config/transmission-remote-cli/settings.cfg'
-parser = OptionParser(usage="%prog [options] [-- transmission-remote options]",
-                      version="%%prog %s" % VERSION,
-                      description="%%prog %s" % VERSION)
+parser = OptionParser(usage="%prog [options] [-- transmission-remote options]")
 parser.add_option("-c", "--connect", action="store", dest="connection", default="",
                   help="Point to the server using pattern [username:password@]host[:port]")
 parser.add_option("-f", "--config", action="store", dest="configfile", default=default_config_path,

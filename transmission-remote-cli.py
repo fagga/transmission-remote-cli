@@ -1526,7 +1526,7 @@ class Interface:
             tag += curses.A_BOLD
             tag_done += curses.A_BOLD
 
-        if config.getboolean('Misc', 'torrent_title_is_progressbar'):
+        if config.getboolean('Misc', 'torrentname_is_progressbar'):
             # addstr() dies when you tell it to draw on the last column of the
             # terminal, so we have to catch this exception.
             try:

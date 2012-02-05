@@ -138,7 +138,6 @@ class ColorManager:
         self.config = dict()
         for name in config.keys():
             self.config[name] = self._parse_color_pair(config[name])
-        debug(self.config)
 
     def _parse_color_pair(self, pair):
         # BG and FG are intentionally switched here because colors are always
@@ -1388,10 +1387,8 @@ class Interface:
             self.focus, self.scrollpos = -1, 0
             return
 
-# [not needed?]
-#        self.focus = min(self.focus, len(self.torrents)-1)
-
         # find focused_id
+        self.focus = min(self.focus, len(self.torrents)-1)
         if self.torrents[self.focus]['id'] != self.focused_id:
             for i,t in enumerate(self.torrents):
                 if t['id'] == self.focused_id:

@@ -53,6 +53,7 @@ from optparse import OptionParser, SUPPRESS_HELP
 import sys
 import os
 import signal
+import unicodedata
 import locale
 locale.setlocale(locale.LC_ALL, '')
 import curses
@@ -1492,7 +1493,6 @@ class Interface:
             percent_done = torrent['percent_done']
 
         bar_width = int(float(width) * (float(percent_done)/100))
-        title = torrent['name'][0:width].ljust(width)
 
         size = "%5s" % scale_bytes(torrent['sizeWhenDone'])
         if torrent['percent_done'] < 100:
@@ -1500,7 +1500,7 @@ class Interface:
                 size = "%5s / " % scale_bytes(torrent['available']) + size
             size = "%5s / " % scale_bytes(torrent['haveValid'] + torrent['haveUnchecked']) + size
         size = '| ' + size
-        title = title[:-len(size)] + size
+        title = ljust_columns(torrent['name'], width - len(size)) + size
 
         if torrent['status'] == Transmission.STATUS_SEED \
         or torrent['status'] == Transmission.STATUS_SEED_WAIT:
@@ -2748,6 +2748,39 @@ def wrap_multiline(text, width, initial_indent='', subsequent_indent=None):
                 initial_indent=initial_indent, subsequent_indent=subsequent_indent):
             yield line
         initial_indent = subsequent_indent
+
+def ljust_columns(text, max_width, padchar=' '):
+    """ Returns a string that is exactly <max_width> display columns wide,
+    padded with <padchar> if necessary. Accounts for characters that are
+    displayed two columns wide, i.e. kanji. """
+
+    chars = []
+    columns = 0
+    max_width = max(0, max_width)
+    for character in text:
+        width = len_columns(character)
+
+        if columns + width <= max_width:
+            chars.append(character)
+            columns += width
+        else:
+            break
+
+    # Fill up any remaining space
+    while columns < max_width:
+        assert len(padchar) == 1
+        chars.append(padchar)
+        columns += 1
+
+    return ''.join(chars)
+
+def len_columns(text):
+    """ Returns the amount of columns that <text> would occupy. """
+    columns = 0
+    for character in text:
+        columns += 2 if unicodedata.east_asian_width(character) in ('W', 'F') else 1
+
+    return columns
 
 def num2str(num):
     if int(num) == -1:

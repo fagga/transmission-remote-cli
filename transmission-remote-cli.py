@@ -224,7 +224,7 @@ class TransmissionRequest:
         if authhandler:
             authhandler.retried = 0
         try:
-            data = json.loads(response)
+            data = json.loads(unicode(response))
         except ValueError:
             quit("Cannot not parse response: %s\n" % response, JSON_ERROR)
         self.open_request = None

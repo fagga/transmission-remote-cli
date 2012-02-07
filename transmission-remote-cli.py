@@ -482,9 +482,7 @@ class Transmission:
 
     def set_rate_limit(self, direction, new_limit, torrent_id=-1):
         data = dict()
-        if new_limit < 0:
-            return
-        elif new_limit == 0:
+        if new_limit <= -1:
             new_limit     = None
             limit_enabled = False
         else:
@@ -505,21 +503,21 @@ class Transmission:
         self.wait_for_torrentlist_update()
 
 
-    def set_seed_ratio(self, new_limit, torrent_id=-1):
+    def set_seed_ratio(self, ratio, torrent_id=-1):
         data = dict()
-        if new_limit == -2:
-            new_limit = None
-            mode      = 0
-        elif new_limit == 0:
-            new_limit = None
-            mode      = 2
-        elif new_limit > 0:
-            mode = 1
+        if ratio == -1:
+            ratio = None
+            mode  = 0   # Use global settings
+        elif ratio == 0:
+            ratio = None
+            mode  = 2   # Seed regardless of ratio
+        elif ratio >= 0:
+            mode  = 1   # Stop seeding at seedRatioLimit
         else:
             return
 
         data['ids']            = [torrent_id]
-        data['seedRatioLimit'] = new_limit
+        data['seedRatioLimit'] = ratio
         data['seedRatioMode']  = mode
         request = TransmissionRequest(self.host, self.port, 'torrent-set', 1, data)
         request.send_request()
@@ -1068,41 +1066,52 @@ class Interface:
                 self.filter_list = choice
 
     def global_upload(self, c):
-       current_limit = (0,self.stats['speed-limit-up'])[self.stats['speed-limit-up-enabled']]
+       current_limit = (-1,self.stats['speed-limit-up'])[self.stats['speed-limit-up-enabled']]
        limit = self.dialog_input_number("Global upload limit in kilobytes per second", current_limit)
+       if limit == -128:
+           return 
        self.server.set_rate_limit('up', limit)
 
     def global_download(self, c):
-       current_limit = (0,self.stats['speed-limit-down'])[self.stats['speed-limit-down-enabled']]
+       current_limit = (-1,self.stats['speed-limit-down'])[self.stats['speed-limit-down-enabled']]
        limit = self.dialog_input_number("Global download limit in kilobytes per second", current_limit)
+       if limit == -128:
+           return 
        self.server.set_rate_limit('down', limit)
 
     def torrent_upload(self, c):
         if self.focus > -1:
-            current_limit = (0,self.torrents[self.focus]['uploadLimit'])[self.torrents[self.focus]['uploadLimited']]
+            current_limit = (-1,self.torrents[self.focus]['uploadLimit'])[self.torrents[self.focus]['uploadLimited']]
             limit = self.dialog_input_number("Upload limit in kilobytes per second for\n%s" % \
                                                  self.torrents[self.focus]['name'], current_limit)
+            if limit == -128:
+                return 
             self.server.set_rate_limit('up', limit, self.torrents[self.focus]['id'])
 
     def torrent_download(self, c):
         if self.focus > -1:
-            current_limit = (0,self.torrents[self.focus]['downloadLimit'])[self.torrents[self.focus]['downloadLimited']]
+            current_limit = (-1,self.torrents[self.focus]['downloadLimit'])[self.torrents[self.focus]['downloadLimited']]
             limit = self.dialog_input_number("Download limit in Kilobytes per second for\n%s" % \
                                                  self.torrents[self.focus]['name'], current_limit)
+            if limit == -128:
+                return 
             self.server.set_rate_limit('down', limit, self.torrents[self.focus]['id'])
 
     def seed_ratio(self, c):
         if self.focus > -1:
-            if self.torrents[self.focus]['seedRatioMode'] == 0:
+            if self.torrents[self.focus]['seedRatioMode'] == 0:   # Use global settings
                 current_limit = ''
-            elif self.torrents[self.focus]['seedRatioMode'] == 1:
+            elif self.torrents[self.focus]['seedRatioMode'] == 1: # Stop seeding at seedRatioLimit
                 current_limit = self.torrents[self.focus]['seedRatioLimit']
-            elif self.torrents[self.focus]['seedRatioMode'] == 2:
-                current_limit = 0
-            limit = self.dialog_input_number("Seed ratio limit for\n%s" % \
-                                                 self.torrents[self.focus]['name'],
+            elif self.torrents[self.focus]['seedRatioMode'] == 2: # Seed regardless of ratio
+                current_limit = -1
+            limit = self.dialog_input_number("Seed ratio limit for\n%s" % self.torrents[self.focus]['name'],
                                              current_limit, floating_point=True, allow_empty=True)
-            self.server.set_seed_ratio(limit, self.torrents[self.focus]['id'])
+            if limit == -1:
+                limit = 0
+            if limit == -2: # -2 means 'empty' in dialog_input_number return codes
+                limit = -1
+            self.server.set_seed_ratio(int(limit), self.torrents[self.focus]['id'])
 
     def bandwidth_priority(self, c):
         if c == ord('-') and self.focus > -1:
@@ -2428,7 +2437,11 @@ class Interface:
 
 
     def dialog_input_number(self, message, current_value,
-                            cursorkeys=True, floating_point=False, allow_empty=False):
+                            cursorkeys=True, floating_point=False, allow_empty=False,
+                            allow_zero=True, allow_negative_one=True):
+        if not allow_zero:
+            allow_negative_one = False
+
         width  = max(max(map(lambda x: len(x), message.split("\n"))), 40) + 4
         width  = min(self.width, width)
         height = message.count("\n") + (4,6)[cursorkeys]
@@ -2446,7 +2459,8 @@ class Interface:
                 smallstep = 10
             win.addstr(height-4, 2, ("   up/down +/- %-3s" % bigstep).rjust(width-4))
             win.addstr(height-3, 2, ("left/right +/- %3s" % smallstep).rjust(width-4))
-            win.addstr(height-3, 2, "0 means unlimited")
+            if allow_negative_one:
+                win.addstr(height-3, 2, "-1 means unlimited")
             if allow_empty:
                 win.addstr(height-4, 2, "leave empty for default")
 
@@ -2456,7 +2470,7 @@ class Interface:
             c = win.getch()
             if c == 27 or c == ord('q') or c == curses.KEY_BREAK:
                 curses.curs_set(0)
-                return -1
+                return -128
             elif c == ord("\n"):
                 try:
                     if allow_empty and len(input) <= 0:
@@ -2476,21 +2490,30 @@ class Interface:
                 input = input[:-1]
             elif len(input) >= width-5:
                 curses.beep()
-            elif c >= ord('0') and c <= ord('9'):
+            elif c >= ord('1') and c <= ord('9'):
                 input += chr(c)
-            elif c == ord('.') and floating_point:
+            elif allow_zero and c == ord('0') and input != '-' and not input.startswith('0'):
+                input += chr(c)
+            elif allow_negative_one and c == ord('-') and len(input) == 0:
+                input += chr(c)
+            elif floating_point and c == ord('.'):
                 input += chr(c)
 
             elif cursorkeys and c != -1:
                 try:
+                    if input == '': input = 0                        
                     if floating_point: number = float(input)
                     else:              number = int(input)
-                    if number <= 0: number = 0
                     if c == curses.KEY_LEFT or c == ord('h'):    number -= smallstep
                     elif c == curses.KEY_RIGHT or c == ord('l'): number += smallstep
                     elif c == curses.KEY_DOWN or c == ord('j'):  number -= bigstep
                     elif c == curses.KEY_UP or c == ord('k'):    number += bigstep
-                    if number <= 0: number = 0
+                    if not allow_zero and number <= 0:
+                        number = 1
+                    elif not allow_negative_one and number < 0:
+                        number = 0
+                    elif number < -1:
+                        number = -1
                     input = str(number)
                 except ValueError:
                     pass
@@ -2543,7 +2566,7 @@ class Interface:
 
     def draw_options_dialog(self):
         enc_options = [('required','_required'), ('preferred','_preferred'), ('tolerated','_tolerated')]
-
+        seed_ratio = self.stats['seedRatioLimit']
         while True:
             options = [('Peer _Port', "%d" % self.stats['peer-port']),
                        ('UP_nP/NAT-PMP', ('disabled','enabled ')[self.stats['port-forwarding-enabled']]),
@@ -2574,8 +2597,12 @@ class Interface:
                 return
             elif c == ord('p'):
                 port = self.dialog_input_number("Port for incoming connections",
-                                                self.stats['peer-port'], cursorkeys=False)
-                if port >= 0: self.server.set_option('peer-port', port)
+                                                self.stats['peer-port'],
+                                                cursorkeys=False)
+                if port >= 0 and port <= 65535:
+                    self.server.set_option('peer-port', port)
+                elif port != -128:  # user hit ESC
+                    self.dialog_ok('Port must be in the range of 0 - 65535')
             elif c == ord('n'):
                 self.server.set_option('port-forwarding-enabled',
                                        (1,0)[self.stats['port-forwarding-enabled']])
@@ -2589,20 +2616,24 @@ class Interface:
                 self.server.set_option('utp-enabled', (1,0)[self.stats['utp-enabled']])
             elif c == ord('g'):
                 limit = self.dialog_input_number("Maximum number of connected peers",
-                                                 self.stats['peer-limit-global'])
-                if limit >= 0: self.server.set_option('peer-limit-global', limit)
+                                                 self.stats['peer-limit-global'],
+                                                 allow_negative_one=False)
+                if limit >= 0:
+                    self.server.set_option('peer-limit-global', limit)
             elif c == ord('t'):
                 limit = self.dialog_input_number("Maximum number of connected peers per torrent",
-                                                 self.stats['peer-limit-per-torrent'])
-                if limit >= 0: self.server.set_option('peer-limit-per-torrent', limit)
+                                                 self.stats['peer-limit-per-torrent'],
+                                                 allow_negative_one=False)
+                if limit >= 0:
+                    self.server.set_option('peer-limit-per-torrent', limit)
             elif c == ord('s'):
                 limit = self.dialog_input_number('Stop seeding with upload/download ratio',
-                                                 (0,self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']],
+                                                 (-1,self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']],
                                                  floating_point=True)
-                if limit > 0:
+                if limit >= 0:
                     self.server.set_option('seedRatioLimit', limit)
                     self.server.set_option('seedRatioLimited', True)
-                elif limit == 0:
+                elif limit < 0 and limit != -128:
                     self.server.set_option('seedRatioLimited', False)
             elif c == ord('c'):
                 choice = self.dialog_menu('Encryption', enc_options,

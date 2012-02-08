@@ -1044,12 +1044,13 @@ class Interface:
                       ('downloadDir', 'L_ocation'), ('reverse','Re_verse')]
            choice = self.dialog_menu('Sort order', options,
                                      map(lambda x: x[0]==self.sort_orders[-1], options).index(True)+1)
-           if choice == 'reverse':
-               self.sort_reverse = not self.sort_reverse
-           else:
-               self.sort_orders.append(choice)
-               while len(self.sort_orders) > 2:
-                   self.sort_orders.pop(0)
+           if choice != -128:
+               if choice == 'reverse':
+                   self.sort_reverse = not self.sort_reverse
+               else:
+                   self.sort_orders.append(choice)
+                   while len(self.sort_orders) > 2:
+                       self.sort_orders.pop(0)
 
     def show_state_filter_menu(self, c):
         if self.selected_torrent == -1:
@@ -1059,11 +1060,12 @@ class Interface:
                        ('invert','In_vert'), ('','_All')]
             choice = self.dialog_menu(('Show only','Filter all')[self.filter_inverse], options,
                                       map(lambda x: x[0]==self.filter_list, options).index(True)+1)
-            if choice == 'invert':
-                self.filter_inverse = not self.filter_inverse
-            else:
-                if choice == '': self.filter_inverse = False
-                self.filter_list = choice
+            if choice != -128:
+                if choice == 'invert':
+                    self.filter_inverse = not self.filter_inverse
+                else:
+                    if choice == '': self.filter_inverse = False
+                    self.filter_list = choice
 
     def global_upload(self, c):
        current_limit = (-1,self.stats['speed-limit-up'])[self.stats['speed-limit-up-enabled']]
@@ -2534,7 +2536,7 @@ class Interface:
             if c > 96 and c < 123 and chr(c) in keymap:
                 return options[keymap[chr(c)]][0]
             elif c == 27 or c == ord('q'):
-                return options[old_focus-1][0]
+                return -128
             elif c == ord("\n"):
                 return options[focus-1][0]
             elif c == curses.KEY_DOWN or c == ord('j'):
@@ -2638,7 +2640,8 @@ class Interface:
             elif c == ord('c'):
                 choice = self.dialog_menu('Encryption', enc_options,
                                           map(lambda x: x[0]==self.stats['encryption'], enc_options).index(True)+1)
-                self.server.set_option('encryption', choice)
+                if choice != -128:
+                    self.server.set_option('encryption', choice)
 
             self.draw_torrent_list()
 

@@ -2873,7 +2873,8 @@ def explode_connection_string(connection):
                 username, password = auth.split(':')
         if connection.count(':') == 1:
             host, port = connection.split(':')
-            port, uri = port.split('/', 1)
+            if port.count('/') >= 1:
+                port, uri = port.split('/', 1)
             port = int(port)
         else:
             host = connection

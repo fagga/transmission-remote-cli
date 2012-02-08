@@ -1955,6 +1955,10 @@ class Interface:
         end = tracker_per_page * (page + 1)
         tlist = self.torrent_details['trackerStats'][start:end]
 
+        # keep position in range when last tracker gets deleted
+        self.scrollpos_detaillist = min(self.scrollpos_detaillist,
+                                        len(self.torrent_details['trackerStats'])-1)
+
         current_tier = -1
         for index, t in enumerate(tlist):
             announce_msg_size = scrape_msg_size = 0

@@ -165,10 +165,7 @@ session_id = 0
 # Handle communication with Transmission server.
 class TransmissionRequest:
     def __init__(self, host, port, path, method=None, tag=None, arguments=None):
-        if config.getboolean('Connection', 'ssl'):
-            self.url = 'https://%s:%d%s' % (host, port, path)
-        else:
-            self.url = 'http://%s:%d%s' % (host, port, path)
+        self.url           = create_url(host, port, path)
         self.open_request  = None
         self.last_update   = 0
         if method and tag:
@@ -270,11 +267,7 @@ class Transmission:
 
         if username and password:
             password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
-            if config.getboolean('Connection', 'ssl'):
-                url = 'https://%s:%d%s' % (host, port, path)
-            else:
-                url = 'http://%s:%d%s' % (host, port, path)
-            password_mgr.add_password(None, url, username, password)
+            password_mgr.add_password(None, create_url(host, port, path), username, password)
             global authhandler
             authhandler = urllib2.HTTPBasicAuthHandler(password_mgr)
             opener = urllib2.build_opener(authhandler)
@@ -2885,6 +2878,11 @@ def explode_connection_string(connection):
         quit("Wrong connection pattern: %s\n" % connection)
     return host, port, path, username, password
 
+def create_url(host, port, path):
+    if config.getboolean('Connection', 'ssl'):
+        return 'https://%s:%d%s' % (host, port, path)
+    else:
+        return 'http://%s:%d%s' % (host, port, path)
 
 def read_netrc(file=os.environ['HOME'] + '/.netrc', hostname=None):
     try:

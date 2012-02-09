@@ -231,7 +231,7 @@ class TransmissionRequest:
         try:
             data = json.loads(unicode(response))
         except ValueError:
-            quit("Cannot not parse response: %s\n" % response, JSON_ERROR)
+            quit("Cannot parse response: %s\n" % response, JSON_ERROR)
         self.open_request = None
         return data
 

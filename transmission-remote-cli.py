@@ -2879,10 +2879,13 @@ def explode_connection_string(connection):
     return host, port, path, username, password
 
 def create_url(host, port, path):
+    url = '%s:%d/%s' % (host, port, path)
+    url = url.replace('//', '/')   # double-/ doesn't work for some reason
+    debug('url: %s\n' % url)
     if config.getboolean('Connection', 'ssl'):
-        return 'https://%s:%d%s' % (host, port, path)
+        return 'https://%s' % url
     else:
-        return 'http://%s:%d%s' % (host, port, path)
+        return 'http://%s' % url
 
 def read_netrc(file=os.environ['HOME'] + '/.netrc', hostname=None):
     try:

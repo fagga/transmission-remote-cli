@@ -105,7 +105,7 @@ config.set('Connection', 'password', '')
 config.set('Connection', 'username', '')
 config.set('Connection', 'port', '9091')
 config.set('Connection', 'host', 'localhost')
-config.set('Connection', 'uri', '/transmission/rpc')
+config.set('Connection', 'path', '/transmission/rpc')
 config.set('Connection', 'ssl', 'False')
 config.add_section('Sorting')
 config.set('Sorting', 'order',   'name')
@@ -164,11 +164,11 @@ session_id = 0
 
 # Handle communication with Transmission server.
 class TransmissionRequest:
-    def __init__(self, host, port, uri, method=None, tag=None, arguments=None):
+    def __init__(self, host, port, path, method=None, tag=None, arguments=None):
         if config.getboolean('Connection', 'ssl'):
-            self.url = 'https://%s:%d%s' % (host, port, uri)
+            self.url = 'https://%s:%d%s' % (host, port, path)
         else:
-            self.url = 'http://%s:%d%s' % (host, port, uri)
+            self.url = 'http://%s:%d%s' % (host, port, path)
         self.open_request  = None
         self.last_update   = 0
         if method and tag:
@@ -263,17 +263,17 @@ class Transmission:
                       'hashString', 'pieceCount', 'pieceSize', 'pieces',
                       'downloadedEver', 'corruptEver', 'peersFrom' ] + LIST_FIELDS
 
-    def __init__(self, host, port, uri, username, password):
+    def __init__(self, host, port, path, username, password):
         self.host = host
         self.port = port
-        self.uri = uri
+        self.path = path
 
         if username and password:
             password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
             if config.getboolean('Connection', 'ssl'):
-                url = 'https://%s:%d%s' % (host, port, uri)
+                url = 'https://%s:%d%s' % (host, port, path)
             else:
-                url = 'http://%s:%d%s' % (host, port, uri)
+                url = 'http://%s:%d%s' % (host, port, path)
             password_mgr.add_password(None, url, username, password)
             global authhandler
             authhandler = urllib2.HTTPBasicAuthHandler(password_mgr)
@@ -281,7 +281,7 @@ class Transmission:
             urllib2.install_opener(opener)
 
         # check rpc version
-        request = TransmissionRequest(host, port, uri, 'session-get', self.TAG_SESSION_GET)
+        request = TransmissionRequest(host, port, path, 'session-get', self.TAG_SESSION_GET)
         request.send_request()
         response = request.get_response()
 
@@ -303,13 +303,13 @@ class Transmission:
 
         # set up request list
         self.requests = {'torrent-list':
-                             TransmissionRequest(host, port, uri, 'torrent-get', self.TAG_TORRENT_LIST, {'fields': self.LIST_FIELDS}),
+                             TransmissionRequest(host, port, path, 'torrent-get', self.TAG_TORRENT_LIST, {'fields': self.LIST_FIELDS}),
                          'session-stats':
-                             TransmissionRequest(host, port, uri, 'session-stats', self.TAG_SESSION_STATS, 21),
+                             TransmissionRequest(host, port, path, 'session-stats', self.TAG_SESSION_STATS, 21),
                          'session-get':
-                             TransmissionRequest(host, port, uri, 'session-get', self.TAG_SESSION_GET),
+                             TransmissionRequest(host, port, path, 'session-get', self.TAG_SESSION_GET),
                          'torrent-details':
-                             TransmissionRequest(host, port, uri)}
+                             TransmissionRequest(host, port, path)}
 
         self.torrent_cache = []
         self.status_cache  = dict()
@@ -327,7 +327,7 @@ class Transmission:
 
         # make sure there are no undefined values
         self.wait_for_torrentlist_update()
-        self.requests['torrent-details'] = TransmissionRequest(self.host, self.port, self.uri)
+        self.requests['torrent-details'] = TransmissionRequest(self.host, self.port, self.path)
 
 
     def update(self, delay, tag_waiting_for=0):
@@ -465,7 +465,7 @@ class Transmission:
         return self.torrent_details_cache
     def set_torrent_details_id(self, id):
         if id < 0:
-            self.requests['torrent-details'] = TransmissionRequest(self.host, self.port, self.uri)
+            self.requests['torrent-details'] = TransmissionRequest(self.host, self.port, self.path)
         else:
             self.requests['torrent-details'].set_request_data('torrent-get', self.TAG_TORRENT_DETAILS,
                                                               {'ids':id, 'fields': self.DETAIL_FIELDS})
@@ -478,7 +478,7 @@ class Transmission:
 
 
     def set_option(self, option_name, option_value):
-        request = TransmissionRequest(self.host, self.port, self.uri, 'session-set', 1, {option_name: option_value})
+        request = TransmissionRequest(self.host, self.port, self.path, 'session-set', 1, {option_name: option_value})
         request.send_request()
         self.wait_for_status_update()
 
@@ -501,7 +501,7 @@ class Transmission:
             data[direction+'loadLimit']   = new_limit
             data[direction+'loadLimited'] = limit_enabled
 
-        request = TransmissionRequest(self.host, self.port, self.uri, type, 1, data)
+        request = TransmissionRequest(self.host, self.port, self.path, type, 1, data)
         request.send_request()
         self.wait_for_torrentlist_update()
 
@@ -522,7 +522,7 @@ class Transmission:
         data['ids']            = [torrent_id]
         data['seedRatioLimit'] = ratio
         data['seedRatioMode']  = mode
-        request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-set', 1, data)
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-set', 1, data)
         request.send_request()
         self.wait_for_torrentlist_update()
 
@@ -533,7 +533,7 @@ class Transmission:
             return False
         else:
             new_priority = torrent['bandwidthPriority'] + 1
-            request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-set', 1,
+            request = TransmissionRequest(self.host, self.port, self.path, 'torrent-set', 1,
                                           {'ids': [torrent_id], 'bandwidthPriority':new_priority})
             request.send_request()
             self.wait_for_torrentlist_update()
@@ -544,7 +544,7 @@ class Transmission:
             return False
         else:
             new_priority = torrent['bandwidthPriority'] - 1
-            request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-set', 1,
+            request = TransmissionRequest(self.host, self.port, self.path, 'torrent-set', 1,
                                           {'ids': [torrent_id], 'bandwidthPriority':new_priority})
             request.send_request()
             self.wait_for_torrentlist_update()
@@ -555,7 +555,7 @@ class Transmission:
 
 
     def add_torrent(self, location):
-        request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-add', 1, {'filename': location})
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-add', 1, {'filename': location})
         request.send_request()
         response = request.get_response()
         if response['result'] != 'success':
@@ -564,45 +564,45 @@ class Transmission:
             return ''
 
     def stop_torrent(self, id):
-        request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-stop', 1, {'ids': [id]})
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-stop', 1, {'ids': [id]})
         request.send_request()
         self.wait_for_torrentlist_update()
 
     def start_torrent(self, id):
-        request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-start', 1, {'ids': [id]})
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-start', 1, {'ids': [id]})
         request.send_request()
         self.wait_for_torrentlist_update()
 
     def verify_torrent(self, id):
-        request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-verify', 1, {'ids': [id]})
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-verify', 1, {'ids': [id]})
         request.send_request()
         self.wait_for_torrentlist_update()
 
     def reannounce_torrent(self, id):
-        request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-reannounce', 1, {'ids': [id]})
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-reannounce', 1, {'ids': [id]})
         request.send_request()
         self.wait_for_torrentlist_update()
 
     def move_torrent(self, torrent_id, new_location):
-        request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-set-location', 1,
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-set-location', 1,
                                       {'ids': torrent_id, 'location': new_location, 'move': True})
         request.send_request()
         self.wait_for_torrentlist_update()
 
     def remove_torrent(self, id):
-        request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-remove', 1, {'ids': [id]})
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-remove', 1, {'ids': [id]})
         request.send_request()
         self.wait_for_torrentlist_update()
 
     def remove_torrent_local_data(self, id):
-        request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-remove', 1, {'ids': [id], 'delete-local-data':True})
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-remove', 1, {'ids': [id], 'delete-local-data':True})
         request.send_request()
         self.wait_for_torrentlist_update()
 
     def add_torrent_tracker(self, id, tracker):
         data = { 'ids' : [id],
                  'trackerAdd' : [tracker] }
-        request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-set', 1, data)
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-set', 1, data)
         request.send_request()
         response = request.get_response()
         return response['result'] if response['result'] != 'success' else ''
@@ -610,7 +610,7 @@ class Transmission:
     def remove_torrent_tracker(self, id, tracker):
         data = { 'ids' : [id],
                  'trackerRemove' : [tracker] }
-        request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-set', 1, data)
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-set', 1, data)
         request.send_request()
         response = request.get_response()
         self.wait_for_torrentlist_update()
@@ -658,7 +658,7 @@ class Transmission:
         else:
             request_data['files-wanted'] = file_nums
             request_data['priority-' + priority] = file_nums
-        request = TransmissionRequest(self.host, self.port, self.uri, 'torrent-set', 1, request_data)
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-set', 1, request_data)
         request.send_request()
         self.wait_for_details_update()
 
@@ -2862,8 +2862,13 @@ def quit(msg='', exitcode=0):
 
 
 def explode_connection_string(connection):
-    host, uri, port = config.get('Connection', 'host'), config.get('Connection', 'uri'), config.getint('Connection', 'port')
-    username, password = config.get('Connection', 'username'), config.get('Connection', 'password')
+    host, port, path = \
+        config.get('Connection', 'host'), \
+        config.getint('Connection', 'port'),  \
+        config.get('Connection', 'path')
+    username, password = \
+        config.get('Connection', 'username'), \
+        config.get('Connection', 'password')
     try:
         if connection.count('@') == 1:
             auth, connection = connection.split('@')
@@ -2872,13 +2877,13 @@ def explode_connection_string(connection):
         if connection.count(':') == 1:
             host, port = connection.split(':')
             if port.count('/') >= 1:
-                port, uri = port.split('/', 1)
+                port, path = port.split('/', 1)
             port = int(port)
         else:
             host = connection
     except ValueError:
         quit("Wrong connection pattern: %s\n" % connection)
-    return host, port, uri, username, password
+    return host, port, path, username, password
 
 
 def read_netrc(file=os.environ['HOME'] + '/.netrc', hostname=None):
@@ -2909,10 +2914,10 @@ def create_config(option, opt_str, value, parser):
     configfile = parser.values.configfile
     config.read(configfile)
     if parser.values.connection:
-        host, port, uri, username, password = explode_connection_string(parser.values.connection)
+        host, port, path, username, password = explode_connection_string(parser.values.connection)
         config.set('Connection', 'host', host)
         config.set('Connection', 'port', str(port))
-        config.set('Connection', 'uri', uri)
+        config.set('Connection', 'path', path)
         config.set('Connection', 'username', username)
         config.set('Connection', 'password', password)
 
@@ -2940,7 +2945,7 @@ def create_config(option, opt_str, value, parser):
 default_config_path = os.environ['HOME'] + '/.config/transmission-remote-cli/settings.cfg'
 parser = OptionParser(usage="%prog [options] [-- transmission-remote options]")
 parser.add_option("-c", "--connect", action="store", dest="connection", default="",
-                  help="Point to the server using pattern [username:password@]host[:port]/[uri]")
+                  help="Point to the server using pattern [username:password@]host[:port]/[path]")
 parser.add_option("-s", "--ssl", action="store_true", dest="ssl", default=False,
                   help="Connect to transmission using SSL.")
 parser.add_option("-f", "--config", action="store", dest="configfile", default=default_config_path,
@@ -2959,10 +2964,10 @@ config.read(cmd_args.configfile)
 
 # command line connection data can override config file
 if cmd_args.connection:
-    host, port, uri, username, password = explode_connection_string(cmd_args.connection)
+    host, port, path, username, password = explode_connection_string(cmd_args.connection)
     config.set('Connection', 'host', host)
     config.set('Connection', 'port', str(port))
-    config.set('Connection', 'uri', uri)
+    config.set('Connection', 'path', path)
     config.set('Connection', 'username', username)
     config.set('Connection', 'password', password)
 if cmd_args.use_netrc:
@@ -3002,7 +3007,7 @@ if transmissionremote_args:
 # run interface
 ui = Interface(Transmission(config.get('Connection', 'host'),
                             config.getint('Connection', 'port'),
-                            config.get('Connection', 'uri'),
+                            config.get('Connection', 'path'),
                             config.get('Connection', 'username'),
                             config.get('Connection', 'password')))
 

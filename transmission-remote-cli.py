@@ -166,9 +166,9 @@ session_id = 0
 class TransmissionRequest:
     def __init__(self, host, port, uri, method=None, tag=None, arguments=None):
         if config.getboolean('Connection', 'ssl'):
-            self.url = 'https://%s:%d/%s' % (host, port, uri)
+            self.url = 'https://%s:%d%s' % (host, port, uri)
         else:
-            self.url = 'http://%s:%d/%s' % (host, port, uri)
+            self.url = 'http://%s:%d%s' % (host, port, uri)
         self.open_request  = None
         self.last_update   = 0
         if method and tag:
@@ -190,12 +190,6 @@ class TransmissionRequest:
         except AttributeError:
             # request data (http_request) isn't specified yet -- data will be available on next call
             pass
-
-        # do we still need this?
-        # except httplib.BadStatusLine, msg:
-        #     # server sends something httplib doesn't understand.
-        #     # (happens sometimes with high cpu load[?])
-        #     pass
 
         # authentication
         except urllib2.HTTPError, e:
@@ -277,9 +271,9 @@ class Transmission:
         if username and password:
             password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
             if config.getboolean('Connection', 'ssl'):
-                url = 'http://%s:%d/%s' % (host, port, uri)
+                url = 'https://%s:%d%s' % (host, port, uri)
             else:
-                url = 'http://%s:%d/%s' % (host, port, uri)
+                url = 'http://%s:%d%s' % (host, port, uri)
             password_mgr.add_password(None, url, username, password)
             global authhandler
             authhandler = urllib2.HTTPBasicAuthHandler(password_mgr)

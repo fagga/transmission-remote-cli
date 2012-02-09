@@ -18,9 +18,9 @@ Show version number and exit
 .It Fl h Fl -help
 Show this help message and exit
 .It Fl "c \fICONNECTION\fR" Fl -connect=\fICONNECTION\fR
-Point to the server using pattern: [username:password@]host[:port][/uri]
+Point to the server using pattern: [username:password@]host[:port]/[path]
 .It Fl s Fl -ssl
-Connecto to Transmission via SSL
+Connect to Transmission via SSL
 .It Fl "f \fICONFIGFILE\fR" Fl -config=\fICONFIGFILE\fR
 Path to configuration file
 .It Fl -create-config
@@ -46,7 +46,7 @@ $ transmission-remote-cli \-c johndoe:secretbirthday@homeserver:1234
 Configuration file
 
 .Ed
-You can write this (and other stuff) to a configuration file:
+You can write this (and other settings) to a configuration file:
 .Bd -literal -offset indent
 $ transmission-remote-cli.py \-c johndoe:secretbirthday@homeserver:1234 \-\-create-config
 

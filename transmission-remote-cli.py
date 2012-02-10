@@ -812,8 +812,7 @@ class Interface:
         curses.noecho() ; curses.cbreak() ; self.screen.keypad(1)
         curses.halfdelay(10) # STDIN timeout
 
-        try: curses.curs_set(0)   # hide cursor if possible
-        except curses.error: pass # some terminals seem to have problems with that
+        hide_cursor()
 
         # enable colors if available
         try:
@@ -2381,7 +2380,7 @@ class Interface:
 
         win = self.window(height, width, message=message)
         win.keypad(True)
-        curses.curs_set(1)  # make cursor visible
+        show_cursor()
         index = len(input)
         while True:
             # Cut the text into pages, each as long as the text field
@@ -2396,7 +2395,7 @@ class Interface:
             win.move(height - 2, displayindex + 2)
             c = win.getch()
             if c == 27 or c == curses.KEY_BREAK:
-                curses.curs_set(0)
+                hide_cursor()
                 return ''
             elif index < len(input) and ( c == curses.KEY_RIGHT or c == curses.ascii.ctrl(ord('f')) ):
                 index += 1
@@ -2420,7 +2419,7 @@ class Interface:
                 if on_enter:
                     on_enter(input)
                 else:
-                    curses.curs_set(0)
+                    hide_cursor()
                     return input
             elif c >= 32 and c < 127:
                 input = input[:index] + chr(c) + (index < len(input) and input[index:] or '')
@@ -2448,7 +2447,7 @@ class Interface:
         width  = min(self.width, width)
         height = message.count("\n") + (4,6)[cursorkeys]
 
-        curses.curs_set(1)  # make cursor visible
+        show_cursor()
         win = self.window(height, width, message=message)
         win.keypad(True)
         input = str(current_value)
@@ -2471,21 +2470,21 @@ class Interface:
             win.move(height - 2, len(input) + 2)
             c = win.getch()
             if c == 27 or c == ord('q') or c == curses.KEY_BREAK:
-                curses.curs_set(0)
+                hide_cursor()
                 return -128
             elif c == ord("\n"):
                 try:
                     if allow_empty and len(input) <= 0:
-                        curses.curs_set(0)
+                        hide_cursor()
                         return -2
                     elif floating_point:
-                        curses.curs_set(0)
+                        hide_cursor()
                         return float(input)
                     else:
-                        curses.curs_set(0)
+                        hide_cursor()
                         return int(input)
                 except ValueError:
-                    curses.curs_set(0)
+                    hide_cursor()
                     return -1
 
             elif c == curses.KEY_BACKSPACE or c == curses.KEY_DC or c == 127 or c == 8:
@@ -2769,6 +2768,13 @@ def html2text(str):
     str = re.sub(r'</p>', ' ', str)
     str = re.sub(r'<[^>]*?>', '', str)
     return str
+
+def hide_cursor():
+    try: curses.curs_set(0)   # hide cursor if possible
+    except curses.error: pass # some terminals seem to have problems with that
+def show_cursor():
+    try: curses.curs_set(1)
+    except curses.error: pass
 
 def wrap_multiline(text, width, initial_indent='', subsequent_indent=None):
     if subsequent_indent is None:

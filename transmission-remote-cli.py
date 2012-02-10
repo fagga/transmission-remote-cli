@@ -1953,6 +1953,9 @@ class Interface:
         # keep position in range when last tracker gets deleted
         self.scrollpos_detaillist = min(self.scrollpos_detaillist,
                                         len(self.torrent_details['trackerStats'])-1)
+        # show newly added tracker when list was empty before
+        if self.torrent_details['trackerStats']:
+            self.scrollpos_detaillist = max(0, self.scrollpos_detaillist)
 
         current_tier = -1
         for index, t in enumerate(tlist):

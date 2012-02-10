@@ -2217,6 +2217,8 @@ class Interface:
                         ('escape','Unfocus/-select')] + help
             elif self.details_category_focus == 2:
                 help = [('F1/?','Explain flags')] + help
+            elif self.details_category_focus == 3:
+                help = [('a','Add Tracker'),('r','Remove Tracker')] + help
 
         line = ' | '.join(map(lambda x: "%s %s" % (x[0], x[1]), help))
         line = line[0:self.width]

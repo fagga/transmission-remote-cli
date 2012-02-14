@@ -752,6 +752,7 @@ class Interface:
         self.selected_files         = [] # marked files in details
         self.scrollpos_detaillist   = 0  # same as scrollpos but for details
         self.compact_torrentlist    = False # draw only one line for each torrent in compact mode
+        self.exit_now               = False
 
         self.keybindings = {
             ord('?'):               self.call_list_key_bindings,
@@ -935,9 +936,9 @@ class Interface:
             self.stats = self.server.get_global_stats()
             self.draw_title_bar()  # show shortcuts and stuff
             self.draw_stats()      # show global states
-
             self.screen.move(0,0)  # in case cursor can't be invisible
-            if self.handle_user_input():
+            self.handle_user_input()
+            if self.exit_now:
                 return
 
     def go_back_or_unfocus(self, c):
@@ -970,7 +971,7 @@ class Interface:
             config.set('Sorting', 'reverse', str(self.sort_reverse))
             config.set('Filtering', 'filter', self.filter_list)
             config.set('Filtering', 'invert', str(self.filter_inverse))
-            return quit()
+            self.exit_now = True
         else: # return to list view
             self.server.set_torrent_details_id(-1)
             self.selected_torrent       = -1

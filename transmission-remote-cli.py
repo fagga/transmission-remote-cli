@@ -730,9 +730,9 @@ class Interface:
 
         self.filter_list    = config.get('Filtering', 'filter')
         self.filter_inverse = config.getboolean('Filtering', 'invert')
-
-        self.sort_orders  = config.get('Sorting', 'order').split(',') #['name']
-        self.sort_reverse = config.getboolean('Sorting', 'reverse')
+        self.sort_orders    = config.get('Sorting', 'order').split(',') #['name']
+        self.sort_reverse   = config.getboolean('Sorting', 'reverse')
+        self.compact_list   = config.getboolean('Misc', 'compact_list')
 
         self.torrents         = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
         self.stats            = self.server.get_global_stats()
@@ -874,11 +874,11 @@ class Interface:
 
 
     def manage_layout(self):
-        distance = 3 if not config.getboolean('Misc', 'compact_list') else 1
-        self.pad_height = max((len(self.torrents)+1)*distance, self.height)
+        self.tlist_item_height = 3 if not self.compact_list else 1
+        self.pad_height = max((len(self.torrents)+1) * self.tlist_item_height, self.height)
         self.pad = curses.newpad(self.pad_height, self.width)
         self.mainview_height = self.height - 2
-        self.torrents_per_page = self.mainview_height / distance
+        self.torrents_per_page = self.mainview_height / self.tlist_item_height
         self.detaillistitems_per_page = self.height - 8
 
         if self.selected_torrent > -1:
@@ -890,7 +890,7 @@ class Interface:
                 self.torrent_title_width -= self.rateDownload_width + 2
 
         elif self.torrents:
-            visible_torrents = self.torrents[self.scrollpos/distance : self.scrollpos/distance + self.torrents_per_page + 1]
+            visible_torrents = self.torrents[self.scrollpos/self.tlist_item_height : self.scrollpos/self.tlist_item_height + self.torrents_per_page + 1]
             self.rateDownload_width = self.get_rateDownload_width(visible_torrents)
             self.rateUpload_width   = self.get_rateUpload_width(visible_torrents)
 
@@ -1210,22 +1210,21 @@ class Interface:
 
     def movement_keys(self, c):
         if self.selected_torrent == -1:
-            distance = 3 if not config.getboolean('Misc', 'compact_list') else 1
             if   c == curses.KEY_UP or c == ord('k'):
-                self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, distance)
+                self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, self.tlist_item_height)
             elif c == curses.KEY_DOWN or c == ord('j'):
-                self.focus, self.scrollpos = self.move_down(self.focus, self.scrollpos, distance,
+                self.focus, self.scrollpos = self.move_down(self.focus, self.scrollpos, self.tlist_item_height,
                                                             self.torrents_per_page, len(self.torrents))
             elif c == curses.KEY_PPAGE:
-                self.focus, self.scrollpos = self.move_page_up(self.focus, self.scrollpos, distance,
+                self.focus, self.scrollpos = self.move_page_up(self.focus, self.scrollpos, self.tlist_item_height,
                                                                self.torrents_per_page)
             elif c == curses.KEY_NPAGE:
-                self.focus, self.scrollpos = self.move_page_down(self.focus, self.scrollpos, distance,
+                self.focus, self.scrollpos = self.move_page_down(self.focus, self.scrollpos, self.tlist_item_height,
                                                                  self.torrents_per_page, len(self.torrents))
             elif c == curses.KEY_HOME:
                 self.focus, self.scrollpos = self.move_to_top()
             elif c == curses.KEY_END:
-                self.focus, self.scrollpos = self.move_to_end(distance, self.torrents_per_page, len(self.torrents))
+                self.focus, self.scrollpos = self.move_to_end(self.tlist_item_height, self.torrents_per_page, len(self.torrents))
             self.focused_id = self.torrents[self.focus]['id']
         elif self.selected_torrent > -1:
             # file list
@@ -1353,6 +1352,7 @@ class Interface:
     def toggle_compact_torrentlist(self, c):
         config.set('Misc', 'compact_list',
                    str(not config.getboolean('Misc', 'compact_list')))
+        self.compact_list = config.getboolean('Misc', 'compact_list')
 
     def move_torrent(self, c):
         if self.focus > -1:
@@ -1419,15 +1419,14 @@ class Interface:
                     self.focus = i
                     break
 
-        distance = 3 if not config.getboolean('Misc', 'compact_list') else 1
         # make sure the focus is not above the visible area
-        while self.focus < (self.scrollpos/distance):
-            self.scrollpos -= distance
+        while self.focus < (self.scrollpos/self.tlist_item_height):
+            self.scrollpos -= self.tlist_item_height
         # make sure the focus is not below the visible area
-        while self.focus > (self.scrollpos/distance) + self.torrents_per_page-1:
-            self.scrollpos += distance
+        while self.focus > (self.scrollpos/self.tlist_item_height) + self.torrents_per_page-1:
+            self.scrollpos += self.tlist_item_height
         # keep min and max bounds
-        self.scrollpos = min(self.scrollpos, (len(self.torrents) - self.torrents_per_page) * distance)
+        self.scrollpos = min(self.scrollpos, (len(self.torrents) - self.torrents_per_page) * self.tlist_item_height)
         self.scrollpos = max(0, self.scrollpos)
 
     def draw_torrent_list(self, search_keyword=''):
@@ -1455,7 +1454,7 @@ class Interface:
         for i in range(len(self.torrents)):
             ypos += self.draw_torrentlist_item(self.torrents[i],
                                                (i == self.focus),
-                                               config.getboolean('Misc', 'compact_list'),
+                                               self.compact_list,
                                                ypos)
 
         self.pad.refresh(self.scrollpos,0, 1,0, self.mainview_height,self.width-1)

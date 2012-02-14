@@ -1588,7 +1588,6 @@ class Interface:
                 parts.append("%4s peer%s connected" % (torrent['peersConnected'],
                                                        ('s',' ')[torrent['peersConnected'] == 1]))
 
-
         if focused: tags = curses.A_REVERSE + curses.A_BOLD
         else:       tags = 0
 
@@ -1600,8 +1599,6 @@ class Interface:
         # make sure the peers element is always right justified
         line += ' ' * int(self.torrent_title_width - len(line) - len(peers)) + peers
         self.pad.addstr(ypos+1, 0, line, tags)
-
-
 
 
     def draw_details(self):
@@ -2829,7 +2826,6 @@ def ljust_columns(text, max_width, padchar=' '):
     max_width = max(0, max_width)
     for character in text:
         width = len_columns(character)
-
         if columns + width <= max_width:
             chars.append(character)
             columns += width
@@ -2841,7 +2837,6 @@ def ljust_columns(text, max_width, padchar=' '):
         assert len(padchar) == 1
         chars.append(padchar)
         columns += 1
-
     return ''.join(chars)
 
 def len_columns(text):
@@ -2849,8 +2844,8 @@ def len_columns(text):
     columns = 0
     for character in text:
         columns += 2 if unicodedata.east_asian_width(character) in ('W', 'F') else 1
-
     return columns
+
 
 def num2str(num):
     if int(num) == -1:
@@ -2858,8 +2853,11 @@ def num2str(num):
     elif int(num) == -2:
         return 'oo'
     else:
-        string = re.sub(r'(\d{3})', '\g<1>,', str(num)[::-1])[::-1]
-        return string.lstrip(',')
+        if num > 999:
+            return (re.sub(r'(\d{3})', '\g<1>,', str(num)[::-1])[::-1]).lstrip(',')
+        else:
+            return str(num)
+
 
 def debug(data):
     if cmd_args.DEBUG:

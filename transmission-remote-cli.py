@@ -18,9 +18,9 @@
 
 VERSION='four billion'
 
-TRNSM_VERSION_MIN = '2.40'
+TRNSM_VERSION_MIN = '1.90'
 TRNSM_VERSION_MAX = '2.50'
-RPC_VERSION_MIN = 14
+RPC_VERSION_MIN = 8
 RPC_VERSION_MAX = 14
 
 # error codes
@@ -278,7 +278,6 @@ class Transmission:
         request.send_request()
         response = request.get_response()
 
-        self.tm_version = float(response['arguments']['version'].split(" ")[0])
         self.rpc_version = response['arguments']['rpc-version']
 
         # rpc version too old?
@@ -296,6 +295,15 @@ class Transmission:
         if response['arguments']['rpc-version'] > RPC_VERSION_MAX:
             quit(version_error + "Please install Transmission version " + TRNSM_VERSION_MAX + " or lower.\n")
 
+        # setup compatibility to Transmission <2.40
+        if self.rpc_version < 14:
+            Transmission.STATUS_CHECK_WAIT    = 1 << 0
+            Transmission.STATUS_CHECK         = 1 << 1
+            Transmission.STATUS_DOWNLOAD_WAIT = 1 << 2
+            Transmission.STATUS_DOWNLOAD      = 1 << 2
+            Transmission.STATUS_SEED_WAIT     = 1 << 3
+            Transmission.STATUS_SEED          = 1 << 3
+            Transmission.STATUS_STOPPED       = 1 << 4
 
         # set up request list
         self.requests = {'torrent-list':
@@ -432,10 +440,6 @@ class Transmission:
                 self.geo_ips_cache[ip] = country_code_by_addr_vany(self.geo_ip, self.geo_ip6, ip)
                 if self.geo_ips_cache[ip] == None:
                     self.geo_ips_cache[ip] = '?'
-
-
-    def get_tm_version(self):
-        return self.tm_version
 
     def get_rpc_version(self):
         return self.rpc_version
@@ -616,7 +620,6 @@ class Transmission:
         request.send_request()
         response = request.get_response()
         self.wait_for_torrentlist_update()
-
         return response['result'] if response['result'] != 'success' else ''
 
     def increase_file_priority(self, file_nums):
@@ -672,7 +675,6 @@ class Transmission:
         elif priority >= 1:  return 'high'
         return '?'
 
-
     def wait_for_torrentlist_update(self):
         self.wait_for_update(7)
     def wait_for_details_update(self):
@@ -685,22 +687,21 @@ class Transmission:
             if self.update(0, update_id): break
             time.sleep(0.1)
 
-
     def get_status(self, torrent):
         if torrent['status'] == Transmission.STATUS_STOPPED:
             status = 'paused'
+        elif torrent['status'] == Transmission.STATUS_CHECK:
+            status = 'verifying'
         elif torrent['status'] == Transmission.STATUS_CHECK_WAIT:
             status = 'will verify'
-        elif torrent['status'] == Transmission.STATUS_CHECK:
-            status = "verifying"
-        elif torrent['status'] == Transmission.STATUS_DOWNLOAD_WAIT:
-            status = 'will download'
         elif torrent['status'] == Transmission.STATUS_DOWNLOAD:
             status = ('idle','downloading')[torrent['rateDownload'] > 0]
-        elif torrent['status'] == Transmission.STATUS_SEED_WAIT:
-            status = 'will seed'
+        elif torrent['status'] == Transmission.STATUS_DOWNLOAD_WAIT:
+            status = 'will download'
         elif torrent['status'] == Transmission.STATUS_SEED:
             status = 'seeding'
+        elif torrent['status'] == Transmission.STATUS_SEED_WAIT:
+            status = 'will seed'
         else:
             status = 'unknown state'
         return status
@@ -987,6 +988,7 @@ class Interface:
         # Trackers
         elif self.selected_torrent > -1 and self.details_category_focus == 3:
             self.add_tracker()
+
         # Do nothing in other detail tabs
         elif self.selected_torrent > -1:
             pass
@@ -1186,8 +1188,11 @@ class Interface:
                 self.server.remove_torrent_local_data(self.torrents[self.focus]['id'])
 
     def add_tracker(self):
-        tracker = self.dialog_input_text('Add tracker URL:')
+        if self.server.get_rpc_version() < 10:
+            self.dialog_ok("You need Transmission v2.10 or higher to add trackers.")
+            return
 
+        tracker = self.dialog_input_text('Add tracker URL:')
         if tracker:
             t = self.torrent_details
             response = self.server.add_torrent_tracker(t['id'], tracker)
@@ -1197,6 +1202,10 @@ class Interface:
                 self.dialog_ok("\n".join(msg))
 
     def remove_tracker(self):
+        if self.server.get_rpc_version() < 10:
+            self.dialog_ok("You need Transmission v2.10 or higher to remove trackers.")
+            return
+
         t = self.torrent_details
         if (self.scrollpos_detaillist >= 0 and \
             self.scrollpos_detaillist < len(t['trackerStats']) and \
@@ -2349,7 +2358,6 @@ class Interface:
         while True:
             if win.getch() >= 0: return
 
-
     def dialog_yesno(self, message, important=False):
         height = 5 + message.count("\n")
         width  = max(len(message), 8) + 4
@@ -2602,7 +2610,7 @@ class Interface:
                        ('_Seed Ratio Limit', "%s" % ('unlimited',self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']])]
 
             # uTP support was added in Transmission v2.3
-            if self.server.get_tm_version() >= 2.3:
+            if self.server.get_rpc_version() >= 13:
                 options.append(('_uTP', ('disabled','enabled')[self.stats['utp-enabled']]))
 
             max_len = max([sum([len(re.sub('_', '', x)) for x in y[0]]) for y in options])
@@ -2640,7 +2648,7 @@ class Interface:
             elif c == ord('l'):
                 self.server.set_option('lpd-enabled', (1,0)[self.stats['lpd-enabled']])
             # uTP support was added in Transmission v2.3
-            elif c == ord('u') and self.server.get_tm_version() >= 2.3:
+            elif c == ord('u') and self.server.get_rpc_version() >= 13:
                 self.server.set_option('utp-enabled', (1,0)[self.stats['utp-enabled']])
             elif c == ord('g'):
                 limit = self.dialog_input_number("Maximum number of connected peers",

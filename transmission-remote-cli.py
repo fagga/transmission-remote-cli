@@ -940,6 +940,7 @@ class Interface:
             self.screen.move(0,0)  # in case cursor can't be invisible
             self.handle_user_input()
             if self.exit_now:
+                save_config(cmd_args.configfile)
                 return
 
     def go_back_or_unfocus(self, c):
@@ -2885,12 +2886,8 @@ def quit(msg='', exitcode=0):
         pass
 
     # if this is a graceful exit and config file is present
-    if not msg and not exitcode and os.path.isfile(cmd_args.configfile):
-        try:
-            config.write(open(cmd_args.configfile, 'w'))
-            os.chmod(cmd_args.configfile, 0600)
-        except IOError, msg:
-            print >> sys.stderr, "Cannot write config file %s:\n%s" % (cmd_args.configfile, msg)
+    if not msg and not exitcode:
+        save_config(cmd_args.configfile)
     else:
         print >> sys.stderr, msg,
     os._exit(exitcode)
@@ -2963,7 +2960,7 @@ def create_config(option, opt_str, value, parser):
         config.set('Connection', 'username', username)
         config.set('Connection', 'password', password)
 
-    # create directory
+    # create directory if necessary
     dir = os.path.dirname(configfile)
     if dir != '' and not os.path.isdir(dir):
         try:
@@ -2972,16 +2969,23 @@ def create_config(option, opt_str, value, parser):
             print msg
             exit(CONFIGFILE_ERROR)
 
-    # create config file
-    try:
-        config.write(open(configfile, 'w'))
-        os.chmod(configfile, 0600)
-    except IOError, msg:
-        print msg
+    # write file
+    if not save_config(configfile, force=True):
         exit(CONFIGFILE_ERROR)
-
-    print "Wrote config file %s" % configfile
+    print "Wrote config file: %s" % configfile
     exit(0)
+
+def save_config(filepath, force=False):
+    if force or os.path.isfile(filepath):
+        try:
+            config.write(open(filepath, 'w'))
+            os.chmod(filepath, 0600)  # config may contain password
+            return 1
+        except IOError, msg:
+            print >> sys.stderr, "Cannot write config file %s:\n%s" % (filepath, msg)
+            return 0
+    return -1
+
 
 # command line parameters
 default_config_path = os.environ['HOME'] + '/.config/transmission-remote-cli/settings.cfg'

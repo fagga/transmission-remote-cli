@@ -1,7 +1,6 @@
 # A console client for the BitTorrent client [Transmission](http://www.transmissionbt.com/ "Transmission Homepage").
 
-**Download the latest version for [Transmission <2.40](http://github.com/fagga/transmission-remote-cli/raw/master/transmission-remote-cli.py)
-or [Transmission >=2.40](http://github.com/fagga/transmission-remote-cli/raw/2.40/transmission-remote-cli.py).**
+**Download the latest version for [Transmission 1.90-2.50](http://github.com/fagga/transmission-remote-cli/raw/master/transmission-remote-cli.py).**
 
 
 ## Modules

@@ -2182,7 +2182,7 @@ class Interface:
             self.screen.addstr("%d) " % paused, curses.A_REVERSE)
 
             if self.filter_list:
-                self.screen.addstr("Showing only:", curses.A_REVERSE)
+                self.screen.addstr("Filter:", curses.A_REVERSE)
                 self.screen.addstr("%s%s" % (('','not ')[self.filter_inverse], self.filter_list),
                                    curses.color_pair(self.colors.get_id('filter_status'))
                                    + curses.A_REVERSE)

@@ -2063,8 +2063,8 @@ class Interface:
             if counter & 7 == 0:
                 block = ord(pieces[counter >> 3])
             piece = block & 0x80
-            if piece: self.pad.addch(ypos, xpos, ' ', curses.A_REVERSE)
-            else:     self.pad.addch(ypos, xpos, '_')
+            if piece: self.pad.addch(ypos, xpos, curses.ACS_CKBOARD)
+            else:     self.pad.addch(ypos, xpos, curses.ACS_BULLET)
             block <<= 1
 
         missing_pieces = piece_count - counter - 1

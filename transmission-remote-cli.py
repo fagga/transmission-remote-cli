@@ -1927,14 +1927,13 @@ class Interface:
                 except adns.Error, msg:
                     host_name = msg
 
-            selected = peer == self.torrent_details['peers'][self.scrollpos_detaillist]
             upload_tag = download_tag = line_tag = 0
             if peer['rateToPeer']:   upload_tag   = curses.A_BOLD
             if peer['rateToClient']: download_tag = curses.A_BOLD
 
             self.pad.move(ypos, 0)
             # Flags
-            self.pad.addstr("%-6s   " % peer['flagStr'], curses.A_BOLD if selected else 0)
+            self.pad.addstr("%-6s   " % peer['flagStr'])
             # Down
             self.pad.addstr("%5s  " % scale_bytes(peer['rateToClient']), download_tag)
             # Up

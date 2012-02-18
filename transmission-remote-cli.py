@@ -1220,7 +1220,7 @@ class Interface:
                 self.dialog_ok("\n".join(msg))
 
     def movement_keys(self, c):
-        if self.selected_torrent == -1:
+        if self.selected_torrent == -1 and len(self.torrents) > 0:
             if   c == curses.KEY_UP or c == ord('k'):
                 self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, self.tlist_item_height)
             elif c == curses.KEY_DOWN or c == ord('j'):

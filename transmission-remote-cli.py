@@ -2156,14 +2156,14 @@ class Interface:
     def draw_torrents_stats(self):
         if self.selected_torrent > -1 and self.details_category_focus == 2:
             self.screen.insstr((self.height-1), 0,
-                               "%d peer%s connected:" % (self.torrent_details['peersConnected'],
+                               "%d peer%s connected (" % (self.torrent_details['peersConnected'],
                                                          ('s','')[self.torrent_details['peersConnected'] == 1]) + \
-                                   " Trackers: %-3d" % self.torrent_details['peersFrom']['fromTracker'] + \
-                                   " DHT: %-3d" % self.torrent_details['peersFrom']['fromDht'] + \
-                                   " LTEP: %-3d" % self.torrent_details['peersFrom']['fromLtep'] + \
-                                   " PEX: %-3d" % self.torrent_details['peersFrom']['fromPex'] + \
-                                   " Incoming: %-3d" % self.torrent_details['peersFrom']['fromIncoming'] + \
-                                   " Cache: %-3d" % self.torrent_details['peersFrom']['fromCache'],
+                                   "Trackers:%d " % self.torrent_details['peersFrom']['fromTracker'] + \
+                                   "DHT:%d " % self.torrent_details['peersFrom']['fromDht'] + \
+                                   "LTEP:%d " % self.torrent_details['peersFrom']['fromLtep'] + \
+                                   "PEX:%d " % self.torrent_details['peersFrom']['fromPex'] + \
+                                   "Incoming:%d " % self.torrent_details['peersFrom']['fromIncoming'] + \
+                                   "Cache:%d)" % self.torrent_details['peersFrom']['fromCache'],
                                curses.A_REVERSE)
         else:
             self.screen.addstr((self.height-1), 0, "Torrent%s:" % ('s','')[len(self.torrents) == 1],

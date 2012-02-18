@@ -2599,19 +2599,22 @@ class Interface:
         enc_options = [('required','_required'), ('preferred','_preferred'), ('tolerated','_tolerated')]
         seed_ratio = self.stats['seedRatioLimit']
         while True:
-            options = [('Peer _Port', "%d" % self.stats['peer-port']),
-                       ('UP_nP/NAT-PMP', ('disabled','enabled ')[self.stats['port-forwarding-enabled']]),
-                       ('Peer E_xchange', ('disabled','enabled ')[self.stats['pex-enabled']]),
-                       ('_Distributed Hash Table', ('disabled','enabled ')[self.stats['dht-enabled']]),
-                       ('_Local Peer Discovery', ('disabled','enabled ')[self.stats['lpd-enabled']]),
-                       ('_Global Peer Limit', "%d" % self.stats['peer-limit-global']),
-                       ('Peer Limit per _Torrent', "%d" % self.stats['peer-limit-per-torrent']),
-                       ('Protocol En_cryption', "%s" % self.stats['encryption']),
-                       ('_Seed Ratio Limit', "%s" % ('unlimited',self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']])]
-
+            options = []
+            options.append(('Peer _Port', "%d" % self.stats['peer-port']))
+            options.append(('UP_nP/NAT-PMP', ('disabled','enabled ')[self.stats['port-forwarding-enabled']]))
+            options.append(('Peer E_xchange', ('disabled','enabled ')[self.stats['pex-enabled']]))
+            options.append(('_Distributed Hash Table', ('disabled','enabled ')[self.stats['dht-enabled']]))
+            options.append(('_Local Peer Discovery', ('disabled','enabled ')[self.stats['lpd-enabled']]))
+            options.append(('Protocol En_cryption', "%s" % self.stats['encryption']))
             # uTP support was added in Transmission v2.3
             if self.server.get_rpc_version() >= 13:
-                options.append(('_uTP', ('disabled','enabled')[self.stats['utp-enabled']]))
+                options.append(('_Micro Transport Protocol', ('disabled','enabled')[self.stats['utp-enabled']]))
+            options.append(('_Global Peer Limit', "%d" % self.stats['peer-limit-global']))
+            options.append(('Peer Limit per _Torrent', "%d" % self.stats['peer-limit-per-torrent']))
+            options.append(('_Seed Ratio Limit', "%s" % ('unlimited',self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']]))
+            options.append(('T_urtle Mode UL Limit', "%dK" % self.stats['alt-speed-up']))
+            options.append(('Tu_rtle Mode DL Limit', "%dK" % self.stats['alt-speed-down']))
+
 
             max_len = max([sum([len(re.sub('_', '', x)) for x in y[0]]) for y in options])
             win = self.window(len(options)+2, max_len+15, '', "Global Options")
@@ -2648,7 +2651,7 @@ class Interface:
             elif c == ord('l'):
                 self.server.set_option('lpd-enabled', (1,0)[self.stats['lpd-enabled']])
             # uTP support was added in Transmission v2.3
-            elif c == ord('u') and self.server.get_rpc_version() >= 13:
+            elif c == ord('m') and self.server.get_rpc_version() >= 13:
                 self.server.set_option('utp-enabled', (1,0)[self.stats['utp-enabled']])
             elif c == ord('g'):
                 limit = self.dialog_input_number("Maximum number of connected peers",
@@ -2676,6 +2679,16 @@ class Interface:
                                           map(lambda x: x[0]==self.stats['encryption'], enc_options).index(True)+1)
                 if choice != -128:
                     self.server.set_option('encryption', choice)
+            elif c == ord('u'):
+                limit = self.dialog_input_number('Upload limit for Turtle Mode in kilobytes per second',
+                                                 self.stats['alt-speed-up'],
+                                                 allow_negative_one=False)
+                self.server.set_option('alt-speed-up', limit)
+            elif c == ord('r'):
+                limit = self.dialog_input_number('Download limit for Turtle Mode in kilobytes per second',
+                                                 self.stats['alt-speed-down'],
+                                                 allow_negative_one=False)
+                self.server.set_option('alt-speed-down', limit)
 
             self.draw_torrent_list()
 

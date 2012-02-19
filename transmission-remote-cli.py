@@ -1345,7 +1345,7 @@ class Interface:
                     self.prev_details()
 
     def select_unselect_file(self, c):
-        if self.selected_torrent > -1 and self.details_category_focus == 1:
+        if self.selected_torrent > -1 and self.details_category_focus == 1 and self.focus_detaillist >= 0:
             # file selection with space
             if c == ord(' '):
                 try:

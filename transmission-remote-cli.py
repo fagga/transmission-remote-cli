@@ -793,6 +793,12 @@ class Interface:
             curses.KEY_NPAGE:       self.movement_keys,
             curses.KEY_HOME:        self.movement_keys,
             curses.KEY_END:         self.movement_keys,
+            ord('g'):               self.movement_keys,
+            ord('G'):               self.movement_keys,
+            curses.ascii.ctrl(ord('f')): self.movement_keys,
+            curses.ascii.ctrl(ord('b')): self.movement_keys,
+            curses.ascii.ctrl(ord('n')): self.movement_keys,
+            curses.ascii.ctrl(ord('p')): self.movement_keys,
             ord("\t"):              self.move_in_details,
             curses.KEY_BTAB:        self.move_in_details,
             ord('e'):               self.move_in_details,
@@ -800,7 +806,7 @@ class Interface:
             ord('C'):               self.toggle_compact_torrentlist,
             ord('h'):               self.file_pritority_or_switch_details,
             curses.KEY_LEFT:        self.file_pritority_or_switch_details,
-            ord(' '):               self.select_unselect_file,
+            ord(' '):               self.space_key,
             ord('a'):               self.a_key,
             ord('m'):               self.move_torrent,
             ord('n'):               self.reannounce_torrent,
@@ -981,6 +987,14 @@ class Interface:
             self.focus_detaillist       = -1
             self.scrollpos_detaillist   = 0
             self.selected_files         = []
+
+    def space_key(self, c):
+        # File list
+        if self.selected_torrent > -1 and self.details_category_focus == 1:
+            self.select_unselect_file(c)
+        # Torrent list
+        elif self.selected_torrent == -1:
+            self.select_torrent_detail_view(c)
 
     def a_key(self, c):
         # File list
@@ -1221,44 +1235,44 @@ class Interface:
 
     def movement_keys(self, c):
         if self.selected_torrent == -1 and len(self.torrents) > 0:
-            if   c == curses.KEY_UP or c == ord('k'):
+            if   c == curses.KEY_UP or c == ord('k') or c == curses.ascii.ctrl(ord('p')):
                 self.focus, self.scrollpos = self.move_up(self.focus, self.scrollpos, self.tlist_item_height)
-            elif c == curses.KEY_DOWN or c == ord('j'):
+            elif c == curses.KEY_DOWN or c == ord('j') or c == curses.ascii.ctrl(ord('n')):
                 self.focus, self.scrollpos = self.move_down(self.focus, self.scrollpos, self.tlist_item_height,
                                                             self.torrents_per_page, len(self.torrents))
-            elif c == curses.KEY_PPAGE:
+            elif c == curses.KEY_PPAGE or c == curses.ascii.ctrl(ord('b')):
                 self.focus, self.scrollpos = self.move_page_up(self.focus, self.scrollpos, self.tlist_item_height,
                                                                self.torrents_per_page)
-            elif c == curses.KEY_NPAGE:
+            elif c == curses.KEY_NPAGE or c == curses.ascii.ctrl(ord('f')):
                 self.focus, self.scrollpos = self.move_page_down(self.focus, self.scrollpos, self.tlist_item_height,
                                                                  self.torrents_per_page, len(self.torrents))
-            elif c == curses.KEY_HOME:
+            elif c == curses.KEY_HOME or c == ord('g'):
                 self.focus, self.scrollpos = self.move_to_top()
-            elif c == curses.KEY_END:
+            elif c == curses.KEY_END or c == ord('G'):
                 self.focus, self.scrollpos = self.move_to_end(self.tlist_item_height, self.torrents_per_page, len(self.torrents))
             self.focused_id = self.torrents[self.focus]['id']
         elif self.selected_torrent > -1:
             # file list
             if self.details_category_focus == 1:
                 # focus/movement
-                if c == curses.KEY_UP or c == ord('k'):
+                if c == curses.KEY_UP or c == ord('k') or c == curses.ascii.ctrl(ord('p')):
                     self.focus_detaillist, self.scrollpos_detaillist = \
                         self.move_up(self.focus_detaillist, self.scrollpos_detaillist, 1)
-                elif c == curses.KEY_DOWN or c == ord('j'):
+                elif c == curses.KEY_DOWN or c == ord('j') or c == curses.ascii.ctrl(ord('n')):
                     self.focus_detaillist, self.scrollpos_detaillist = \
                         self.move_down(self.focus_detaillist, self.scrollpos_detaillist, 1,
                                        self.detaillistitems_per_page, len(self.torrent_details['files']))
-                elif c == curses.KEY_PPAGE:
+                elif c == curses.KEY_PPAGE or c == curses.ascii.ctrl(ord('b')):
                     self.focus_detaillist, self.scrollpos_detaillist = \
                         self.move_page_up(self.focus_detaillist, self.scrollpos_detaillist, 1,
                                           self.detaillistitems_per_page)
-                elif c == curses.KEY_NPAGE:
+                elif c == curses.KEY_NPAGE or c == curses.ascii.ctrl(ord('f')):
                     self.focus_detaillist, self.scrollpos_detaillist = \
                         self.move_page_down(self.focus_detaillist, self.scrollpos_detaillist, 1,
                                             self.detaillistitems_per_page, len(self.torrent_details['files']))
-                elif c == curses.KEY_HOME:
+                elif c == curses.KEY_HOME or c == ord('g'):
                     self.focus_detaillist, self.scrollpos_detaillist = self.move_to_top()
-                elif c == curses.KEY_END:
+                elif c == curses.KEY_END or c == ord('G'):
                     self.focus_detaillist, self.scrollpos_detaillist = \
                         self.move_to_end(1, self.detaillistitems_per_page, len(self.torrent_details['files']))
             list_len = 0
@@ -1279,23 +1293,23 @@ class Interface:
                 list_len = int(piece_count / map_width) + 1
 
             if list_len:
-                if c == curses.KEY_UP or c == ord('k'):
+                if c == curses.KEY_UP or c == ord('k') or c == curses.ascii.ctrl(ord('p')):
                     if self.scrollpos_detaillist > 0:
                         self.scrollpos_detaillist -= 1
-                elif c == curses.KEY_DOWN or c == ord('j'):
+                elif c == curses.KEY_DOWN or c == ord('j') or c == curses.ascii.ctrl(ord('n')):
                     if self.scrollpos_detaillist < list_len - 1:
                         self.scrollpos_detaillist += 1
-                elif c == curses.KEY_PPAGE:
+                elif c == curses.KEY_PPAGE or c == curses.ascii.ctrl(ord('b')):
                     self.scrollpos_detaillist = \
                         max(self.scrollpos_detaillist - self.detaillistitems_per_page - 1, 0)
-                elif c == curses.KEY_NPAGE:
+                elif c == curses.KEY_NPAGE or c == curses.ascii.ctrl(ord('f')):
                     if self.scrollpos_detaillist + self.detaillistitems_per_page >= list_len:
                         self.scrollpos_detaillist = list_len - 1
                     else:
                         self.scrollpos_detaillist += self.detaillistitems_per_page
-                elif c == curses.KEY_HOME:
+                elif c == curses.KEY_HOME or c == ord('g'):
                     self.scrollpos_detaillist = 0
-                elif c == curses.KEY_END:
+                elif c == curses.KEY_END or c == ord('G'):
                     self.scrollpos_detaillist = list_len - 1
 
             # Disallow scrolling past the last item that would cause blank

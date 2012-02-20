@@ -365,13 +365,14 @@ class Transmission:
                 t['uploadRatio'] = round(float(t['uploadRatio']), 2)
                 t['percentDone'] = percent(float(t['sizeWhenDone']),
                                            float(t['haveValid'] + t['haveUnchecked']))
+                t['available'] = t['desiredAvailable'] + t['haveValid'] + t['haveUnchecked']
+                if t['downloadDir'][-1] != '/':
+                    t['downloadDir'] += '/'
                 try:
                     t['seeders']  = max(map(lambda x: x['seederCount'],  t['trackerStats']))
                     t['leechers'] = max(map(lambda x: x['leecherCount'], t['trackerStats']))
                 except ValueError:
                     t['seeders']  = t['leechers'] = -1
-
-                t['available'] = t['desiredAvailable'] + t['haveValid'] + t['haveUnchecked']
 
             if response['tag'] == self.TAG_TORRENT_LIST:
                 self.torrent_cache = response['arguments']['torrents']

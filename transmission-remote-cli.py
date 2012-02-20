@@ -108,11 +108,13 @@ config.set('Connection', 'host', 'localhost')
 config.set('Connection', 'path', '/transmission/rpc')
 config.set('Connection', 'ssl', 'False')
 config.add_section('Sorting')
-config.set('Sorting', 'order',   'name')
-config.set('Sorting', 'reverse', 'False')
+config.set('Sorting', 'order', 'name')
 config.add_section('Filtering')
 config.set('Filtering', 'filter', '')
 config.set('Filtering', 'invert', 'False')
+config.add_section('Misc')
+config.set('Misc', 'compact_list', 'False')
+config.set('Misc', 'torrentname_is_progressbar', 'True')
 config.add_section('Colors')
 config.set('Colors', 'title_seed',       'bg:green,fg:black')
 config.set('Colors', 'title_download',   'bg:blue,fg:black')
@@ -131,9 +133,6 @@ config.set('Colors', 'file_prio_high',   'bg:red,fg:black')
 config.set('Colors', 'file_prio_normal', 'bg:white,fg:black')
 config.set('Colors', 'file_prio_low',    'bg:yellow,fg:black')
 config.set('Colors', 'file_prio_off',    'bg:blue,fg:black')
-config.add_section('Misc')
-config.set('Misc', 'compact_list', 'False')
-config.set('Misc', 'torrentname_is_progressbar', 'True')
 
 
 class ColorManager:
@@ -364,8 +363,8 @@ class Transmission:
         if response['tag'] == self.TAG_TORRENT_LIST or response['tag'] == self.TAG_TORRENT_DETAILS:
             for t in response['arguments']['torrents']:
                 t['uploadRatio'] = round(float(t['uploadRatio']), 2)
-                t['percent_done'] = percent(float(t['sizeWhenDone']),
-                                            float(t['haveValid'] + t['haveUnchecked']))
+                t['percentDone'] = percent(float(t['sizeWhenDone']),
+                                           float(t['haveValid'] + t['haveUnchecked']))
                 try:
                     t['seeders']  = max(map(lambda x: x['seederCount'],  t['trackerStats']))
                     t['leechers'] = max(map(lambda x: x['leecherCount'], t['trackerStats']))
@@ -447,13 +446,15 @@ class Transmission:
     def get_global_stats(self):
         return self.status_cache
 
-    def get_torrent_list(self, sort_orders, reverse=False):
+    def get_torrent_list(self, sort_orders):
         try:
             for sort_order in sort_orders:
-                if isinstance(self.torrent_cache[0][sort_order], (str, unicode)):
-                    self.torrent_cache.sort(key=lambda x: x[sort_order].lower(), reverse=reverse)
+                if isinstance(self.torrent_cache[0][sort_order['name']], (str, unicode)):
+                    self.torrent_cache.sort(key=lambda x: x[sort_order['name']].lower(),
+                                            reverse=sort_order['reverse'])
                 else:
-                    self.torrent_cache.sort(key=lambda x: x[sort_order], reverse=reverse)
+                    self.torrent_cache.sort(key=lambda x: x[sort_order['name']],
+                                            reverse=sort_order['reverse'])
         except IndexError:
             return []
         return self.torrent_cache
@@ -731,11 +732,10 @@ class Interface:
 
         self.filter_list    = config.get('Filtering', 'filter')
         self.filter_inverse = config.getboolean('Filtering', 'invert')
-        self.sort_orders    = config.get('Sorting', 'order').split(',') #['name']
-        self.sort_reverse   = config.getboolean('Sorting', 'reverse')
+        self.sort_orders    = parse_sort_str(config.get('Sorting', 'order'))
         self.compact_list   = config.getboolean('Misc', 'compact_list')
 
-        self.torrents         = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
+        self.torrents         = self.server.get_torrent_list(self.sort_orders)
         self.stats            = self.server.get_global_stats()
         self.torrent_details  = []
         self.selected_torrent = -1  # changes to >-1 when focus >-1 & user hits return
@@ -812,6 +812,16 @@ class Interface:
             ord('n'):               self.reannounce_torrent,
             ord('/'):               self.dialog_search_torrentlist
         }
+
+        self.sort_options = [
+            ('name','_Name'), ('addedDate','_Age'), ('percentDone','_Progress'),
+            ('seeders','_Seeds'), ('leechers','Lee_ches'), ('sizeWhenDone', 'Si_ze'),
+            ('status','S_tatus'), ('uploadedEver','Up_loaded'),
+            ('rateUpload','_Upload Speed'), ('rateDownload','_Download Speed'),
+            ('uploadRatio','_Ratio'), ('peersConnected','P_eers'),
+            ('downloadDir', 'L_ocation'), ('reverse','Re_verse')
+        ]
+
 
         try:
             self.init_screen()
@@ -946,6 +956,11 @@ class Interface:
             self.screen.move(0,0)  # in case cursor can't be invisible
             self.handle_user_input()
             if self.exit_now:
+                sort_str = ','.join(map(lambda x: ('','reverse:')[x['reverse']] + x['name'], self.sort_orders))
+                config.set('Sorting', 'order',   sort_str)
+                config.set('Filtering', 'filter', self.filter_list)
+                config.set('Filtering', 'invert', str(self.filter_inverse))
+                config.set('Misc', 'compact_list', str(self.compact_list))
                 save_config(cmd_args.configfile)
                 return
 
@@ -975,10 +990,6 @@ class Interface:
 
     def go_back_or_quit(self, c):
         if self.selected_torrent == -1:
-            config.set('Sorting', 'order',   ','.join(self.sort_orders))
-            config.set('Sorting', 'reverse', str(self.sort_reverse))
-            config.set('Filtering', 'filter', self.filter_list)
-            config.set('Filtering', 'invert', str(self.filter_inverse))
             self.exit_now = True
         else: # return to list view
             self.server.set_torrent_details_id(-1)
@@ -1066,19 +1077,13 @@ class Interface:
 
     def show_sort_order_menu(self, c):
         if self.selected_torrent == -1:
-           options = [('name','_Name'), ('addedDate','_Age'), ('percent_done','_Progress'),
-                      ('seeders','_Seeds'), ('leechers','Lee_ches'), ('sizeWhenDone', 'Si_ze'),
-                      ('status','S_tatus'), ('uploadedEver','Up_loaded'),
-                      ('rateUpload','_Upload Speed'), ('rateDownload','_Download Speed'),
-                      ('uploadRatio','_Ratio'), ('peersConnected','P_eers'),
-                      ('downloadDir', 'L_ocation'), ('reverse','Re_verse')]
-           choice = self.dialog_menu('Sort order', options,
-                                     map(lambda x: x[0]==self.sort_orders[-1], options).index(True)+1)
+           choice = self.dialog_menu('Sort order', self.sort_options,
+                                     map(lambda x: x[0]==self.sort_orders[-1]['name'], self.sort_options).index(True)+1)
            if choice != -128:
                if choice == 'reverse':
-                   self.sort_reverse = not self.sort_reverse
+                   self.sort_orders[-1]['reverse'] = not self.sort_orders[-1]['reverse']
                else:
-                   self.sort_orders.append(choice)
+                   self.sort_orders.append({'name':choice, 'reverse':False})
                    while len(self.sort_orders) > 2:
                        self.sort_orders.pop(0)
 
@@ -1094,7 +1099,8 @@ class Interface:
                 if choice == 'invert':
                     self.filter_inverse = not self.filter_inverse
                 else:
-                    if choice == '': self.filter_inverse = False
+                    if choice == '':
+                        self.filter_inverse = False
                     self.filter_list = choice
 
     def global_upload(self, c):
@@ -1375,9 +1381,7 @@ class Interface:
         self.list_key_bindings()
 
     def toggle_compact_torrentlist(self, c):
-        config.set('Misc', 'compact_list',
-                   str(not config.getboolean('Misc', 'compact_list')))
-        self.compact_list = config.getboolean('Misc', 'compact_list')
+        self.compact_list = not self.compact_list
 
     def move_torrent(self, c):
         if self.focus > -1:
@@ -1414,7 +1418,7 @@ class Interface:
             self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_SEED \
                                  or t['status'] == Transmission.STATUS_SEED_WAIT]
         elif self.filter_list == 'incomplete':
-            self.torrents = [t for t in self.torrents if t['percent_done'] < 100]
+            self.torrents = [t for t in self.torrents if t['percentDone'] < 100]
         elif self.filter_list == 'active':
             self.torrents = [t for t in self.torrents if t['peersGettingFromUs'] > 0 \
                                  or t['peersSendingToUs'] > 0 \
@@ -1455,7 +1459,7 @@ class Interface:
         self.scrollpos = max(0, self.scrollpos)
 
     def draw_torrent_list(self, search_keyword=''):
-        self.torrents = self.server.get_torrent_list(self.sort_orders, self.sort_reverse)
+        self.torrents = self.server.get_torrent_list(self.sort_orders)
         self.filter_torrent_list()
 
         if search_keyword:
@@ -1498,7 +1502,7 @@ class Interface:
 
         if not compact:
             # the line below the title/progress
-            if torrent['percent_done'] < 100 and torrent['status'] == Transmission.STATUS_DOWNLOAD:
+            if torrent['percentDone'] < 100 and torrent['status'] == Transmission.STATUS_DOWNLOAD:
                 self.draw_eta(torrent, y)
 
             self.draw_ratio(torrent, y)
@@ -1535,14 +1539,14 @@ class Interface:
 
     def draw_torrentlist_title(self, torrent, focused, width, ypos):
         if torrent['status'] == Transmission.STATUS_CHECK:
-            percent_done = float(torrent['recheckProgress']) * 100
+            percentDone = float(torrent['recheckProgress']) * 100
         else:
-            percent_done = torrent['percent_done']
+            percentDone = torrent['percentDone']
 
-        bar_width = int(float(width) * (float(percent_done)/100))
+        bar_width = int(float(width) * (float(percentDone)/100))
 
         size = "%5s" % scale_bytes(torrent['sizeWhenDone'])
-        if torrent['percent_done'] < 100:
+        if torrent['percentDone'] < 100:
             if torrent['seeders'] <= 0 and torrent['status'] != Transmission.STATUS_CHECK:
                 size = "%5s / " % scale_bytes(torrent['available']) + size
             size = "%5s / " % scale_bytes(torrent['haveValid'] + torrent['haveUnchecked']) + size
@@ -1559,7 +1563,7 @@ class Interface:
             color = curses.color_pair(self.colors.get_id('title_verify'))
         elif torrent['rateDownload'] == 0:
             color = curses.color_pair(self.colors.get_id('title_idle'))
-        elif torrent['percent_done'] < 100:
+        elif torrent['percentDone'] < 100:
             color = curses.color_pair(self.colors.get_id('title_download'))
         else:
             color = 0
@@ -1596,7 +1600,7 @@ class Interface:
             if torrent['status'] == Transmission.STATUS_CHECK:
                 parts[0] += " (%d%%)" % int(float(torrent['recheckProgress']) * 100)
             elif torrent['status'] == Transmission.STATUS_DOWNLOAD:
-                parts[0] += " (%d%%)" % torrent['percent_done']
+                parts[0] += " (%d%%)" % torrent['percentDone']
             parts[0] = parts[0].ljust(20)
 
             # seeds and leeches will be appended right justified later
@@ -1702,7 +1706,7 @@ class Interface:
         info[-1].append("%s" % scale_bytes(t['haveValid'], 'long') + \
                         " (%d%%) verified;  " % int(percent(t['sizeWhenDone'], t['haveValid'])))
         info[-1].append("%s corrupt"  % scale_bytes(t['corruptEver'], 'long'))
-        if t['percent_done'] < 100:
+        if t['percentDone'] < 100:
             info[-1][-1] += ';  '
             if t['rateDownload']:
                 info[-1].append("receiving %s per second" % scale_bytes(t['rateDownload'], 'long'))
@@ -1779,7 +1783,7 @@ class Interface:
         self.pad.addstr(ypos+2, 1, '  Started: ' + timestamp(t['startDate']))
         self.pad.addstr(ypos+3, 1, ' Activity: ' + timestamp(t['activityDate']))
 
-        if t['percent_done'] < 100 and t['eta'] > 0:
+        if t['percentDone'] < 100 and t['eta'] > 0:
             self.pad.addstr(ypos+4, 1, 'Finishing: ' + timestamp(time.time() + t['eta']))
         elif t['doneDate'] <= 0:
             self.pad.addstr(ypos+4, 1, 'Finishing: sometime')
@@ -2200,6 +2204,19 @@ class Interface:
                 self.screen.addstr("%s%s" % (('','not ')[self.filter_inverse], self.filter_list),
                                    curses.color_pair(self.colors.get_id('filter_status'))
                                    + curses.A_REVERSE)
+            # show only last sort order
+            if self.sort_orders:
+                self.screen.addstr(" Sort by:", curses.A_REVERSE)
+                name = [name[1] for name in self.sort_options if name[0] == self.sort_orders[-1]['name']][0]
+                name = name.replace('_', '').lower()
+                if self.sort_orders[-1]['reverse']:
+                    self.screen.addch(curses.ACS_DARROW,
+                                      curses.color_pair(self.colors.get_id('filter_status')) + curses.A_REVERSE)
+                else:
+                    self.screen.addch(curses.ACS_UARROW,
+                                      curses.color_pair(self.colors.get_id('filter_status')) + curses.A_REVERSE)
+                self.screen.addstr(name,
+                                   curses.color_pair(self.colors.get_id('filter_status')) + curses.A_REVERSE)
 
     def draw_global_rates(self):
         rates_width = self.rateDownload_width + self.rateUpload_width + 3
@@ -3011,6 +3028,16 @@ def save_config(filepath, force=False):
             print >> sys.stderr, "Cannot write config file %s:\n%s" % (filepath, msg)
             return 0
     return -1
+
+def parse_sort_str(sort_str):
+    sort_orders = []
+    for i in sort_str.split(','):
+        x = i.split(':') 
+        if len(x) > 1:
+            sort_orders.append( { 'name':x[1], 'reverse':True } )
+        else:
+            sort_orders.append( { 'name':x[0], 'reverse':False } )
+    return sort_orders
 
 
 # command line parameters

@@ -1546,11 +1546,11 @@ class Interface:
 
         bar_width = int(float(width) * (float(percentDone)/100))
 
-        size = "%5s" % scale_bytes(torrent['sizeWhenDone'])
+        size = "%6s" % scale_bytes(torrent['sizeWhenDone'])
         if torrent['percentDone'] < 100:
             if torrent['seeders'] <= 0 and torrent['status'] != Transmission.STATUS_CHECK:
-                size = "%5s / " % scale_bytes(torrent['available']) + size
-            size = "%5s / " % scale_bytes(torrent['haveValid'] + torrent['haveUnchecked']) + size
+                size = "%6s / " % scale_bytes(torrent['available']) + size
+            size = "%6s / " % scale_bytes(torrent['haveValid'] + torrent['haveUnchecked']) + size
         size = '| ' + size
         title = ljust_columns(torrent['name'], width - len(size)) + size
 

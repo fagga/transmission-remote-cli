@@ -735,6 +735,7 @@ class Interface:
         self.filter_inverse = config.getboolean('Filtering', 'invert')
         self.sort_orders    = parse_sort_str(config.get('Sorting', 'order'))
         self.compact_list   = config.getboolean('Misc', 'compact_list')
+        self.torrentname_is_progressbar = config.getboolean('Misc', 'torrentname_is_progressbar')
 
         self.torrents         = self.server.get_torrent_list(self.sort_orders)
         self.stats            = self.server.get_global_stats()
@@ -962,6 +963,7 @@ class Interface:
                 config.set('Filtering', 'filter', self.filter_list)
                 config.set('Filtering', 'invert', str(self.filter_inverse))
                 config.set('Misc', 'compact_list', str(self.compact_list))
+                config.set('Misc', 'torrentname_is_progressbar', str(self.torrentname_is_progressbar))
                 save_config(cmd_args.configfile)
                 return
 
@@ -1575,7 +1577,7 @@ class Interface:
             tag += curses.A_BOLD
             tag_done += curses.A_BOLD
 
-        if config.getboolean('Misc', 'torrentname_is_progressbar'):
+        if self.torrentname_is_progressbar:
             # addstr() dies when you tell it to draw on the last column of the
             # terminal, so we have to catch this exception.
             try:
@@ -2646,7 +2648,7 @@ class Interface:
             options.append(('_Seed Ratio Limit', "%s" % ('unlimited',self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']]))
             options.append(('T_urtle Mode UL Limit', "%dK" % self.stats['alt-speed-up']))
             options.append(('Tu_rtle Mode DL Limit', "%dK" % self.stats['alt-speed-down']))
-
+            options.append(('Title is Progress _Bar', ('no','yes')[self.torrentname_is_progressbar]))
 
             max_len = max([sum([len(re.sub('_', '', x)) for x in y[0]]) for y in options])
             win = self.window(len(options)+2, max_len+15, '', "Global Options")
@@ -2721,6 +2723,8 @@ class Interface:
                                                  self.stats['alt-speed-down'],
                                                  allow_negative_one=False)
                 self.server.set_option('alt-speed-down', limit)
+            elif c == ord('b'):
+                self.torrentname_is_progressbar = not self.torrentname_is_progressbar
 
             self.draw_torrent_list()
 

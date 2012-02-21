@@ -2600,15 +2600,15 @@ class Interface:
                 return -128
             elif c == ord("\n"):
                 return options[focus-1][0]
-            elif c == curses.KEY_DOWN or c == ord('j'):
+            elif c == curses.KEY_DOWN or c == ord('j') or c == curses.ascii.ctrl(ord('n')):
                 focus += 1
                 if focus > len(options): focus = 1
-            elif c == curses.KEY_UP or c == ord('k'):
+            elif c == curses.KEY_UP or c == ord('k') or c == curses.ascii.ctrl(ord('p')):
                 focus -= 1
                 if focus < 1: focus = len(options)
-            elif c == curses.KEY_HOME:
+            elif c == curses.KEY_HOME or c == ord('g'):
                 focus = 1
-            elif c == curses.KEY_END:
+            elif c == curses.KEY_END or c == ord('G'):
                 focus = len(options)
 
     def dialog_list_menu_options(self, win, width, options, focus):

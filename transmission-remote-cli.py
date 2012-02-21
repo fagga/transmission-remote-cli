@@ -872,10 +872,8 @@ class Interface:
         signal.signal(signal.SIGWINCH, lambda y,frame: self.get_screen_size())
         self.get_screen_size()
 
-
     def restore_screen(self):
         curses.endwin()
-
 
     def get_screen_size(self):
         time.sleep(0.1) # prevents curses.error on rapid resizing
@@ -891,7 +889,6 @@ class Interface:
             else:
                 break
         self.manage_layout()
-
 
     def manage_layout(self):
         self.tlist_item_height = 3 if not self.compact_list else 1
@@ -2207,19 +2204,22 @@ class Interface:
                 self.screen.addstr("%s%s" % (('','not ')[self.filter_inverse], self.filter_list),
                                    curses.color_pair(self.colors.get_id('filter_status'))
                                    + curses.A_REVERSE)
-            # show only last sort order
-            if self.sort_orders:
+
+            # show last sort order (if terminal size permits it)
+            curpos_y, curpos_x = self.screen.getyx()
+            if self.sort_orders and self.width - curpos_x > 20:
                 self.screen.addstr(" Sort by:", curses.A_REVERSE)
                 name = [name[1] for name in self.sort_options if name[0] == self.sort_orders[-1]['name']][0]
                 name = name.replace('_', '').lower()
+                curses_tags = curses.color_pair(self.colors.get_id('filter_status')) + curses.A_REVERSE
                 if self.sort_orders[-1]['reverse']:
-                    self.screen.addch(curses.ACS_DARROW,
-                                      curses.color_pair(self.colors.get_id('filter_status')) + curses.A_REVERSE)
+                    self.screen.addch(curses.ACS_DARROW, curses_tags)
                 else:
-                    self.screen.addch(curses.ACS_UARROW,
-                                      curses.color_pair(self.colors.get_id('filter_status')) + curses.A_REVERSE)
-                self.screen.addstr(name,
-                                   curses.color_pair(self.colors.get_id('filter_status')) + curses.A_REVERSE)
+                    self.screen.addch(curses.ACS_UARROW, curses_tags)
+                try:  # 'name' may be too long
+                    self.screen.addstr(name, curses_tags)
+                except curses.error:
+                    pass
 
     def draw_global_rates(self):
         rates_width = self.rateDownload_width + self.rateUpload_width + 3

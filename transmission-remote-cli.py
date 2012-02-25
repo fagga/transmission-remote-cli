@@ -1149,7 +1149,7 @@ class Interface:
                 limit = 0
             if limit == -2: # -2 means 'empty' in dialog_input_number return codes
                 limit = -1
-            self.server.set_seed_ratio(int(limit), self.torrents[self.focus]['id'])
+            self.server.set_seed_ratio(float(limit), self.torrents[self.focus]['id'])
 
     def bandwidth_priority(self, c):
         if c == ord('-') and self.focus > -1:

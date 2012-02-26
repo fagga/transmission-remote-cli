@@ -2579,7 +2579,7 @@ class Interface:
                         number = 1
                     elif not allow_negative_one and number < 0:
                         number = 0
-                    elif number < -1:
+                    elif number < 0:  # input like -0.6 isn't useful
                         number = -1
                     input = str(number)
                 except ValueError:

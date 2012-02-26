@@ -2563,7 +2563,7 @@ class Interface:
                 input += chr(c)
             elif allow_negative_one and c == ord('-') and len(input) == 0:
                 input += chr(c)
-            elif floating_point and c == ord('.'):
+            elif floating_point and c == ord('.') and not '.' in input:
                 input += chr(c)
 
             elif cursorkeys and c != -1:

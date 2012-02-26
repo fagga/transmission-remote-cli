@@ -183,6 +183,7 @@ class TransmissionRequest:
             if session_id:
                 self.http_request.add_header('X-Transmission-Session-Id', session_id)
             self.open_request = urllib2.urlopen(self.http_request)
+            debug(self.http_request.get_data() + "\n\n")
         except AttributeError:
             # request data (http_request) isn't specified yet -- data will be available on next call
             pass
@@ -220,6 +221,7 @@ class TransmissionRequest:
             authhandler.retried = 0
         try:
             data = json.loads(unicode(response))
+            debug(data)
         except ValueError:
             quit("Cannot parse response: %s\n" % response, JSON_ERROR)
         self.open_request = None

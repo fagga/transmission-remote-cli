@@ -1512,6 +1512,10 @@ class Interface:
 
             return 3 # number of lines that were used for drawing the list item
         else:
+            # Draw ratio in place of upload rate if upload rate = 0
+            if not torrent['rateUpload']:
+                self.draw_ratio(torrent, y - 1)
+
             return 1
 
     def draw_downloadrate(self, torrent, ypos):

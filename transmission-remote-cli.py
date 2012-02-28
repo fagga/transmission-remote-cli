@@ -1600,7 +1600,7 @@ class Interface:
         if torrent['errorString'] and \
                 not torrent['seeders'] and not torrent['leechers'] and \
                 not torrent['status'] == Transmission.STATUS_STOPPED:
-            parts[0] = torrent['errorString']
+            parts[0] = torrent['errorString'].encode('utf-8')
 
         else:
             if torrent['status'] == Transmission.STATUS_CHECK:

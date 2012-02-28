@@ -929,7 +929,7 @@ class Interface:
 
     def get_rateUpload_width(self, torrents):
         new_width = max(map(lambda x: len(scale_bytes(x['rateUpload'])), torrents))
-        new_width = max(max(map(lambda x: len(num2str(x['uploadRatio'])), torrents)), new_width)
+        new_width = max(max(map(lambda x: len(num2str(x['uploadRatio'], '%.02f')), torrents)), new_width)
         new_width = max(len(scale_bytes(self.stats['uploadSpeed'])), new_width)
         new_width = max(self.rateUpload_width, new_width) # don't shrink
         return new_width
@@ -1534,7 +1534,7 @@ class Interface:
         self.pad.addch(ypos+1, self.width-self.rateUpload_width-1, curses.ACS_DIAMOND,
                        (0,curses.A_BOLD)[torrent['uploadRatio'] < 1 and torrent['uploadRatio'] >= 0])
         self.pad.addstr(ypos+1, self.width-self.rateUpload_width,
-                        num2str(torrent['uploadRatio']).rjust(self.rateUpload_width),
+                        num2str(torrent['uploadRatio'], '%.02f').rjust(self.rateUpload_width),
                         curses.color_pair(self.colors.get_id('eta+ratio')) + curses.A_BOLD + curses.A_REVERSE)
     def draw_eta(self, torrent, ypos):
         self.pad.addch(ypos+1, self.width-self.rateDownload_width-self.rateUpload_width-3, curses.ACS_PLMINUS)
@@ -2910,7 +2910,7 @@ def len_columns(text):
     return columns
 
 
-def num2str(num):
+def num2str(num, format='%s'):
     if int(num) == -1:
         return '?'
     elif int(num) == -2:
@@ -2919,7 +2919,7 @@ def num2str(num):
         if num > 999:
             return (re.sub(r'(\d{3})', '\g<1>,', str(num)[::-1])[::-1]).lstrip(',')
         else:
-            return str(num)
+            return format % num
 
 
 def debug(data):

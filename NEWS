@@ -1,0 +1,19 @@
+1.1  2012-02-23
+    BUGFIXES:
+        - Crash when pressing up or down in empty torrent list
+        - Append missing '/' to downloadDir to fix sorting by location
+        - Set individual torrent's seed limit as float, not integer
+        - Encode tracker errors as UTF-8
+
+    - New keybindings:
+        - g/G   Move to top/bottom
+        - C-f/b Move one page forward/backward
+        - C-n/p Move to next/previous item
+        - Space View torrent details
+    - New options in config dialog ('o'):
+        - Turtle Mode Upload/Download Limit
+        - Torrent Title is Progress Bar
+    - Replace upload rate with seed ratio in compact mode.
+    - Show sort order in status line
+    - Use ACS characters in pieces view
+    - More compact status line

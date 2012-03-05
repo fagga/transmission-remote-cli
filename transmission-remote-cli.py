@@ -2035,7 +2035,7 @@ class Interface:
             else:
                 addstr(ypos,   2, t['announce'], curses.A_UNDERLINE)
                 addstr(ypos+2, 9, "Response:")
-                announce_msg_size = self.wrap_and_draw_result(top, ypos+2, 19, t['lastAnnounceResult'])
+                announce_msg_size = self.wrap_and_draw_result(top, ypos+2, 19, t['lastAnnounceResult'].encode('utf-8'))
 
             if t['lastScrapeSucceeded']:
                 seeds   = "%s seed%s" % (num2str(t['seederCount']), ('s', '')[t['seederCount']==1])

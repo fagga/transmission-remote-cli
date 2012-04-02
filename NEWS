@@ -1,3 +1,10 @@
+1.1.1  2012-04-02
+    BUGFIXES:
+        - ACS characters in pieces view look better but are extremely slow in
+          some terminals (rxvt)
+        - Fix UnicodeEncodeError with t['lastAnnounceResult']
+
+
 1.1  2012-02-29
     BUGFIXES:
         - Crash when pressing up or down in empty torrent list

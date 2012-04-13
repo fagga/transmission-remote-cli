@@ -253,11 +253,11 @@ class Transmission:
                     'peersConnected', 'uploadLimit', 'downloadLimit',
                     'uploadLimited', 'downloadLimited', 'bandwidthPriority',
                     'peersSendingToUs', 'peersGettingFromUs',
-                    'seedRatioLimit', 'seedRatioMode' ]
+                    'seedRatioLimit', 'seedRatioMode', 'isPrivate' ]
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
-                      'totalSize', 'leftUntilDone', 'comment', 'isPrivate',
+                      'totalSize', 'leftUntilDone', 'comment',
                       'hashString', 'pieceCount', 'pieceSize', 'pieces',
                       'downloadedEver', 'corruptEver', 'peersFrom' ] + LIST_FIELDS
 
@@ -1091,7 +1091,7 @@ class Interface:
         if self.selected_torrent == -1:
             options = [('uploading','_Uploading'), ('downloading','_Downloading'),
                        ('active','Ac_tive'), ('paused','_Paused'), ('seeding','_Seeding'),
-                       ('incomplete','In_complete'), ('verifying','Verif_ying'),
+                       ('incomplete','In_complete'), ('verifying','Verif_ying'), ('private','P_rivate'),
                        ('invert','In_vert'), ('','_All')]
             choice = self.dialog_menu(('Show only','Filter all')[self.filter_inverse], options,
                                       map(lambda x: x[0]==self.filter_list, options).index(True)+1)
@@ -1419,6 +1419,8 @@ class Interface:
                                  or t['status'] == Transmission.STATUS_SEED_WAIT]
         elif self.filter_list == 'incomplete':
             self.torrents = [t for t in self.torrents if t['percentDone'] < 100]
+        elif self.filter_list == 'private':
+            self.torrents = [t for t in self.torrents if t['isPrivate']]
         elif self.filter_list == 'active':
             self.torrents = [t for t in self.torrents if t['peersGettingFromUs'] > 0 \
                                  or t['peersSendingToUs'] > 0 \

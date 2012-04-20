@@ -1198,6 +1198,10 @@ class Interface:
                     self.details_category_focus = 0
                 server.remove_torrent(self.torrents[self.focus]['id'])
 
+                # Focus the the next available torrent
+                new_focus = min(self.focus + 1, len(self.torrents) - 1)
+                self.focused_id = self.torrents[new_focus]['id']
+
     def remove_torrent_local_data(self, c):
         if self.focus > -1:
             name = self.torrents[self.focus]['name'][0:self.width - 15]
@@ -1207,6 +1211,10 @@ class Interface:
                     self.selected_torrent = -1
                     self.details_category_focus = 0
                 server.remove_torrent_local_data(self.torrents[self.focus]['id'])
+
+                # Focus the the next available torrent
+                new_focus = min(self.focus + 1, len(self.torrents) - 1)
+                self.focused_id = self.torrents[new_focus]['id']
 
     def add_tracker(self):
         if server.get_rpc_version() < 10:

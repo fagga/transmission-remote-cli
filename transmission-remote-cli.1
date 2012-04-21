@@ -56,7 +56,7 @@ No configuration file is created automatically, you have to do this somehow. How
 .Ed
 If you don't like the default configuration file path ~/.config/transmission-remote-cli/settings.cfg, change it:
 .Bd -literal -offset indent
-$ transmission-remote-cli.py -f ~/.trclirc --create-config
+$ transmission-remote-cli.py \-f ~/.trclirc \-\-create-config
 
 .Ed
 Calling transmission-remote
@@ -67,9 +67,9 @@ transmission-remote-cli forwards all arguments after '--' to transmission-remote
 .Ed
 Some examples:
 .Bd -literal -offset indent
-$ transmission-remote-cli.py -- -l
-$ transmission-remote-cli.py -- -t 2 -i
-$ transmission-remote-cli.py -- -as
+$ transmission-remote-cli.py \-\- \-l
+$ transmission-remote-cli.py \-\- \-t 2 \-i
+$ transmission-remote-cli.py \-\- \-as
 
 .Ed
 Add torrents

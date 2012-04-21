@@ -183,7 +183,6 @@ class TransmissionRequest:
             if session_id:
                 self.http_request.add_header('X-Transmission-Session-Id', session_id)
             self.open_request = urllib2.urlopen(self.http_request)
-            debug(self.http_request.get_data() + "\n\n")
         except AttributeError:
             # request data (http_request) isn't specified yet -- data will be available on next call
             pass
@@ -221,7 +220,6 @@ class TransmissionRequest:
             authhandler.retried = 0
         try:
             data = json.loads(unicode(response))
-            debug(data)
         except ValueError:
             quit("Cannot parse response: %s\n" % response, JSON_ERROR)
         self.open_request = None
@@ -1197,10 +1195,7 @@ class Interface:
                     self.selected_torrent = -1
                     self.details_category_focus = 0
                 server.remove_torrent(self.torrents[self.focus]['id'])
-
-                # Focus the the next available torrent
-                new_focus = min(self.focus + 1, len(self.torrents) - 1)
-                self.focused_id = self.torrents[new_focus]['id']
+                self.focus_next_after_delete()
 
     def remove_torrent_local_data(self, c):
         if self.focus > -1:
@@ -1211,10 +1206,12 @@ class Interface:
                     self.selected_torrent = -1
                     self.details_category_focus = 0
                 server.remove_torrent_local_data(self.torrents[self.focus]['id'])
+                self.focus_next_after_delete()
 
-                # Focus the the next available torrent
-                new_focus = min(self.focus + 1, len(self.torrents) - 1)
-                self.focused_id = self.torrents[new_focus]['id']
+    def focus_next_after_delete(self):
+        """ Focus next torrent after user deletes torrent """
+        new_focus = min(self.focus + 1, len(self.torrents) - 2)
+        self.focused_id = self.torrents[new_focus]['id']
 
     def add_tracker(self):
         if server.get_rpc_version() < 10:

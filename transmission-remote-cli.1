@@ -1,104 +1,69 @@
-.Dd Oct 25, 2011
-.Dt TRANSMISSION-REMOTE-CLI 1
-.Os
-.Sh NAME
-.Nm transmission-remote-cli
-.Nd a console client for the Transmission BitTorrent client
-.Sh SYNOPSIS
-.Nm
-.Op OPTION
-.Op Ar filename-or-URL
-.Sh DESCRIPTION
-.Nm
-is a console client for the Transmission BitTorrent client
-.Sh OPTIONS
-.Bl -tag -with Ds
-.It Fl -version
+.\"Created with GNOME Manpages Editor Wizard
+.\"http://sourceforge.net/projects/gmanedit2
+.TH transmission-remote-cli 1 "April 22, 2012" "" "transmission-remote-cli"
+
+.SH NAME
+transmission-remote-cli \- a console client for the Transmission BitTorrent
+client
+
+.SH SYNOPSIS
+.B transmission-remote-cli
+.RI [ options ]
+.RI [ filename-or-URL ] 
+.br
+
+.SH DESCRIPTION
+.B transmission-remote-cli
+is a curses interface for the daemon of the BitTorrent client Transmission.
+
+.SH OPTIONS
+.B
+.IP "--version"
 Show version number and exit
-.It Fl h Fl -help
-Show this help message and exit
-.It Fl "c \fICONNECTION\fR" Fl -connect=\fICONNECTION\fR
-Point to the server using pattern: [username:password@]host[:port]/[path]
-.It Fl s Fl -ssl
-Connect to Transmission via SSL
-.It Fl "f \fICONFIGFILE\fR" Fl -config=\fICONFIGFILE\fR
-Path to configuration file
-.It Fl -create-config
-Create configuration file \fICONFIGFILE\fR
-.It Fl n Fl -netrc
-Get authentication info from your ~/.netrc file
-.It Fl -
-Forward options after '--' and auth info to transmission-remote
-.Sh FILES
-Settings can be saved in ~/.config/transmission-remote-cli/settings.cfg, authentication settings in ~/.netrc
-.Sh EXAMPLES
-Connection information
+.B
+.IP "-h --help"
+Show usage information and a list of options
+.B
+.IP "-c \fICONNECTION\fB --connect=\fICONNECTION\fR"
+Point to the server. \fICONNECTION\fR must match the following pattern:
+.br
+[username:password@]host[:port][path]
+.br
+Default: localhost:9091
+.B
+.IP "-s --ssl"
+Use SSL to connect to the server.
+.br
+Default: don't use SSL
+.B
+.IP "--create-config"
+Create configuration file with default values.
+.br
+\fINOTE:\fR A config file won't be created unless you provide this option at
+least once. After that, it is rewritten whenever transmission-remote-cli
+exits.
+.IP "-f \fICONFIGFILE\fB --config=\fICONFIGFILE\fR"
+Set path to configuration file.
+.br
+Default: ~/.config/transmission-remote-cli/settings.cfg
+.B
+.IP "-n --netrc"
+Get authentication info from ~/.netrc.
+.B
+.IP "-- \fIOPTIONS\fR"
+Use the known server connection to pass \fIOPTIONS\fR on to
+\fBtransmission-remote\fR.
+.B
 
-.Ed
-Authentication and host/port can be set via command line with one of these patterns:
-.Bd -literal -offset indent
-$ transmission-remote-cli \-c homeserver
-$ transmission-remote-cli \-c homeserver:1234
-$ transmission-remote-cli \-c johndoe:secretbirthday@homeserver
-$ transmission-remote-cli \-c johndoe:secretbirthday@homeserver:1234
+.SH FILES
+transmission-remote-cli overwrites the configuration file on exit. Keep that
+in mind if you edit it manually.
 
-.Ed
-Configuration file
-
-.Ed
-You can write this (and other settings) to a configuration file:
-.Bd -literal -offset indent
-$ transmission-remote-cli.py \-c johndoe:secretbirthday@homeserver:1234 \-\-create-config
-
-.Ed
-No configuration file is created automatically, you have to do this somehow. However, if the file exists, it is re-written when trcli exits to remember some settings. This means you shouldn't have trcli running when editing your configuration file.
-
-.Ed
-If you don't like the default configuration file path ~/.config/transmission-remote-cli/settings.cfg, change it:
-.Bd -literal -offset indent
-$ transmission-remote-cli.py \-f ~/.trclirc \-\-create-config
-
-.Ed
-Calling transmission-remote
-
-.Ed
-transmission-remote-cli forwards all arguments after '--' to transmission-remote. This is useful if your daemon requires authentication and/or doesn't listen on the default localhost:9091 for instructions. transmission-remote-cli reads HOST:PORT and authentication from the config file and forwards them on to transmission-remote, along with your arguments.
-
-.Ed
-Some examples:
-.Bd -literal -offset indent
-$ transmission-remote-cli.py \-\- \-l
-$ transmission-remote-cli.py \-\- \-t 2 \-i
-$ transmission-remote-cli.py \-\- \-as
-
-.Ed
-Add torrents
-
-.Pp
-If you provide only one command line argument and it doesn't start with '-', it's treated like a torrent file/URL and submitted to the daemon via transmission-remote.
-This is useful because you can instruct Firefox to open torrent files with transmission-remote-cli.py.
-.Bd -literal -offset indent
-$ transmission-remote-cli.py http://link/to/file.torrent
-$ transmission-remote-cli.py path/to/some/torrent-file
-.El
-.Sh AUTHOR
-.An -nosplit
-.An Benjamin (fagga),
-.An contributors .
-.Sh SEE ALSO
-.Xr transmission-create 1 ,
-.Xr transmission-daemon 1 ,
-.Xr transmission-edit 1 ,
-.Xr transmission-gtk 1 ,
-.Xr transmission-qt 1 ,
-.Xr transmission-remote 1 ,
-.Xr transmission-show 1
-.Sh COPYRIGHT
-Copyright (C) 2011 Ben Thompson.
-
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.3
-or any later version published by the Free Software Foundation;
-with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
-A copy of the license is included in the section entitled "GNU
-Free Documentation License" <\fBhttp://www.gnu.org/copyleft/fdl.html\fR>.
+.SH SEE ALSO
+.BR transmission-create (1),
+.BR transmission-daemon (1),
+.BR transmission-edit (1),
+.BR transmission-gtk (1),
+.BR transmission-qt (1),
+.BR transmission-remote (1),
+.BR transmission-show (1).

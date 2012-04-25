@@ -1,3 +1,12 @@
+1.2  2012-04-25
+    BUGFIXES:
+        - Rewrite of manpage to eliminate warnings and conform to the man
+          macro package
+
+    - Allow filtering of private torrents in main list
+    - Don't reset focus/unfocus after deleting a torrent
+
+
 1.1.1  2012-04-02
     BUGFIXES:
         - ACS characters in pieces view look better but are extremely slow in

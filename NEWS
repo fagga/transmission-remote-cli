@@ -1,3 +1,9 @@
+1.2.1  2012-04-29
+    BUGFIXES:
+        - Fix crash when enabling compact mode while focusing torrent at
+          bottom
+
+
 1.2  2012-04-25
     BUGFIXES:
         - Rewrite of manpage to eliminate warnings and conform to the man

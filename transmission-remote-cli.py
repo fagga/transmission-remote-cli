@@ -889,11 +889,9 @@ class Interface:
         self.manage_layout()
 
     def manage_layout(self):
-        self.tlist_item_height = 3 if not self.compact_list else 1
+        self.recalculate_torrents_per_page()
         self.pad_height = max((len(self.torrents)+1) * self.tlist_item_height, self.height)
         self.pad = curses.newpad(self.pad_height, self.width)
-        self.mainview_height = self.height - 2
-        self.torrents_per_page = self.mainview_height / self.tlist_item_height
         self.detaillistitems_per_page = self.height - 8
 
         if self.selected_torrent > -1:
@@ -930,6 +928,10 @@ class Interface:
         new_width = max(self.rateUpload_width, new_width) # don't shrink
         return new_width
 
+    def recalculate_torrents_per_page(self):
+        self.tlist_item_height = 3 if not self.compact_list else 1
+        self.mainview_height = self.height - 2
+        self.torrents_per_page = self.mainview_height / self.tlist_item_height
 
     def run(self):
         self.draw_title_bar()
@@ -1387,6 +1389,8 @@ class Interface:
 
     def toggle_compact_torrentlist(self, c):
         self.compact_list = not self.compact_list
+        self.recalculate_torrents_per_page()
+        self.follow_list_focus()
 
     def move_torrent(self, c):
         if self.focus > -1:

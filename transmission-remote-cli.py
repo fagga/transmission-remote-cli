@@ -2732,12 +2732,14 @@ class Interface:
                 limit = self.dialog_input_number('Upload limit for Turtle Mode in kilobytes per second',
                                                  self.stats['alt-speed-up'],
                                                  allow_negative_one=False)
-                server.set_option('alt-speed-up', limit)
+                if limit != -128:
+                    server.set_option('alt-speed-up', limit)
             elif c == ord('r'):
                 limit = self.dialog_input_number('Download limit for Turtle Mode in kilobytes per second',
                                                  self.stats['alt-speed-down'],
                                                  allow_negative_one=False)
-                server.set_option('alt-speed-down', limit)
+                if limit != -128:
+                    server.set_option('alt-speed-down', limit)
             elif c == ord('b'):
                 self.torrentname_is_progressbar = not self.torrentname_is_progressbar
 

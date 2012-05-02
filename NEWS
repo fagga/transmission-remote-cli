@@ -1,3 +1,8 @@
+1.2.2  2012-05-02
+    BUGFIXES:
+        - Handle escape key correctly in Turtle Mode speed limit dialogs
+
+
 1.2.1  2012-04-29
     BUGFIXES:
         - Fix crash when enabling compact mode while focusing torrent at

@@ -148,13 +148,32 @@ class ColorManager:
         bg_name = pair.split(',')[1].split(':')[1].upper()
         fg_name = pair.split(',')[0].split(':')[1].upper()
         return { 'id': len(self.config.keys()) + 1,
-                 'bg':eval('curses.COLOR_' + bg_name),
-                 'fg':eval('curses.COLOR_' + fg_name) }
+                 'bg': eval('curses.COLOR_' + bg_name),
+                 'fg': eval('curses.COLOR_' + fg_name) }
 
     def get_id(self, name): return self.config[name]['id']
     def get_bg(self, name): return self.config[name]['bg']
     def get_fg(self, name): return self.config[name]['fg']
     def get_names(self): return self.config.keys()
+
+
+class Normalizer:
+    def __init__(self):
+        self.values = {}
+
+    def add(self, id, value, max):
+        if not id in self.values.keys():
+            self.values[id] = [ float(value) ]
+        else:
+            if len(self.values[id]) >= max:
+                self.values[id].pop(0)
+            self.values[id].append(float(value))
+        return self.get(id)
+
+    def get(self, id):
+        if not id in self.values.keys():
+            return 0.0
+        return sum(self.values[id]) / len(self.values[id])
 
 
 
@@ -1734,14 +1753,28 @@ class Interface:
             copies_distributed = (float(t['uploadedEver']) / float(t['sizeWhenDone']))
         except ZeroDivisionError:
             copies_distributed = 0
-        info.append(['Upload: ', "%s " % scale_bytes(t['uploadedEver'], 'long') + \
-                         "(%.2f copies) distributed;  " % copies_distributed])
+        info.append(['Upload: ', "%s (%d%%) transmitted; " %
+                     (scale_bytes(t['uploadedEver'], 'long'), t['uploadRatio']*100)])
         if t['rateUpload']:
             info[-1].append("sending %s per second" % scale_bytes(t['rateUpload'], 'long'))
             if t['uploadLimited']:
                 info[-1][-1] += " (throttled to %s)" % scale_bytes(t['uploadLimit']*1024, 'long')
         else:
             info[-1].append("no transmission in progress")
+
+        info.append(['Ratio: ', '%.2f copies distributed' % copies_distributed])
+        norm_upload_rate = norm.add('%s:rateUpload' % t['id'], t['rateUpload'], 15)
+        if norm_upload_rate > 0:
+            target_ratio = self.get_target_ratio()
+            bytes_left   = (max(t['downloadedEver'],t['sizeWhenDone']) * target_ratio) - t['uploadedEver']
+            time_left    = bytes_left / norm_upload_rate
+            info[-1][-1] += ';  '
+            if time_left < 86400:   # 1 day
+                info[-1].append('approaching %.2f at %s' % \
+                                    (target_ratio, timestamp(time.time() + time_left, "%R")))
+            else:
+                info[-1].append('approaching %.2f on %s' % \
+                                    (target_ratio, timestamp(time.time() + time_left, "%x")))
 
         info.append(['Seed limit: '])
         if t['seedRatioMode'] == 0:
@@ -1789,6 +1822,22 @@ class Interface:
 
         self.draw_details_eventdates(ypos+1)
         return ypos+1
+
+    def get_target_ratio(self):
+        t = self.torrent_details
+        if t['seedRatioMode'] == 1:
+            return t['seedRatioLimit']              # individual limit
+        elif t['seedRatioMode'] == 0 and self.stats['seedRatioLimited']:
+            return self.stats['seedRatioLimit']     # global limit
+        else:
+            # round up to next 10/5/1
+            if t['uploadRatio'] >= 100:
+                step_size = 10.0
+            elif t['uploadRatio'] >= 10:
+                step_size = 5.0
+            else:
+                step_size = 1.0
+            return int(round((t['uploadRatio'] + step_size/2) / step_size) * step_size)
 
     def draw_details_eventdates(self, ypos):
         t = self.torrent_details
@@ -2810,12 +2859,11 @@ def scale_time(seconds, type='short'):
             return "%dy" % years
 
 
-def timestamp(timestamp):
+def timestamp(timestamp, format="%x %X"):
     if timestamp < 1:
         return 'never'
 
-    date_format = "%x %X"
-    absolute = time.strftime(date_format, time.localtime(timestamp))
+    absolute = time.strftime(format, time.localtime(timestamp))
     if timestamp > time.time():
         relative = 'in ' + scale_time(int(timestamp - time.time()), 'long')
     else:
@@ -3127,6 +3175,7 @@ if transmissionremote_args:
     quit('', retcode)
 
 
+norm = Normalizer()
 server = Transmission(config.get('Connection', 'host'),
                       config.getint('Connection', 'port'),
                       config.get('Connection', 'path'),

@@ -3110,76 +3110,77 @@ def parse_sort_str(sort_str):
     return sort_orders
 
 
-# command line parameters
-default_config_path = os.environ['HOME'] + '/.config/transmission-remote-cli/settings.cfg'
-parser = OptionParser(usage="%prog [options] [-- transmission-remote options]",
-                      version="%%prog %s" % VERSION,
-                      description="%%prog %s" % VERSION)
-parser.add_option("-c", "--connect", action="store", dest="connection", default="",
-                  help="Point to the server using pattern [username:password@]host[:port]/[path]")
-parser.add_option("-s", "--ssl", action="store_true", dest="ssl", default=False,
-                  help="Connect to transmission using SSL.")
-parser.add_option("-f", "--config", action="store", dest="configfile", default=default_config_path,
-                  help="Path to configuration file.")
-parser.add_option("--create-config", action="callback", callback=create_config,
-                  help="Create configuration file CONFIGFILE with default values.")
-parser.add_option("-n", "--netrc", action="store_true", dest="use_netrc", default=False,
-                  help="Get authentication info from your ~/.netrc file.")
-parser.add_option("--debug", action="store_true", dest="DEBUG", default=False,
-                  help="Everything passed to the debug() function will be added to the file debug.log.")
-(cmd_args, transmissionremote_args) = parser.parse_args()
+if __name__ == '__main__':
+    # command line parameters
+    default_config_path = os.environ['HOME'] + '/.config/transmission-remote-cli/settings.cfg'
+    parser = OptionParser(usage="%prog [options] [-- transmission-remote options]",
+                          version="%%prog %s" % VERSION,
+                          description="%%prog %s" % VERSION)
+    parser.add_option("-c", "--connect", action="store", dest="connection", default="",
+                      help="Point to the server using pattern [username:password@]host[:port]/[path]")
+    parser.add_option("-s", "--ssl", action="store_true", dest="ssl", default=False,
+                      help="Connect to transmission using SSL.")
+    parser.add_option("-f", "--config", action="store", dest="configfile", default=default_config_path,
+                      help="Path to configuration file.")
+    parser.add_option("--create-config", action="callback", callback=create_config,
+                      help="Create configuration file CONFIGFILE with default values.")
+    parser.add_option("-n", "--netrc", action="store_true", dest="use_netrc", default=False,
+                      help="Get authentication info from your ~/.netrc file.")
+    parser.add_option("--debug", action="store_true", dest="DEBUG", default=False,
+                      help="Everything passed to the debug() function will be added to the file debug.log.")
+    (cmd_args, transmissionremote_args) = parser.parse_args()
 
 
-# read config from config file
-config.read(cmd_args.configfile)
+    # read config from config file
+    config.read(cmd_args.configfile)
 
-# command line connection data can override config file
-if cmd_args.connection:
-    host, port, path, username, password = explode_connection_string(cmd_args.connection)
-    config.set('Connection', 'host', host)
-    config.set('Connection', 'port', str(port))
-    config.set('Connection', 'path', path)
-    config.set('Connection', 'username', username)
-    config.set('Connection', 'password', password)
-if cmd_args.use_netrc:
-    username, password = read_netrc(hostname=config.get('Connection','host'))
-    config.set('Connection', 'username', username)
-    config.set('Connection', 'password', password)
-if cmd_args.ssl:
-    config.set('Connection', 'ssl', 'True')
-
-
-
-# forward arguments after '--' to transmission-remote
-if transmissionremote_args:
-    cmd = ['transmission-remote', '%s:%s' %
-           (config.get('Connection', 'host'), config.get('Connection', 'port'))]
-
-    # one argument and it doesn't start with '-' --> treat it like it's a torrent link/url
-    if len(transmissionremote_args) == 1 and not transmissionremote_args[0].startswith('-'):
-        cmd.extend(['-a', transmissionremote_args[0]])
-
-    if config.get('Connection', 'username') and config.get('Connection', 'password'):
-        cmd_print = cmd
-        cmd_print.extend(['--auth', '%s:PASSWORD' % config.get('Connection', 'username')])
-        print "EXECUTING:\n%s\nRESPONSE:" % ' '.join(cmd_print)
-        cmd.extend(['--auth', '%s:%s' % (config.get('Connection', 'username'), config.get('Connection', 'password'))])
-        cmd.extend(transmissionremote_args)
-    else:
-        print "EXECUTING:\n%s\nRESPONSE:" % ' '.join(cmd)
-
-    try:
-        retcode = call(cmd)
-    except OSError, msg:
-        quit("Could not execute the above command: %s\n" % msg, 128)
-    quit('', retcode)
+    # command line connection data can override config file
+    if cmd_args.connection:
+        host, port, path, username, password = explode_connection_string(cmd_args.connection)
+        config.set('Connection', 'host', host)
+        config.set('Connection', 'port', str(port))
+        config.set('Connection', 'path', path)
+        config.set('Connection', 'username', username)
+        config.set('Connection', 'password', password)
+    if cmd_args.use_netrc:
+        username, password = read_netrc(hostname=config.get('Connection','host'))
+        config.set('Connection', 'username', username)
+        config.set('Connection', 'password', password)
+    if cmd_args.ssl:
+        config.set('Connection', 'ssl', 'True')
 
 
-norm = Normalizer()
-server = Transmission(config.get('Connection', 'host'),
-                      config.getint('Connection', 'port'),
-                      config.get('Connection', 'path'),
-                      config.get('Connection', 'username'),
-                      config.get('Connection', 'password'))
-Interface()
+
+    # forward arguments after '--' to transmission-remote
+    if transmissionremote_args:
+        cmd = ['transmission-remote', '%s:%s' %
+               (config.get('Connection', 'host'), config.get('Connection', 'port'))]
+
+        # one argument and it doesn't start with '-' --> treat it like it's a torrent link/url
+        if len(transmissionremote_args) == 1 and not transmissionremote_args[0].startswith('-'):
+            cmd.extend(['-a', transmissionremote_args[0]])
+
+        if config.get('Connection', 'username') and config.get('Connection', 'password'):
+            cmd_print = cmd
+            cmd_print.extend(['--auth', '%s:PASSWORD' % config.get('Connection', 'username')])
+            print "EXECUTING:\n%s\nRESPONSE:" % ' '.join(cmd_print)
+            cmd.extend(['--auth', '%s:%s' % (config.get('Connection', 'username'), config.get('Connection', 'password'))])
+            cmd.extend(transmissionremote_args)
+        else:
+            print "EXECUTING:\n%s\nRESPONSE:" % ' '.join(cmd)
+
+        try:
+            retcode = call(cmd)
+        except OSError, msg:
+            quit("Could not execute the above command: %s\n" % msg, 128)
+        quit('', retcode)
+
+
+    norm = Normalizer()
+    server = Transmission(config.get('Connection', 'host'),
+                          config.getint('Connection', 'port'),
+                          config.get('Connection', 'path'),
+                          config.get('Connection', 'username'),
+                          config.get('Connection', 'password'))
+    Interface()
 

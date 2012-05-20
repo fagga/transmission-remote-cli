@@ -3109,17 +3109,22 @@ def parse_sort_str(sort_str):
             sort_orders.append( { 'name':x[0], 'reverse':False } )
     return sort_orders
 
+def show_version(option, opt_str, value, parser):
+    quit("transmission-remote-cli %s  (supports Transmission %s-%s)\n" % \
+         (VERSION, TRNSM_VERSION_MIN, TRNSM_VERSION_MAX))
+
 
 if __name__ == '__main__':
     # command line parameters
     default_config_path = os.environ['HOME'] + '/.config/transmission-remote-cli/settings.cfg'
     parser = OptionParser(usage="%prog [options] [-- transmission-remote options]",
-                          version="%%prog %s" % VERSION,
                           description="%%prog %s" % VERSION)
+    parser.add_option("-v", "--version", action="callback", callback=show_version,
+                      help="Show version number and supported Transmission versions.")
     parser.add_option("-c", "--connect", action="store", dest="connection", default="",
                       help="Point to the server using pattern [username:password@]host[:port]/[path]")
     parser.add_option("-s", "--ssl", action="store_true", dest="ssl", default=False,
-                      help="Connect to transmission using SSL.")
+                      help="Connect to Transmission using SSL.")
     parser.add_option("-f", "--config", action="store", dest="configfile", default=default_config_path,
                       help="Path to configuration file.")
     parser.add_option("--create-config", action="callback", callback=create_config,

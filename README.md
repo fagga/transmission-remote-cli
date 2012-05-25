@@ -1,23 +1,35 @@
-# A console client for the BitTorrent client [Transmission](http://www.transmissionbt.com/ "Transmission Homepage").
+## About
 
-**Download the latest version for [Transmission 1.90-2.52](http://github.com/fagga/transmission-remote-cli/raw/master/transmission-remote-cli.py).**
+A console client for the BitTorrent client [Transmission](http://www.transmissionbt.com/ "Transmission Homepage").
 
-**Also available in Debian Wheezy / Ubuntu Quantal: `apt-get install transmission-remote-cli`**
 
-## Modules
+## Distributions
+
+** [Arch Linux](https://aur.archlinux.org/packages.php?K=transmission-remote-cli)
+** [Debian](http://packages.debian.org/search?keywords=transmission-remote-cli)
+** [Fedora](https://admin.fedoraproject.org/pkgdb/acls/list/?searchwords=transmission-remote-cli)
+** [OpenSUSE](http://software.opensuse.org/package/transmission-remote-cli?search_term=transmission-remote-cli)
+** [Ubuntu](http://packages.ubuntu.com/search?keywords=transmission-remote-cli)
+
+
+## Requirements
 
 For Python 2.5 or older, you need [simplejson](http://pypi.python.org/pypi/simplejson/) which should be
 packaged in any Linux distribution. The Debian/Ubuntu package is called
 `python-simplejson`.
 
 ### Optional Modules (you don't need them but they add features):
+
 - GeoIP: Guess which country peers come from.
 - adns: Resolve IPs to host names.
 
 Debian/Ubuntu package names are `python-adns` and `python-geoip`.
 
 
-## Connection information
+## Usage
+
+### Connection information
+
 Authentication and host/port can be set via command line with one
 of these patterns:  
 `$ transmission-remote-cli.py -c homeserver`  
@@ -38,7 +50,8 @@ If you don't like the default configuration file path
 `$ transmission-remote-cli.py -f ~/.trclirc --create-config`
 
 
-## Calling transmission-remote  
+### Calling transmission-remote
+
 transmission-remote-cli forwards all arguments after '--' to
 transmission-remote. This is useful if your daemon requires authentication
 and/or doesn't listen on the default localhost:9091 for
@@ -52,7 +65,8 @@ Some examples:
 `$ transmission-remote-cli.py -- -as`
 
 
-## Add torrents  
+### Add torrents
+
 If you provide only one command line argument and it doesn't start with '-',
 it's treated like a torrent file/URL and submitted to the daemon via
 transmission-remote. This is useful because you can instruct Firefox to open
@@ -62,6 +76,17 @@ torrent files with transmission-remote-cli.py.
 `$ transmission-remote-cli.py path/to/some/torrent-file`
 
 
+## Screenshots
+
+![Screenshot1](screenshot.png)
+
+
+## Copyright
+
+Released under the GPLv3 license, see [COPYING](COPYING) for details.
+
+
 ## Contact
+
 Feel free to request new features or provide bug reports.  
 You can find my email address [here](http://github.com/fagga).

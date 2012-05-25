@@ -78,7 +78,7 @@ torrent files with transmission-remote-cli.py.
 
 ## Screenshots
 
-![Screenshot1](transmission-remote-cli/blob/master/screenshot.png)
+[Screenshot1](transmission-remote-cli/blob/master/screenshot.png)
 
 
 ## Copyright

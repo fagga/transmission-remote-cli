@@ -5,11 +5,11 @@ A console client for the BitTorrent client [Transmission](http://www.transmissio
 
 ## Distributions
 
-** [Arch Linux](https://aur.archlinux.org/packages.php?K=transmission-remote-cli)
-** [Debian](http://packages.debian.org/search?keywords=transmission-remote-cli)
-** [Fedora](https://admin.fedoraproject.org/pkgdb/acls/list/?searchwords=transmission-remote-cli)
-** [OpenSUSE](http://software.opensuse.org/package/transmission-remote-cli?search_term=transmission-remote-cli)
-** [Ubuntu](http://packages.ubuntu.com/search?keywords=transmission-remote-cli)
+- [Arch Linux](https://aur.archlinux.org/packages.php?K=transmission-remote-cli)
+- [Debian](http://packages.debian.org/search?keywords=transmission-remote-cli)
+- [Fedora](https://admin.fedoraproject.org/pkgdb/acls/list/?searchwords=transmission-remote-cli)
+- [OpenSUSE](http://software.opensuse.org/package/transmission-remote-cli?search_term=transmission-remote-cli)
+- [Ubuntu](http://packages.ubuntu.com/search?keywords=transmission-remote-cli)
 
 
 ## Requirements
@@ -78,12 +78,12 @@ torrent files with transmission-remote-cli.py.
 
 ## Screenshots
 
-![Screenshot1](screenshot.png)
+![Screenshot1](transmission-remote-cli/blob/master/screenshot.png)
 
 
 ## Copyright
 
-Released under the GPLv3 license, see [COPYING](COPYING) for details.
+Released under the GPLv3 license, see [COPYING](transmission-remote-cli/blob/master/COPYING) for details.
 
 
 ## Contact

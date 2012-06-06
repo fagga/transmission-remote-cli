@@ -1613,7 +1613,7 @@ class Interface:
             # terminal, so we have to catch this exception.
             try:
                 self.pad.addstr(ypos, 0, title[0:bar_width].encode('utf-8'), tag_done)
-                self.pad.addstr(ypos, bar_width, title[bar_width:].encode('utf-8'), tag)
+                self.pad.addstr(ypos, len_columns(title[0:bar_width]), title[bar_width:].encode('utf-8'), tag)
             except:
                 pass
         else:

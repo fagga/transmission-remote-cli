@@ -1,3 +1,11 @@
+1.3.1  2012-06-12
+    BUGFIXES:
+        - Fix wrong progress bar placement calculation for two-column
+          characters (kanji)
+
+    - Updated bash-completion script, README.md and screenshots
+
+
 1.3  2012-05-23
     - Added Bash completion
     - Estimate time until next ratio milestone is reached

@@ -864,6 +864,7 @@ class Interface:
         # enable colors if available
         try:
             curses.start_color()
+            curses.use_default_colors()
             self.colors = ColorManager(dict(config.items('Colors')))
             for name in sorted(self.colors.get_names()):
                 curses.init_pair(self.colors.get_id(name),

@@ -78,11 +78,11 @@ torrent files with transmission-remote-cli.
 
 ## Screenshots
 
-![Main window - full, v1.3](transmission-remote-cli/blob/master/screenshots/screenshot-mainfull-v1.3.png)
+![Main window - full, v1.3](https://github.com/fagga/transmission-remote-cli/raw/master/screenshots/screenshot-mainfull-v1.3.png)
 
-![Main window - compact, v1.3](transmission-remote-cli/blob/master/screenshots/screenshot-maincompact-v1.3.png)
+![Main window - compact, v1.3](https://github.com/fagga/transmission-remote-cli/raw/master/screenshots/screenshot-maincompact-v1.3.png)
 
-![Info window, v1.3](transmission-remote-cli/blob/master/screenshots/screenshot-details-v1.3.png)
+![Info window, v1.3](https://github.com/fagga/transmission-remote-cli/raw/master/screenshots/screenshot-details-v1.3.png)
 
 
 ## Copyright

@@ -2443,8 +2443,8 @@ class Interface:
 
         ypos = 1
         for line in message.split("\n"):
-            if len(line) > width:
-                line = line[0:width-7] + '...'
+            if len_columns(line) > width:
+                line = ljust_columns(line, width-7) + '...'
             win.addstr(ypos, 2, line.encode('utf-8'))
             ypos += 1
         return win
@@ -2452,14 +2452,14 @@ class Interface:
 
     def dialog_ok(self, message):
         height = 3 + message.count("\n")
-        width  = max(max(map(lambda x: len(x), message.split("\n"))), 40) + 4
+        width  = max(max(map(lambda x: len_columns(x), message.split("\n"))), 40) + 4
         win = self.window(height, width, message=message)
         while True:
             if win.getch() >= 0: return
 
     def dialog_yesno(self, message, important=False):
         height = 5 + message.count("\n")
-        width  = max(len(message), 8) + 4
+        width  = max(len_columns(message), 8) + 4
         win = self.window(height, width, message=message)
         win.keypad(True)
 

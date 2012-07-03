@@ -2964,6 +2964,8 @@ def ljust_columns(text, max_width, padchar=' '):
 
 def len_columns(text):
     """ Returns the amount of columns that <text> would occupy. """
+    if type(text) == type(str()):
+        text = unicode(text)
     columns = 0
     for character in text:
         columns += 2 if unicodedata.east_asian_width(character) in ('W', 'F') else 1

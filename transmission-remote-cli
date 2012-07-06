@@ -728,7 +728,7 @@ class Transmission:
             status = 'unknown state'
         return status
 
-    def get_tracker_responding(self, torrent):
+    def is_tracker_responding(self, torrent):
         """ Will return True if at least one tracker was successfully
         queried recently. Returns True if torrent does not have any
         trackers (DHT?). """
@@ -1619,7 +1619,7 @@ class Interface:
         size = '| ' + size
         title = ljust_columns(torrent['name'], width - len(size)) + size
 
-        if not server.get_tracker_responding(torrent) \
+        if not server.is_tracker_responding(torrent) \
             and torrent['status'] != Transmission.STATUS_STOPPED:
             color = curses.color_pair(self.colors.get_id('title_error'))
         elif torrent['status'] == Transmission.STATUS_SEED \

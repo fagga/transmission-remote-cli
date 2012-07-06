@@ -727,6 +727,36 @@ class Transmission:
             status = 'unknown state'
         return status
 
+    def get_tracker_responding(self, torrent):
+        """ Will return True if at least one tracker was successfully
+        queried recently. Returns True if torrent does not have any
+        trackers (DHT?). """
+
+        if not torrent['trackerStats']:
+            return True
+
+        has_connected = any([tracker['hasAnnounced'] or tracker['hasScraped']
+            for tracker in torrent['trackerStats']])
+
+        if has_connected:
+            for tracker in torrent['trackerStats']:
+                if tracker['hasScraped'] and \
+                    tracker['lastScrapeTime'] >= tracker['lastAnnounceTime'] and \
+                    tracker['lastScrapeSucceeded']:
+                    return True
+
+                elif tracker['hasAnnounced'] and \
+                    tracker['lastAnnounceTime'] > tracker['lastScrapeTime'] and \
+                    tracker['lastAnnounceSucceeded']:
+                    return True
+
+            # Since at least one tracker has been connected (has_connected = True)
+            # and no recent scrape or announce have succeeded, return False
+            return False
+        else:
+            # If no tracker has been queried (yet), assume at least one is online
+            return True
+
     def get_bandwidth_priority(self, torrent):
         if torrent['bandwidthPriority'] == -1:
             return '-'

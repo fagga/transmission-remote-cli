@@ -121,7 +121,7 @@ config.set('Colors', 'title_download',   'bg:blue,fg:black')
 config.set('Colors', 'title_idle',       'bg:cyan,fg:black')
 config.set('Colors', 'title_verify',     'bg:magenta,fg:black')
 config.set('Colors', 'title_paused',     'bg:black,fg:white')
-config.set('Colors', 'title_error',      'bg:red, fg:white')
+config.set('Colors', 'title_error',      'bg:red,fg:white')
 config.set('Colors', 'download_rate',    'bg:black,fg:blue')
 config.set('Colors', 'upload_rate',      'bg:black,fg:red')
 config.set('Colors', 'eta+ratio',        'bg:black,fg:white')
@@ -1619,8 +1619,9 @@ class Interface:
         size = '| ' + size
         title = ljust_columns(torrent['name'], width - len(size)) + size
 
-        if not server.is_tracker_responding(torrent) \
-            and torrent['status'] != Transmission.STATUS_STOPPED:
+        if torrent['status'] != Transmission.STATUS_STOPPED and \
+                (not self.stats['dht-enabled'] or torrent['isPrivate']) and \
+                (not torrent['trackerStats'] or not server.is_tracker_responding(torrent)):
             color = curses.color_pair(self.colors.get_id('title_error'))
         elif torrent['status'] == Transmission.STATUS_SEED \
         or torrent['status'] == Transmission.STATUS_SEED_WAIT:

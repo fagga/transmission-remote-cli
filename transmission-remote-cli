@@ -1619,7 +1619,8 @@ class Interface:
         size = '| ' + size
         title = ljust_columns(torrent['name'], width - len(size)) + size
 
-        if not server.get_tracker_responding(torrent):
+        if not server.get_tracker_responding(torrent) \
+            and torrent['status'] != Transmission.STATUS_STOPPED:
             color = curses.color_pair(self.colors.get_id('title_error'))
         elif torrent['status'] == Transmission.STATUS_SEED \
         or torrent['status'] == Transmission.STATUS_SEED_WAIT:

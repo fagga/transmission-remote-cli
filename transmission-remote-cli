@@ -1659,13 +1659,18 @@ class Interface:
         peers = ''
         parts = [server.get_status(torrent)]
 
-        # show tracker error if appropriate
-        if (torrent['seeders'] < 0 or torrent['leechers'] < 0) and \
-           not server.is_tracker_responding(torrent) \
-           and torrent['status'] != Transmission.STATUS_STOPPED:
+        # show error if DHT disabled and no trackers
+        if torrent['status'] != Transmission.STATUS_STOPPED and \
+                (not self.stats['dht-enabled'] or torrent['isPrivate']) and \
+                not torrent['trackerStats']:
+            parts[0] = "Unable to find peers without trackers and DHT disabled"
+        # show tracker error
+        elif torrent['status'] != Transmission.STATUS_STOPPED and \
+                (not self.stats['dht-enabled'] or torrent['isPrivate']) and \
+                not server.is_tracker_responding(torrent):
             tracker_errors = [tracker['lastAnnounceResult'] or tracker['lastScrapeResult']
                               for tracker in torrent['trackerStats']]
-            parts[0] = tracker_errors[0].encode('utf-8')
+            parts[0] = [te for te in tracker_errors if te][0].encode('utf-8')
         else:
             if torrent['status'] == Transmission.STATUS_CHECK:
                 parts[0] += " (%d%%)" % int(float(torrent['recheckProgress']) * 100)

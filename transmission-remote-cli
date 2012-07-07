@@ -258,6 +258,7 @@ class Transmission:
     STATUS_DOWNLOAD      = 4   # Downloading
     STATUS_SEED_WAIT     = 5   # Queued to seed
     STATUS_SEED          = 6   # Seeding
+    STATUS_ISOLATED      = 7   # Torrent can't find peers
 
     TAG_TORRENT_LIST    = 7
     TAG_TORRENT_DETAILS = 77
@@ -393,6 +394,8 @@ class Transmission:
                     t['leechers'] = max(map(lambda x: x['leecherCount'], t['trackerStats']))
                 except ValueError:
                     t['seeders']  = t['leechers'] = -1
+                if not self.can_has_peers(t):
+                    t['status'] = Transmission.STATUS_ISOLATED
 
             if response['tag'] == self.TAG_TORRENT_LIST:
                 self.torrent_cache = response['arguments']['torrents']
@@ -728,35 +731,33 @@ class Transmission:
             status = 'unknown state'
         return status
 
-    def is_tracker_responding(self, torrent):
-        """ Will return True if at least one tracker was successfully
-        queried recently. Returns True if torrent does not have any
-        trackers (DHT?). """
+    def can_has_peers(self, torrent):
+        """ Will return True if at least one tracker was successfully queried
+        recently, or if DHT is enabled for this torrent and globally, False
+        otherwise. """
 
-        if not torrent['trackerStats']:
+        # torrent has trackers
+        if torrent['trackerStats']:
+            has_connected = any([tracker['hasAnnounced'] or tracker['hasScraped']
+                                 for tracker in torrent['trackerStats']])
+            if has_connected:
+                for tracker in torrent['trackerStats']:
+                    if tracker['hasScraped'] and \
+                            tracker['lastScrapeTime'] >= tracker['lastAnnounceTime'] and \
+                            tracker['lastScrapeSucceeded']:
+                        return True
+                    elif tracker['hasAnnounced'] and \
+                            tracker['lastAnnounceTime'] > tracker['lastScrapeTime'] and \
+                            tracker['lastAnnounceSucceeded']:
+                        return True
+            else:
+                # If no tracker has been queried (yet), assume at least one is online
+                return True
+        # torrent can make use of DHT
+        if (self.status_cache.has_key('dht-enabled') and \
+                  self.status_cache['dht-enabled'] and not torrent['isPrivate']):
             return True
-
-        has_connected = any([tracker['hasAnnounced'] or tracker['hasScraped']
-            for tracker in torrent['trackerStats']])
-
-        if has_connected:
-            for tracker in torrent['trackerStats']:
-                if tracker['hasScraped'] and \
-                    tracker['lastScrapeTime'] >= tracker['lastAnnounceTime'] and \
-                    tracker['lastScrapeSucceeded']:
-                    return True
-
-                elif tracker['hasAnnounced'] and \
-                    tracker['lastAnnounceTime'] > tracker['lastScrapeTime'] and \
-                    tracker['lastAnnounceSucceeded']:
-                    return True
-
-            # Since at least one tracker has been connected (has_connected = True)
-            # and no recent scrape or announce have succeeded, return False
-            return False
-        else:
-            # If no tracker has been queried (yet), assume at least one is online
-            return True
+        return False
 
     def get_bandwidth_priority(self, torrent):
         if torrent['bandwidthPriority'] == -1:
@@ -1619,18 +1620,16 @@ class Interface:
         size = '| ' + size
         title = ljust_columns(torrent['name'], width - len(size)) + size
 
-        if torrent['status'] != Transmission.STATUS_STOPPED and \
-                (not self.stats['dht-enabled'] or torrent['isPrivate']) and \
-                (not torrent['trackerStats'] or not server.is_tracker_responding(torrent)):
-            color = curses.color_pair(self.colors.get_id('title_error'))
-        elif torrent['status'] == Transmission.STATUS_SEED \
-        or torrent['status'] == Transmission.STATUS_SEED_WAIT:
+        if torrent['status'] == Transmission.STATUS_SEED or \
+           torrent['status'] == Transmission.STATUS_SEED_WAIT:
             color = curses.color_pair(self.colors.get_id('title_seed'))
         elif torrent['status'] == Transmission.STATUS_STOPPED:
             color = curses.color_pair(self.colors.get_id('title_paused'))
-        elif torrent['status'] == Transmission.STATUS_CHECK \
-          or torrent['status'] == Transmission.STATUS_CHECK_WAIT:
+        elif torrent['status'] == Transmission.STATUS_CHECK or \
+             torrent['status'] == Transmission.STATUS_CHECK_WAIT:
             color = curses.color_pair(self.colors.get_id('title_verify'))
+        elif torrent['status'] == Transmission.STATUS_ISOLATED:
+            color = curses.color_pair(self.colors.get_id('title_error'))
         elif torrent['rateDownload'] == 0:
             color = curses.color_pair(self.colors.get_id('title_idle'))
         elif torrent['percentDone'] < 100:
@@ -1660,18 +1659,13 @@ class Interface:
         peers = ''
         parts = [server.get_status(torrent)]
 
-        # show error if DHT disabled and no trackers
-        if torrent['status'] != Transmission.STATUS_STOPPED and \
-                (not self.stats['dht-enabled'] or torrent['isPrivate']) and \
-                not torrent['trackerStats']:
-            parts[0] = "Unable to find peers without trackers and DHT disabled"
-        # show tracker error
-        elif torrent['status'] != Transmission.STATUS_STOPPED and \
-                (not self.stats['dht-enabled'] or torrent['isPrivate']) and \
-                not server.is_tracker_responding(torrent):
-            tracker_errors = [tracker['lastAnnounceResult'] or tracker['lastScrapeResult']
-                              for tracker in torrent['trackerStats']]
-            parts[0] = [te for te in tracker_errors if te][0].encode('utf-8')
+        if torrent['status'] == Transmission.STATUS_ISOLATED:
+            if not torrent['trackerStats']:
+                parts[0] = "Unable to find peers without trackers and DHT disabled"
+            else:
+                tracker_errors = [tracker['lastAnnounceResult'] or tracker['lastScrapeResult']
+                                  for tracker in torrent['trackerStats']]
+                parts[0] = [te for te in tracker_errors if te][0].encode('utf-8')
         else:
             if torrent['status'] == Transmission.STATUS_CHECK:
                 parts[0] += " (%d%%)" % int(float(torrent['recheckProgress']) * 100)

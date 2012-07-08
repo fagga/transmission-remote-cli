@@ -2025,7 +2025,7 @@ class Interface:
             (self.torrent_details['peersSendingToUs'], self.torrent_details['peersGettingFromUs'])
         column_names += 'Client'.ljust(clientname_width + 1) \
             + 'Address'.ljust(address_width)
-        if features['geoip']: column_names += ' Country'
+        if features['geoip']: column_names += 'Country'
         if features['dns']: column_names += ' Host'
 
         self.pad.addstr(ypos, 0, column_names.ljust(self.width), curses.A_UNDERLINE)
@@ -2078,7 +2078,7 @@ class Interface:
             # Address
             self.pad.addstr(peer['address'].ljust(address_width + 1))
             # Country
-            if features['geoip']: self.pad.addstr("  %2s    " % geo_ips[peer['address']])
+            if features['geoip']: self.pad.addstr("  %2s   " % geo_ips[peer['address']])
             # Host
             if features['dns']: self.pad.addstr(host_name.encode('utf-8'), curses.A_DIM)
             ypos += 1

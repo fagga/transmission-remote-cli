@@ -2118,7 +2118,7 @@ class Interface:
                     addstr(ypos+i, 0, ' ', curses.A_BOLD + curses.A_REVERSE)
 
             addstr(ypos+1, 4,  "Last announce: %s" % timestamp(t['lastAnnounceTime']))
-            addstr(ypos+1, 52, "  Last scrape: %s" % timestamp(t['lastScrapeTime']))
+            addstr(ypos+1, 54, "Last scrape: %s" % timestamp(t['lastScrapeTime']))
 
             if t['lastAnnounceSucceeded']:
                 peers = "%s peer%s" % (num2str(t['lastAnnouncePeerCount']), ('s', '')[t['lastAnnouncePeerCount']==1])
@@ -2133,8 +2133,8 @@ class Interface:
             if t['lastScrapeSucceeded']:
                 seeds   = "%s seed%s" % (num2str(t['seederCount']), ('s', '')[t['seederCount']==1])
                 leeches = "%s leech%s" % (num2str(t['leecherCount']), ('es', '')[t['leecherCount']==1])
-                addstr(ypos+2, 52, "Tracker knows: ")
-                addstr(ypos+2, 68, "%s and %s" % (seeds, leeches), curses.A_BOLD)
+                addstr(ypos+2, 52, "Tracker knows:")
+                addstr(ypos+2, 67, "%s and %s" % (seeds, leeches), curses.A_BOLD)
             else:
                 addstr(ypos+2, 57, "Response:")
                 scrape_msg_size += self.wrap_and_draw_result(top, ypos+2, 67, t['lastScrapeResult'])

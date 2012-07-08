@@ -727,6 +727,8 @@ class Transmission:
             status = 'seeding'
         elif torrent['status'] == Transmission.STATUS_SEED_WAIT:
             status = 'will seed'
+        elif torrent['status'] == Transmission.STATUS_ISOLATED:
+            status = 'isolated'
         else:
             status = 'unknown state'
         return status
@@ -1659,7 +1661,7 @@ class Interface:
         peers = ''
         parts = [server.get_status(torrent)]
 
-        if torrent['status'] == Transmission.STATUS_ISOLATED:
+        if torrent['status'] == Transmission.STATUS_ISOLATED and torrent['peersConnected'] <= 0:
             if not torrent['trackerStats']:
                 parts[0] = "Unable to find peers without trackers and DHT disabled"
             else:

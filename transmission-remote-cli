@@ -1145,7 +1145,8 @@ class Interface:
         if self.selected_torrent == -1:
             options = [('uploading','_Uploading'), ('downloading','_Downloading'),
                        ('active','Ac_tive'), ('paused','_Paused'), ('seeding','_Seeding'),
-                       ('incomplete','In_complete'), ('verifying','Verif_ying'), ('private','P_rivate'),
+                       ('incomplete','In_complete'), ('verifying','Verif_ying'),
+                       ('private','P_rivate'), ('isolated', '_Isolated'),
                        ('invert','In_vert'), ('','_All')]
             choice = self.dialog_menu(('Show only','Filter all')[self.filter_inverse], options,
                                       map(lambda x: x[0]==self.filter_list, options).index(True)+1)
@@ -1491,6 +1492,8 @@ class Interface:
         elif self.filter_list == 'verifying':
             self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_CHECK \
                                  or t['status'] == Transmission.STATUS_CHECK_WAIT]
+        elif self.filter_list == 'isolated':
+            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_ISOLATED]
         # invert list?
         if self.filter_inverse:
             self.torrents = [t for t in unfiltered if t not in self.torrents]

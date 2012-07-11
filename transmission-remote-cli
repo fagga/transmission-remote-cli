@@ -756,8 +756,8 @@ class Transmission:
                 # If no tracker has been queried (yet), assume at least one is online
                 return True
         # torrent can make use of DHT
-        if (self.status_cache.has_key('dht-enabled') and \
-                  self.status_cache['dht-enabled'] and not torrent['isPrivate']):
+        if not self.status_cache.has_key('dht-enabled') or \
+                (self.status_cache['dht-enabled'] and not torrent['isPrivate']):
             return True
         return False
 

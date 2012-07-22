@@ -1980,17 +1980,36 @@ class Interface:
         return filelist[begin > 0 and begin or 0:]
 
     def create_filelist_transition(self, f, current_folder, filelist, current_depth, pos):
-        f_len = len(f) - 1
-        current_folder_len = len(current_folder)
+        """ Create directory transition from <current_folder> to <f>,
+        both of which are an array of strings, each one representing one
+        subdirectory in their path (e.g. /tmp/a/c would result in
+        [temp, a, c]). <filelist> is a list of strings that will later be drawn
+        to screen. This function only creates directory strings, and is
+        responsible for managing depth (i.e. indentation) between different
+        directories.
+        """
+        f_len = len(f) - 1  # Amount of subdirectories in f
+        current_folder_len = len(current_folder)  # Amount of subdirectories in
+                                                  # current_folder
+        # Number of directory parts from f and current_directory that are identical
         same = 0
-        while same < current_folder_len and same  < f_len and f[same] == current_folder[same]:
+        while (same < current_folder_len and
+               same < f_len and
+               f[same] == current_folder[same]):
             same += 1
+
+        # Reduce depth for each directory f has less than current_folder
         for i in range(current_folder_len - same):
             current_depth -= 1
             filelist.append('  '*current_depth + ' '*31 + '/')
             pos += 1
-        if f_len < current_folder_len:
+
+        # Stepping out of a directory, but not into a new directory
+        if f_len < current_folder_len and f_len == same:
             return [current_depth, pos]
+
+        # Increase depth for each new directory that appears in f,
+        # but not in current_directory
         while current_depth < f_len:
             filelist.append('%s\\ %s' % ('  '*current_depth + ' '*31 , f[current_depth]))
             current_depth += 1

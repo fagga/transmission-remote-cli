@@ -2503,8 +2503,14 @@ class Interface:
         for line in message.split("\n"):
             if len_columns(line) > width:
                 line = ljust_columns(line, width-7) + '...'
-            win.addstr(ypos, 2, line.encode('utf-8'))
-            ypos += 1
+
+            if ypos < height - 1:  # ypos == height-1 is frame border
+                win.addstr(ypos, 2, line.encode('utf-8'))
+                ypos += 1
+            else:
+                # Do not write outside of frame border
+                win.addstr(ypos, 2, " More... ")
+                break
         return win
 
 

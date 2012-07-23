@@ -55,7 +55,6 @@ import os
 import signal
 import unicodedata
 import locale
-locale.setlocale(locale.LC_ALL, '')
 import curses
 import curses.ascii
 from textwrap import wrap
@@ -808,6 +807,9 @@ class Interface:
         self.compact_torrentlist    = False # draw only one line for each torrent in compact mode
         self.exit_now               = False
 
+        locale.setlocale(locale.LC_ALL, '')
+        self.encoding = locale.getpreferredencoding()
+
         self.keybindings = {
             ord('?'):               self.call_list_key_bindings,
             curses.KEY_F1:          self.call_list_key_bindings,
@@ -926,6 +928,9 @@ class Interface:
 
     def restore_screen(self):
         curses.endwin()
+
+    def enc(self, text):
+        return text.encode(self.encoding, 'replace')
 
     def get_screen_size(self):
         time.sleep(0.1) # prevents curses.error on rapid resizing
@@ -1652,12 +1657,12 @@ class Interface:
             # addstr() dies when you tell it to draw on the last column of the
             # terminal, so we have to catch this exception.
             try:
-                self.pad.addstr(ypos, 0, title[0:bar_width].encode('utf-8'), tag_done)
-                self.pad.addstr(ypos, len_columns(title[0:bar_width]), title[bar_width:].encode('utf-8'), tag)
+                self.pad.addstr(ypos, 0, self.enc(title[0:bar_width]), tag_done)
+                self.pad.addstr(ypos, len_columns(title[0:bar_width]), self.enc(title[bar_width:]), tag)
             except:
                 pass
         else:
-            self.pad.addstr(ypos, 0, title.encode('utf-8'), tag_done)
+            self.pad.addstr(ypos, 0, self.enc(title), tag_done)
 
 
     def draw_torrentlist_status(self, torrent, focused, ypos):
@@ -1670,7 +1675,7 @@ class Interface:
             else:
                 tracker_errors = [tracker['lastAnnounceResult'] or tracker['lastScrapeResult']
                                   for tracker in torrent['trackerStats']]
-                parts[0] = [te for te in tracker_errors if te][0].encode('utf-8')
+                parts[0] = self.enc([te for te in tracker_errors if te][0])
         else:
             if torrent['status'] == Transmission.STATUS_CHECK:
                 parts[0] += " (%d%%)" % int(float(torrent['recheckProgress']) * 100)
@@ -1902,12 +1907,12 @@ class Interface:
                 for i, line in enumerate(comment):
                     if(ypos+i > self.height-1):
                         break
-                    self.pad.addstr(ypos+i, 50, line.encode('utf8'))
+                    self.pad.addstr(ypos+i, 50, self.enc(line))
             else:
                 width = self.width - 2
                 comment = wrap_multiline(t['comment'], width, initial_indent='Comment: ')
                 for i, line in enumerate(comment):
-                    self.pad.addstr(ypos+6+i, 2, line.encode('utf8'))
+                    self.pad.addstr(ypos+6+i, 2, self.enc(line))
 
     def draw_filelist(self, ypos):
         column_names = '  #  Progress  Size  Priority  Filename'
@@ -1932,21 +1937,21 @@ class Interface:
             xpos = 0
             for part in re.split('(high|normal|low|off)', line[0:30], 1):
                 if part == 'high':
-                    self.pad.addstr(ypos, xpos, part,
+                    self.pad.addstr(ypos, xpos, self.enc(part),
                                     curses_tags + curses.color_pair(self.colors.get_id('file_prio_high')))
                 elif part == 'normal':
-                    self.pad.addstr(ypos, xpos, part,
+                    self.pad.addstr(ypos, xpos, self.enc(part),
                                     curses_tags + curses.color_pair(self.colors.get_id('file_prio_normal')))
                 elif part == 'low':
-                    self.pad.addstr(ypos, xpos, part,
+                    self.pad.addstr(ypos, xpos, self.enc(part),
                                     curses_tags + curses.color_pair(self.colors.get_id('file_prio_low')))
                 elif part == 'off':
-                    self.pad.addstr(ypos, xpos, part,
+                    self.pad.addstr(ypos, xpos, self.enc(part),
                                     curses_tags + curses.color_pair(self.colors.get_id('file_prio_off')))
                 else:
-                    self.pad.addstr(ypos, xpos, part.encode('utf-8'), curses_tags)
+                    self.pad.addstr(ypos, xpos, self.enc(part), curses_tags)
                 xpos += len(part)
-            self.pad.addstr(ypos, xpos, line[30:].encode('utf-8'), curses_tags)
+            self.pad.addstr(ypos, xpos, self.enc(line[30:]), curses_tags)
             ypos += 1
             if ypos > self.height:
                 break
@@ -2096,13 +2101,13 @@ class Interface:
                 else:
                     self.pad.addstr("             ")
             # Client
-            self.pad.addstr(peer['clientName'].ljust(clientname_width + 1).encode('utf-8'))
+            self.pad.addstr(self.enc(peer['clientName'].ljust(clientname_width + 1)))
             # Address
             self.pad.addstr(peer['address'].ljust(address_width + 1))
             # Country
             if features['geoip']: self.pad.addstr("  %2s   " % geo_ips[peer['address']])
             # Host
-            if features['dns']: self.pad.addstr(host_name.encode('utf-8'), curses.A_DIM)
+            if features['dns']: self.pad.addstr(self.enc(host_name), curses.A_DIM)
             ypos += 1
 
     def draw_trackerlist(self, ypos):
@@ -2152,7 +2157,7 @@ class Interface:
             else:
                 addstr(ypos,   2, t['announce'], curses.A_UNDERLINE)
                 addstr(ypos+2, 9, "Response:")
-                announce_msg_size = self.wrap_and_draw_result(top, ypos+2, 19, t['lastAnnounceResult'].encode('utf-8'))
+                announce_msg_size = self.wrap_and_draw_result(top, ypos+2, 19, self.enc(t['lastAnnounceResult']))
 
             if t['lastScrapeSucceeded']:
                 seeds   = "%s seed%s" % (num2str(t['seederCount']), ('s', '')[t['seederCount']==1])
@@ -2217,14 +2222,14 @@ class Interface:
     def draw_details_list(self, ypos, info):
         key_width = max(map(lambda x: len(x[0]), info))
         for i in info:
-            self.pad.addstr(ypos, 1, i[0].rjust(key_width).encode('utf-8')) # key
+            self.pad.addstr(ypos, 1, self.enc(i[0].rjust(key_width))) # key
             # value part may be wrapped if it gets too long
             for v in i[1:]:
                 y, x = self.pad.getyx()
                 if x + len(v) >= self.width:
                     ypos += 1
                     self.pad.move(ypos, key_width+1)
-                self.pad.addstr(v.encode('utf-8'))
+                self.pad.addstr(self.enc(v))
             ypos += 1
         return ypos
 
@@ -2385,7 +2390,7 @@ class Interface:
         status = "Transmission @ %s:%s" % (server.host, server.port)
         if cmd_args.DEBUG:
             status = "%d x %d " % (self.width, self.height) + status
-        self.screen.addstr(0, 0, status.encode('utf-8'), curses.A_REVERSE)
+        self.screen.addstr(0, 0, self.enc(status), curses.A_REVERSE)
 
     def draw_quick_help(self):
         help = [('?','Show Keybindings')]
@@ -2505,7 +2510,7 @@ class Interface:
                 line = ljust_columns(line, width-7) + '...'
 
             if ypos < height - 1:  # ypos == height-1 is frame border
-                win.addstr(ypos, 2, line.encode('utf-8'))
+                win.addstr(ypos, 2, self.enc(line))
                 ypos += 1
             else:
                 # Do not write outside of frame border
@@ -3052,7 +3057,7 @@ def debug(data):
     if cmd_args.DEBUG:
         file = open("debug.log", 'a')
         if type(data) == type(str()):
-            file.write(data.encode('utf-8'))
+            file.write(self.enc(data))
         else:
             import pprint
             pp = pprint.PrettyPrinter(indent=4)

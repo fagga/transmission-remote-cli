@@ -1,3 +1,20 @@
+1.4  2012-07-30
+    BUGFIXES:
+        - Fix crash upon opening help window for small terminals
+        - Consider wide characters in dialogs
+        - Don't draw dialogs that are bigger than the terminal
+        - Fix file list indentation for multiple same-level directories
+
+    - Support for Transmission 2.61
+    - Highlight torrents that can't discover new peers
+    - Use terminal's default background/foreground colors, making
+      pseudo-transparency and black-on-white color schemes possible
+    - Use locale to find out preferred output encoding instead of forcing
+      UTF-8
+    - Peer and tracker list are a little more compressed to fit into small
+      terminals
+
+
 1.3.1  2012-06-12
     BUGFIXES:
         - Fix wrong progress bar placement calculation for two-column

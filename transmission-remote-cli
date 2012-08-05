@@ -1958,7 +1958,7 @@ class Interface:
 
     def create_filelist(self):
         filelist = []
-        files = self.torrent_details['files']
+        files = sorted(self.torrent_details['files'], cmp=lambda x,y: cmp(x['name'], y['name']))
         current_folder = []
         current_depth = 0
         index = 0

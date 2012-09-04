@@ -803,6 +803,7 @@ class Interface:
         self.details_category_focus = 0  # overview/files/peers/tracker in details
         self.focus_detaillist       = -1 # same as focus but for details
         self.selected_files         = [] # marked files in details
+        self.file_index_map         = {} # Maps local torrent's file indices to server file indices
         self.scrollpos_detaillist   = 0  # same as scrollpos but for details
         self.compact_torrentlist    = False # draw only one line for each torrent in compact mode
         self.exit_now               = False
@@ -1398,10 +1399,10 @@ class Interface:
                 if self.details_category_focus == 1 and \
                         (self.selected_files or self.focus_detaillist > -1):
                     if self.selected_files:
-                        files = set(self.selected_files)
+                        files = set([self.file_index_map[index] for index in self.selected_files])
                         server.increase_file_priority(files)
                     elif self.focus_detaillist > -1:
-                        server.increase_file_priority([self.focus_detaillist])
+                        server.increase_file_priority([self.file_index_map[self.focus_detaillist]])
                 else:
                     self.scrollpos_detaillist = 0
                     self.next_details()
@@ -1409,10 +1410,10 @@ class Interface:
                 if self.details_category_focus == 1 and \
                         (self.selected_files or self.focus_detaillist > -1):
                     if self.selected_files:
-                        files = set(self.selected_files)
+                        files = set([self.file_index_map[index] for index in self.selected_files])
                         server.decrease_file_priority(files)
                     elif self.focus_detaillist > -1:
-                        server.decrease_file_priority([self.focus_detaillist])
+                        server.decrease_file_priority([self.file_index_map[self.focus_detaillist]])
                 else:
                     self.scrollpos_detaillist = 0
                     self.prev_details()
@@ -1964,7 +1965,10 @@ class Interface:
         index = 0
         pos = 0
         pos_before_focus = 0
+        # Build new mapping between sorted local files and transmission-daemon's unsorted files
+        self.file_index_map = {}
         for file in files:
+            self.file_index_map[index] = self.torrent_details['files'].index(file)
             f = file['name'].split('/')
             f_len = len(f) - 1
             if f[:f_len] != current_folder:
@@ -2024,7 +2028,7 @@ class Interface:
     def create_filelist_line(self, name, index, percent, length, current_depth):
         line = "%s  %6.1f%%" % (str(index+1).rjust(3), percent) + \
             '  '+scale_bytes(length).rjust(5) + \
-            '  '+server.get_file_priority(self.torrent_details['id'], index).center(8) + \
+            '  '+server.get_file_priority(self.torrent_details['id'], self.file_index_map[index]).center(8) + \
             " %s| %s" % ('  '*current_depth, name[0:self.width-31-current_depth])
         if index == self.focus_detaillist:
             line = '_F' + line

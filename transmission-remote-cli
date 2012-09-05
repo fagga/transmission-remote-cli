@@ -138,8 +138,16 @@ config.set('Colors', 'file_prio_off',    'bg:blue,fg:black')
 class ColorManager:
     def __init__(self, config):
         self.config = dict()
+        self.term_has_colors = curses.has_colors()
+        curses.start_color()
+        if self.term_has_colors:
+            curses.use_default_colors()
         for name in config.keys():
             self.config[name] = self._parse_color_pair(config[name])
+            if self.term_has_colors:
+                curses.init_pair(self.config[name]['id'],
+                                 self.config[name]['fg'],
+                                 self.config[name]['bg'])
 
     def _parse_color_pair(self, pair):
         # BG and FG are intentionally switched here because colors are always
@@ -151,10 +159,7 @@ class ColorManager:
                  'bg': eval('curses.COLOR_' + bg_name),
                  'fg': eval('curses.COLOR_' + fg_name) }
 
-    def get_id(self, name): return self.config[name]['id']
-    def get_bg(self, name): return self.config[name]['bg']
-    def get_fg(self, name): return self.config[name]['fg']
-    def get_names(self): return self.config.keys()
+    def id(self, name): return self.config[name]['id']
 
 
 class Normalizer:
@@ -898,17 +903,7 @@ class Interface:
 
         hide_cursor()
 
-        # enable colors if available
-        try:
-            curses.start_color()
-            curses.use_default_colors()
-            self.colors = ColorManager(dict(config.items('Colors')))
-            for name in sorted(self.colors.get_names()):
-                curses.init_pair(self.colors.get_id(name),
-                                 self.colors.get_fg(name),
-                                 self.colors.get_bg(name))
-        except:
-            pass
+        self.colors = ColorManager(dict(config.items('Colors')))
 
         # http://bugs.python.org/issue2675
         try:
@@ -1595,24 +1590,24 @@ class Interface:
         self.pad.addch(curses.ACS_DARROW, (0,curses.A_BOLD)[torrent['downloadLimited']])
         rate = ('',scale_bytes(torrent['rateDownload']))[torrent['rateDownload']>0]
         self.pad.addstr(rate.rjust(self.rateDownload_width),
-                        curses.color_pair(self.colors.get_id('download_rate')) + curses.A_BOLD + curses.A_REVERSE)
+                        curses.color_pair(self.colors.id('download_rate')) + curses.A_BOLD + curses.A_REVERSE)
     def draw_uploadrate(self, torrent, ypos):
         self.pad.move(ypos, self.width-self.rateUpload_width-1)
         self.pad.addch(curses.ACS_UARROW, (0,curses.A_BOLD)[torrent['uploadLimited']])
         rate = ('',scale_bytes(torrent['rateUpload']))[torrent['rateUpload']>0]
         self.pad.addstr(rate.rjust(self.rateUpload_width),
-                        curses.color_pair(self.colors.get_id('upload_rate')) + curses.A_BOLD + curses.A_REVERSE)
+                        curses.color_pair(self.colors.id('upload_rate')) + curses.A_BOLD + curses.A_REVERSE)
     def draw_ratio(self, torrent, ypos):
         self.pad.addch(ypos+1, self.width-self.rateUpload_width-1, curses.ACS_DIAMOND,
                        (0,curses.A_BOLD)[torrent['uploadRatio'] < 1 and torrent['uploadRatio'] >= 0])
         self.pad.addstr(ypos+1, self.width-self.rateUpload_width,
                         num2str(torrent['uploadRatio'], '%.02f').rjust(self.rateUpload_width),
-                        curses.color_pair(self.colors.get_id('eta+ratio')) + curses.A_BOLD + curses.A_REVERSE)
+                        curses.color_pair(self.colors.id('eta+ratio')) + curses.A_BOLD + curses.A_REVERSE)
     def draw_eta(self, torrent, ypos):
         self.pad.addch(ypos+1, self.width-self.rateDownload_width-self.rateUpload_width-3, curses.ACS_PLMINUS)
         self.pad.addstr(ypos+1, self.width-self.rateDownload_width-self.rateUpload_width-2,
                         scale_time(torrent['eta']).rjust(self.rateDownload_width),
-                        curses.color_pair(self.colors.get_id('eta+ratio')) + curses.A_BOLD + curses.A_REVERSE)
+                        curses.color_pair(self.colors.id('eta+ratio')) + curses.A_BOLD + curses.A_REVERSE)
 
 
     def draw_torrentlist_title(self, torrent, focused, width, ypos):
@@ -1633,18 +1628,18 @@ class Interface:
 
         if torrent['status'] == Transmission.STATUS_SEED or \
            torrent['status'] == Transmission.STATUS_SEED_WAIT:
-            color = curses.color_pair(self.colors.get_id('title_seed'))
+            color = curses.color_pair(self.colors.id('title_seed'))
         elif torrent['status'] == Transmission.STATUS_STOPPED:
-            color = curses.color_pair(self.colors.get_id('title_paused'))
+            color = curses.color_pair(self.colors.id('title_paused'))
         elif torrent['status'] == Transmission.STATUS_CHECK or \
              torrent['status'] == Transmission.STATUS_CHECK_WAIT:
-            color = curses.color_pair(self.colors.get_id('title_verify'))
+            color = curses.color_pair(self.colors.id('title_verify'))
         elif torrent['status'] == Transmission.STATUS_ISOLATED:
-            color = curses.color_pair(self.colors.get_id('title_error'))
+            color = curses.color_pair(self.colors.id('title_error'))
         elif torrent['rateDownload'] == 0:
-            color = curses.color_pair(self.colors.get_id('title_idle'))
+            color = curses.color_pair(self.colors.id('title_idle'))
         elif torrent['percentDone'] < 100:
-            color = curses.color_pair(self.colors.get_id('title_download'))
+            color = curses.color_pair(self.colors.id('title_download'))
         else:
             color = 0
 
@@ -1939,16 +1934,16 @@ class Interface:
             for part in re.split('(high|normal|low|off)', line[0:30], 1):
                 if part == 'high':
                     self.pad.addstr(ypos, xpos, self.enc(part),
-                                    curses_tags + curses.color_pair(self.colors.get_id('file_prio_high')))
+                                    curses_tags + curses.color_pair(self.colors.id('file_prio_high')))
                 elif part == 'normal':
                     self.pad.addstr(ypos, xpos, self.enc(part),
-                                    curses_tags + curses.color_pair(self.colors.get_id('file_prio_normal')))
+                                    curses_tags + curses.color_pair(self.colors.id('file_prio_normal')))
                 elif part == 'low':
                     self.pad.addstr(ypos, xpos, self.enc(part),
-                                    curses_tags + curses.color_pair(self.colors.get_id('file_prio_low')))
+                                    curses_tags + curses.color_pair(self.colors.id('file_prio_low')))
                 elif part == 'off':
                     self.pad.addstr(ypos, xpos, self.enc(part),
-                                    curses_tags + curses.color_pair(self.colors.get_id('file_prio_off')))
+                                    curses_tags + curses.color_pair(self.colors.id('file_prio_off')))
                 else:
                     self.pad.addstr(ypos, xpos, self.enc(part), curses_tags)
                 xpos += len(part)
@@ -2334,7 +2329,7 @@ class Interface:
             if self.filter_list:
                 self.screen.addstr("Filter:", curses.A_REVERSE)
                 self.screen.addstr("%s%s" % (('','not ')[self.filter_inverse], self.filter_list),
-                                   curses.color_pair(self.colors.get_id('filter_status'))
+                                   curses.color_pair(self.colors.id('filter_status'))
                                    + curses.A_REVERSE)
 
             # show last sort order (if terminal size permits it)
@@ -2343,7 +2338,7 @@ class Interface:
                 self.screen.addstr(" Sort by:", curses.A_REVERSE)
                 name = [name[1] for name in self.sort_options if name[0] == self.sort_orders[-1]['name']][0]
                 name = name.replace('_', '').lower()
-                curses_tags = curses.color_pair(self.colors.get_id('filter_status')) + curses.A_REVERSE
+                curses_tags = curses.color_pair(self.colors.id('filter_status')) + curses.A_REVERSE
                 if self.sort_orders[-1]['reverse']:
                     self.screen.addch(curses.ACS_DARROW, curses_tags)
                 else:
@@ -2374,14 +2369,14 @@ class Interface:
         self.screen.move(self.height - 1, self.width - rates_width - limits_width)
         self.screen.addch(curses.ACS_DARROW, curses.A_REVERSE)
         self.screen.addstr(scale_bytes(self.stats['downloadSpeed']).rjust(self.rateDownload_width),
-                           curses.color_pair(self.colors.get_id('download_rate'))
+                           curses.color_pair(self.colors.id('download_rate'))
                            + curses.A_REVERSE + curses.A_BOLD)
         self.screen.addstr(limits['dn_limit'], curses.A_REVERSE)
         self.screen.addch(' ', curses.A_REVERSE)
         self.screen.addch(curses.ACS_UARROW, curses.A_REVERSE)
         self.screen.insstr(limits['up_limit'], curses.A_REVERSE)
         self.screen.insstr(scale_bytes(self.stats['uploadSpeed']).rjust(self.rateUpload_width),
-                           curses.color_pair(self.colors.get_id('upload_rate'))
+                           curses.color_pair(self.colors.id('upload_rate'))
                            + curses.A_REVERSE + curses.A_BOLD)
 
 
@@ -2537,10 +2532,10 @@ class Interface:
         win.keypad(True)
 
         if important:
-            win.bkgd(' ', curses.color_pair(self.colors.get_id('dialog_important'))
+            win.bkgd(' ', curses.color_pair(self.colors.id('dialog_important'))
                           + curses.A_REVERSE)
 
-        focus_tags   = curses.color_pair(self.colors.get_id('button_focused'))
+        focus_tags   = curses.color_pair(self.colors.id('button_focused'))
         unfocus_tags = 0
 
         input = False
@@ -2591,8 +2586,8 @@ class Interface:
             displaytext = input[textwidth*page:textwidth*(page + 1)]
             displayindex = index - textwidth*page
 
-            color = (curses.color_pair(self.colors.get_id('dialog_important')) if self.highlight_dialog
-                     else curses.color_pair(self.colors.get_id('dialog')))
+            color = (curses.color_pair(self.colors.id('dialog_important')) if self.highlight_dialog
+                     else curses.color_pair(self.colors.id('dialog')))
             win.addstr(height - 2, 2, displaytext.ljust(textwidth), color)
             win.move(height - 2, displayindex + 2)
             c = win.getch()
@@ -2668,7 +2663,7 @@ class Interface:
                 win.addstr(height-4, 2, "leave empty for default")
 
         while True:
-            win.addstr(height-2, 2, input.ljust(width-4), curses.color_pair(self.colors.get_id('dialog')))
+            win.addstr(height-2, 2, input.ljust(width-4), curses.color_pair(self.colors.id('dialog')))
             win.move(height - 2, len(input) + 2)
             c = win.getch()
             if c == 27 or c == ord('q') or c == curses.KEY_BREAK:
@@ -2756,7 +2751,7 @@ class Interface:
         i = 1
         for option in options:
             title = option[1].split('_')
-            if i == focus: tag = curses.color_pair(self.colors.get_id('dialog'))
+            if i == focus: tag = curses.color_pair(self.colors.id('dialog'))
             else:          tag = 0
             win.addstr(i,2, title[0], tag)
             win.addstr(title[1][0], tag + curses.A_UNDERLINE)

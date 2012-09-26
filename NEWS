@@ -1,3 +1,7 @@
+1.4.2  2012-09-26
+    - Support for Transmission version 2.71
+
+
 1.4.1  2012-09-05
     BUGFIXES:
         - Indices of sorted file lists are now pointing to the correct files

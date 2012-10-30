@@ -1,3 +1,8 @@
+1.4.4  2012-10-30
+    BUGFIXES:
+        - Fix crash when changing priority of all files of a torrent
+
+
 1.4.3  2012-10-18
     - Support for Transmission version 2.73
 

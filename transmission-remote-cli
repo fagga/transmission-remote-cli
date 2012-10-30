@@ -1953,17 +1953,19 @@ class Interface:
                 break
 
     def create_filelist(self):
-        filelist = []
         files = sorted(self.torrent_details['files'], cmp=lambda x,y: cmp(x['name'], y['name']))
-        current_folder = []
-        current_depth = 0
-        index = 0
-        pos = 0
-        pos_before_focus = 0
         # Build new mapping between sorted local files and transmission-daemon's unsorted files
         self.file_index_map = {}
-        for file in files:
+        for index,file in enumerate(files):
             self.file_index_map[index] = self.torrent_details['files'].index(file)
+
+        filelist = []
+        current_folder = []
+        current_depth = 0
+        pos = 0
+        pos_before_focus = 0
+        index = 0
+        for file in files:
             f = file['name'].split('/')
             f_len = len(f) - 1
             if f[:f_len] != current_folder:

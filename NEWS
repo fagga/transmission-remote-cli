@@ -1,3 +1,8 @@
+1.4.5  2012-11-07
+    BUGFIXES:
+        - Fix forwarding CLI args to transmission-remote
+
+
 1.4.4  2012-10-30
     BUGFIXES:
         - Fix crash when changing priority of all files of a torrent

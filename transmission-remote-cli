@@ -159,11 +159,11 @@ class ColorManager:
         try:
             color_pair['bg'] = eval('curses.COLOR_' + bg_name)
         except AttributeError:
-            color_pair['bg'] = 0
+            color_pair['bg'] = -1
         try:
             color_pair['fg'] = eval('curses.COLOR_' + fg_name)
         except AttributeError:
-            color_pair['fg'] = 0
+            color_pair['fg'] = -1
         return color_pair
 
     def id(self, name): return self.config[name]['id']

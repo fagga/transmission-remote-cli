@@ -155,9 +155,16 @@ class ColorManager:
         # has something to do with how highlighting focus works.)
         bg_name = pair.split(',')[1].split(':')[1].upper()
         fg_name = pair.split(',')[0].split(':')[1].upper()
-        return { 'id': len(self.config.keys()) + 1,
-                 'bg': eval('curses.COLOR_' + bg_name),
-                 'fg': eval('curses.COLOR_' + fg_name) }
+        color_pair = { 'id': len(self.config.keys()) + 1 }
+        try:
+            color_pair['bg'] = eval('curses.COLOR_' + bg_name)
+        except AttributeError:
+            color_pair['bg'] = 0
+        try:
+            color_pair['fg'] = eval('curses.COLOR_' + fg_name)
+        except AttributeError:
+            color_pair['fg'] = 0
+        return color_pair
 
     def id(self, name): return self.config[name]['id']
 

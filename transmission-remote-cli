@@ -592,6 +592,17 @@ class Transmission:
             request.send_request()
             self.wait_for_torrentlist_update()
 
+    def decrease_queue_position(self, torrent_id):
+        request = TransmissionRequest(self.host, self.port, self.path, 'queue-move-up', 1,
+                                          {'ids': [torrent_id]})
+        request.send_request()
+        self.wait_for_torrentlist_update()
+
+    def increase_queue_position(self, torrent_id):
+        request = TransmissionRequest(self.host, self.port, self.path, 'queue-move-down', 1,
+                                          {'ids': [torrent_id]})
+        request.send_request()
+        self.wait_for_torrentlist_update()
 
     def toggle_turtle_mode(self):
         self.set_option('alt-speed-enabled', not self.status_cache['alt-speed-enabled'])
@@ -846,6 +857,8 @@ class Interface:
             ord('t'):               self.t_key,
             ord('+'):               self.bandwidth_priority,
             ord('-'):               self.bandwidth_priority,
+            curses.ascii.ctrl(ord('j')): self.move_queue,
+            curses.ascii.ctrl(ord('k')): self.move_queue,
             ord('p'):               self.pause_unpause_torrent,
             ord('P'):               self.pause_unpause_all_torrent,
             ord('v'):               self.verify_torrent,
@@ -1221,6 +1234,13 @@ class Interface:
             server.decrease_bandwidth_priority(self.torrents[self.focus]['id'])
         elif c == ord('+') and self.focus > -1:
             server.increase_bandwidth_priority(self.torrents[self.focus]['id'])
+
+    def move_queue(self, c):
+        if c == curses.ascii.ctrl(ord('j')) and self.focus > -1:
+            server.increase_queue_position(self.torrents[self.focus]['id'])
+        elif c == curses.ascii.ctrl(ord('k')) and self.focus > -1:
+            server.decrease_queue_position(self.torrents[self.focus]['id'])
+
 
     def pause_unpause_torrent(self, c):
         if self.focus > -1:

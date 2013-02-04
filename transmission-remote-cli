@@ -2460,7 +2460,8 @@ class Interface:
                   "              n  Reannounce torrent\n" + \
                   "              a  Add torrent\n" + \
                   "          Del/r  Remove torrent and keep content\n" + \
-                  "    Shift+Del/R  Remove torrent and delete content\n"
+                  "    Shift+Del/R  Remove torrent and delete content\n" + \
+                  "       Ctrl+k/j  Increase/decrease Queue Position for focused torrent\n"
         # Torrent list
         if self.selected_torrent == -1:
             message += "              /  Search in torrent list\n" + \

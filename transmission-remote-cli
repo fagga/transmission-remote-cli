@@ -2814,6 +2814,11 @@ class Interface:
             options.append(('T_urtle Mode UL Limit', "%dK" % self.stats['alt-speed-up']))
             options.append(('Tu_rtle Mode DL Limit', "%dK" % self.stats['alt-speed-down']))
             options.append(('Title is Progress _Bar', ('no','yes')[self.torrentname_is_progressbar]))
+            # queue was implemented in Transmission v2.4
+            if server.get_rpc_version() >= 14:
+                options.append(('Do_wnload Queue Size', "%s" % ('disabled',self.stats['download-queue-size'])[self.stats['download-queue-enabled']]))
+                options.append(('S_eed Queue Size', "%s" % ('disabled',self.stats['seed-queue-size'])[self.stats['seed-queue-enabled']]))
+
 
             max_len = max([sum([len(re.sub('_', '', x)) for x in y[0]]) for y in options])
             win = self.window(len(options)+2, max_len+15, '', "Global Options")
@@ -2892,6 +2897,30 @@ class Interface:
                     server.set_option('alt-speed-down', limit)
             elif c == ord('b'):
                 self.torrentname_is_progressbar = not self.torrentname_is_progressbar
+            # Queue was implemmented in Transmission v2.4
+            elif c == ord('w') and server.get_rpc_version() >= 14:
+                queue_size = self.dialog_input_number('Download Queue size',
+                                                      (0, self.stats['download-queue-size'])[self.stats['download-queue-enabled']],
+                                                      allow_negative_one = False)
+                if queue_size != -128:
+                    if queue_size == 0:
+                        server.set_option('download-queue-enabled', False)
+                    elif queue_size > 0:
+                        if not self.stats['download-queue-enabled']:
+                            server.set_option('download-queue-enabled', True)
+                        server.set_option('download-queue-size', queue_size)
+            # Queue was implemmented in Transmission v2.4
+            elif c == ord('e') and server.get_rpc_version() >= 14:
+                queue_size = self.dialog_input_number('Seed Queue size',
+                                                      (0, self.stats['seed-queue-size'])[self.stats['seed-queue-enabled']],
+                                                      allow_negative_one = False)
+                if queue_size != -128:
+                    if queue_size == 0:
+                        server.set_option('seed-queue-enabled', False)
+                    elif queue_size > 0:
+                        if not self.stats['seed-queue-enabled']:
+                            server.set_option('seed-queue-enabled', True)
+                        server.set_option('seed-queue-size', queue_size)
 
             self.draw_torrent_list()
 

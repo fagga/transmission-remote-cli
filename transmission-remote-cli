@@ -283,7 +283,8 @@ class Transmission:
                     'peersConnected', 'uploadLimit', 'downloadLimit',
                     'uploadLimited', 'downloadLimited', 'bandwidthPriority',
                     'peersSendingToUs', 'peersGettingFromUs',
-                    'seedRatioLimit', 'seedRatioMode', 'isPrivate' ]
+                    'seedRatioLimit', 'seedRatioMode', 'isPrivate',
+                    'queuePosition' ]
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
@@ -887,7 +888,8 @@ class Interface:
             ('status','S_tatus'), ('uploadedEver','Up_loaded'),
             ('rateUpload','_Upload Speed'), ('rateDownload','_Download Speed'),
             ('uploadRatio','_Ratio'), ('peersConnected','P_eers'),
-            ('downloadDir', 'L_ocation'), ('reverse','Re_verse')
+            ('downloadDir', 'L_ocation'), ('queuePosition', '_Queue Position'),
+            ('reverse','Re_verse')
         ]
 
 

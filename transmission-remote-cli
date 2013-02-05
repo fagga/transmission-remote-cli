@@ -2823,14 +2823,14 @@ class Interface:
                 options.append(('_Micro Transport Protocol', ('disabled','enabled')[self.stats['utp-enabled']]))
             options.append(('_Global Peer Limit', "%d" % self.stats['peer-limit-global']))
             options.append(('Peer Limit per _Torrent', "%d" % self.stats['peer-limit-per-torrent']))
-            options.append(('_Seed Ratio Limit', "%s" % ('unlimited',self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']]))
             options.append(('T_urtle Mode UL Limit', "%dK" % self.stats['alt-speed-up']))
             options.append(('Tu_rtle Mode DL Limit', "%dK" % self.stats['alt-speed-down']))
-            options.append(('Title is Progress _Bar', ('no','yes')[self.torrentname_is_progressbar]))
+            options.append(('_Seed Ratio Limit', "%s" % ('unlimited',self.stats['seedRatioLimit'])[self.stats['seedRatioLimited']]))
             # queue was implemented in Transmission v2.4
             if server.get_rpc_version() >= 14:
                 options.append(('Do_wnload Queue Size', "%s" % ('disabled',self.stats['download-queue-size'])[self.stats['download-queue-enabled']]))
                 options.append(('S_eed Queue Size', "%s" % ('disabled',self.stats['seed-queue-size'])[self.stats['seed-queue-enabled']]))
+            options.append(('Title is Progress _Bar', ('no','yes')[self.torrentname_is_progressbar]))
 
 
             max_len = max([sum([len(re.sub('_', '', x)) for x in y[0]]) for y in options])

@@ -861,8 +861,8 @@ class Interface:
             ord('t'):               self.t_key,
             ord('+'):               self.bandwidth_priority,
             ord('-'):               self.bandwidth_priority,
-            curses.ascii.ctrl(ord('j')): self.move_queue,
-            curses.ascii.ctrl(ord('k')): self.move_queue,
+            ord('J'):               self.move_queue,
+            ord('K'):               self.move_queue,
             ord('p'):               self.pause_unpause_torrent,
             ord('P'):               self.pause_unpause_all_torrent,
             ord('v'):               self.verify_torrent,
@@ -910,7 +910,7 @@ class Interface:
         # queue was implemmented in transmission 2.4
         if server.get_rpc_version() >= 14:
             self.sort_options.append(('queuePosition', '_Queue Position'))
-        
+
         self.sort_options.append(('reverse','Re_verse'))
 
 

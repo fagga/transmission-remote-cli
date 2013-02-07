@@ -269,7 +269,6 @@ class Transmission:
     STATUS_DOWNLOAD      = 4   # Downloading
     STATUS_SEED_WAIT     = 5   # Queued to seed
     STATUS_SEED          = 6   # Seeding
-    STATUS_ISOLATED      = 7   # Torrent can't find peers
 
     TAG_TORRENT_LIST    = 7
     TAG_TORRENT_DETAILS = 77
@@ -410,8 +409,7 @@ class Transmission:
                     t['leechers'] = max(map(lambda x: x['leecherCount'], t['trackerStats']))
                 except ValueError:
                     t['seeders']  = t['leechers'] = -1
-                if not self.can_has_peers(t):
-                    t['status'] = Transmission.STATUS_ISOLATED
+                t['isIsolated'] = not self.can_has_peers(t)
 
             if response['tag'] == self.TAG_TORRENT_LIST:
                 self.torrent_cache = response['arguments']['torrents']
@@ -746,6 +744,8 @@ class Transmission:
             status = 'verifying'
         elif torrent['status'] == Transmission.STATUS_CHECK_WAIT:
             status = 'will verify'
+        elif torrent['isIsolated']:
+            status = 'isolated'
         elif torrent['status'] == Transmission.STATUS_DOWNLOAD:
             status = ('idle','downloading')[torrent['rateDownload'] > 0]
         elif torrent['status'] == Transmission.STATUS_DOWNLOAD_WAIT:
@@ -754,8 +754,6 @@ class Transmission:
             status = 'seeding'
         elif torrent['status'] == Transmission.STATUS_SEED_WAIT:
             status = 'will seed (%d)' % torrent['queuePosition']
-        elif torrent['status'] == Transmission.STATUS_ISOLATED:
-            status = 'isolated'
         else:
             status = 'unknown state'
         return status
@@ -1528,7 +1526,7 @@ class Interface:
             self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_CHECK \
                                  or t['status'] == Transmission.STATUS_CHECK_WAIT]
         elif self.filter_list == 'isolated':
-            self.torrents = [t for t in self.torrents if t['status'] == Transmission.STATUS_ISOLATED]
+            self.torrents = [t for t in self.torrents if t['isIsolated']]
         # invert list?
         if self.filter_inverse:
             self.torrents = [t for t in unfiltered if t not in self.torrents]
@@ -1660,7 +1658,9 @@ class Interface:
         size = '| ' + size
         title = ljust_columns(torrent['name'], width - len(size)) + size
 
-        if torrent['status'] == Transmission.STATUS_SEED or \
+        if torrent['isIsolated']:
+            color = curses.color_pair(self.colors.id('title_error'))
+        elif torrent['status'] == Transmission.STATUS_SEED or \
            torrent['status'] == Transmission.STATUS_SEED_WAIT:
             color = curses.color_pair(self.colors.id('title_seed'))
         elif torrent['status'] == Transmission.STATUS_STOPPED:
@@ -1668,8 +1668,6 @@ class Interface:
         elif torrent['status'] == Transmission.STATUS_CHECK or \
              torrent['status'] == Transmission.STATUS_CHECK_WAIT:
             color = curses.color_pair(self.colors.id('title_verify'))
-        elif torrent['status'] == Transmission.STATUS_ISOLATED:
-            color = curses.color_pair(self.colors.id('title_error'))
         elif torrent['rateDownload'] == 0:
             color = curses.color_pair(self.colors.id('title_idle'))
         elif torrent['percentDone'] < 100:
@@ -1699,7 +1697,7 @@ class Interface:
         peers = ''
         parts = [server.get_status(torrent)]
 
-        if torrent['status'] == Transmission.STATUS_ISOLATED and torrent['peersConnected'] <= 0:
+        if torrent['isIsolated'] and torrent['peersConnected'] <= 0:
             if not torrent['trackerStats']:
                 parts[0] = "Unable to find peers without trackers and DHT disabled"
             else:

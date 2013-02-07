@@ -765,27 +765,22 @@ class Transmission:
         recently, or if DHT is enabled for this torrent and globally, False
         otherwise. """
 
-        # torrent has trackers
+        # Torrent has trackers?
         if torrent['trackerStats']:
-            has_connected = any([tracker['hasAnnounced'] or tracker['hasScraped']
-                                 for tracker in torrent['trackerStats']])
-            if has_connected:
+            # Did we try to connect a tracker?
+            if any([tracker['hasAnnounced'] for tracker in torrent['trackerStats']]):
                 for tracker in torrent['trackerStats']:
-                    if tracker['hasScraped'] and \
-                            tracker['lastScrapeTime'] >= tracker['lastAnnounceTime'] and \
-                            tracker['lastScrapeSucceeded']:
+                    if tracker['lastAnnounceSucceeded']:
                         return True
-                    elif tracker['hasAnnounced'] and \
-                            tracker['lastAnnounceTime'] > tracker['lastScrapeTime'] and \
-                            tracker['lastAnnounceSucceeded']:
-                        return True
+            # We didn't try yet; assume at least one is online
             else:
-                # If no tracker has been queried (yet), assume at least one is online
                 return True
-        # torrent can make use of DHT
+        # Torrent can use DHT?
+        # ('dht-enabled' may be missing; assume DHT is available until we can say for sure)
         if not self.status_cache.has_key('dht-enabled') or \
                 (self.status_cache['dht-enabled'] and not torrent['isPrivate']):
             return True
+        # No ways of finding peers remaining
         return False
 
     def get_bandwidth_priority(self, torrent):
@@ -3130,7 +3125,7 @@ def debug(data):
     if cmd_args.DEBUG:
         file = open("debug.log", 'a')
         if type(data) == type(str()):
-            file.write(self.enc(data))
+            file.write(data)
         else:
             import pprint
             pp = pprint.PrettyPrinter(indent=4)

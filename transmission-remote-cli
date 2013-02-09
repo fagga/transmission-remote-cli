@@ -981,15 +981,16 @@ class Interface:
                 self.torrent_title_width -= self.rateDownload_width + 2
 
         elif self.torrents:
-            visible_torrents = self.torrents[self.scrollpos/self.tlist_item_height : self.scrollpos/self.tlist_item_height + self.torrents_per_page + 1]
-            self.rateDownload_width = self.get_rateDownload_width(visible_torrents)
-            self.rateUpload_width   = self.get_rateUpload_width(visible_torrents)
-
+            self.visible_torrents_start = self.scrollpos/self.tlist_item_height
+            self.visible_torrents = self.torrents[self.visible_torrents_start : self.scrollpos/self.tlist_item_height + self.torrents_per_page + 1]
+            self.rateDownload_width = self.get_rateDownload_width(self.visible_torrents)
+            self.rateUpload_width   = self.get_rateUpload_width(self.visible_torrents)
             self.torrent_title_width = self.width - self.rateUpload_width - 2
             # show downloading column only if any downloading torrents are visible
-            if filter(lambda x: x['status']==Transmission.STATUS_DOWNLOAD, visible_torrents):
+            if filter(lambda x: x['status']==Transmission.STATUS_DOWNLOAD, self.visible_torrents):
                 self.torrent_title_width -= self.rateDownload_width + 2
         else:
+            self.visible_torrents = []
             self.torrent_title_width = 80
 
     def get_rateDownload_width(self, torrents):
@@ -1581,13 +1582,13 @@ class Interface:
         self.manage_layout()
 
         ypos = 0
-        for i in range(len(self.torrents)):
-            ypos += self.draw_torrentlist_item(self.torrents[i],
-                                               (i == self.focus),
+        for i in range(len(self.visible_torrents)):
+            ypos += self.draw_torrentlist_item(self.visible_torrents[i],
+                                               (i == self.focus-self.visible_torrents_start),
                                                self.compact_list,
                                                ypos)
 
-        self.pad.refresh(self.scrollpos,0, 1,0, self.mainview_height,self.width-1)
+        self.pad.refresh(0,0, 1,0, self.mainview_height,self.width-1)
         self.screen.refresh()
 
 

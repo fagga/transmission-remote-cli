@@ -58,7 +58,7 @@ import locale
 import curses
 import curses.ascii
 from textwrap import wrap
-from subprocess import call
+from subprocess import call, Popen
 import netrc
 
 
@@ -841,7 +841,7 @@ class Interface:
             curses.KEY_BACKSPACE:   self.leave_details,
             ord('q'):               self.go_back_or_quit,
             ord('o'):               self.o_key,
-            ord('\n'):              self.select_torrent_detail_view,
+            ord('\n'):              self.enter_key,
             curses.KEY_RIGHT:       self.right_key,
             ord('l'):               self.l_key,
             ord('s'):               self.show_sort_order_menu,
@@ -1084,7 +1084,7 @@ class Interface:
             self.select_unselect_file(c)
         # Torrent list
         elif self.selected_torrent == -1:
-            self.select_torrent_detail_view(c)
+            self.enter_key(c)
 
     def a_key(self, c):
         # File list
@@ -1108,7 +1108,7 @@ class Interface:
 
     def l_key(self, c):
         if self.focus > -1 and self.selected_torrent == -1:
-            self.select_torrent_detail_view(c)
+            self.enter_key(c)
         elif self.selected_torrent > -1:
             self.file_pritority_or_switch_details(c)
 
@@ -1134,7 +1134,7 @@ class Interface:
 
     def right_key(self, c):
         if self.focus > -1 and self.selected_torrent == -1:
-            self.select_torrent_detail_view(c)
+            self.enter_key(c)
         else:
             self.file_pritority_or_switch_details(c)
 
@@ -1147,12 +1147,17 @@ class Interface:
                 msg.extend(wrap(error, self.width-4))
                 self.dialog_ok("\n".join(msg))
 
-    def select_torrent_detail_view(self, c):
+    def enter_key(self, c):
+        # Torrent list
         if self.focus > -1 and self.selected_torrent == -1:
             self.screen.clear()
             self.selected_torrent = self.focus
             server.set_torrent_details_id(self.torrents[self.focus]['id'])
             server.wait_for_details_update()
+        # File list
+        elif self.selected_torrent > -1 and self.details_category_focus == 1:
+            self.open_torrent_file(c)
+
 
     def show_sort_order_menu(self, c):
         if self.selected_torrent == -1:
@@ -1461,6 +1466,15 @@ class Interface:
                     self.selected_files = []
                 else:
                     self.selected_files = range(0, len(self.torrent_details['files']))
+
+    def open_torrent_file(self, c):
+        if self.focus_detaillist >= 0:
+            details = server.get_torrent_details()
+            file_name = details['files'][self.focus_detaillist]['name']
+            download_dir = details['downloadDir']
+
+            devnull = open(os.devnull, 'wb')
+            Popen(['xdg-open', download_dir + file_name], stdout=devnull, stderr=devnull)
 
     def move_in_details(self, c):
         if self.selected_torrent > -1:
@@ -2437,7 +2451,8 @@ class Interface:
         else:
             help = [('Move with','cursor keys'), ('q','Back to List')]
             if self.details_category_focus == 1 and self.focus_detaillist > -1:
-                help = [('space','(De)Select File'),
+                help = [('enter', 'Open File'),
+                        ('space','(De)Select File'),
                         ('left/right','De-/Increase Priority'),
                         ('escape','Unfocus/-select')] + help
             elif self.details_category_focus == 2:

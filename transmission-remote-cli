@@ -1470,7 +1470,8 @@ class Interface:
     def open_torrent_file(self, c):
         if self.focus_detaillist >= 0:
             details = server.get_torrent_details()
-            file_name = details['files'][self.focus_detaillist]['name']
+            file_server_index = self.file_index_map[self.focus_detaillist]
+            file_name = details['files'][file_server_index]['name']
             download_dir = details['downloadDir']
 
             devnull = open(os.devnull, 'wb')

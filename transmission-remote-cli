@@ -1475,7 +1475,11 @@ class Interface:
             download_dir = details['downloadDir']
 
             devnull = open(os.devnull, 'wb')
-            Popen(['xdg-open', download_dir + file_name], stdout=devnull, stderr=devnull)
+            try:
+                Popen(['xdg-open', download_dir + file_name],
+                      stdout=devnull, stderr=devnull)
+            except OSError, err:
+                self.dialog_ok("xdg-open %s:\n%s" % (download_dir + file_name, err))
 
     def move_in_details(self, c):
         if self.selected_torrent > -1:

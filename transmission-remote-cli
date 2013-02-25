@@ -114,6 +114,7 @@ config.set('Filtering', 'invert', 'False')
 config.add_section('Misc')
 config.set('Misc', 'compact_list', 'False')
 config.set('Misc', 'torrentname_is_progressbar', 'True')
+config.set('Misc', 'file_viewer', 'xdg-open %%s')
 config.add_section('Colors')
 config.set('Colors', 'title_seed',       'bg:green,fg:black')
 config.set('Colors', 'title_download',   'bg:blue,fg:black')
@@ -807,6 +808,7 @@ class Interface:
         self.sort_orders    = parse_sort_str(config.get('Sorting', 'order'))
         self.compact_list   = config.getboolean('Misc', 'compact_list')
         self.torrentname_is_progressbar = config.getboolean('Misc', 'torrentname_is_progressbar')
+        self.file_viewer    = config.get('Misc', 'file_viewer')
 
         self.torrents         = server.get_torrent_list(self.sort_orders)
         self.stats            = server.get_global_stats()
@@ -1474,12 +1476,18 @@ class Interface:
             file_name = details['files'][file_server_index]['name']
             download_dir = details['downloadDir']
 
-            devnull = open(os.devnull, 'wb')
+            prog=[]
+            for argstr in self.file_viewer.split(" "):
+                prog.append(argstr.replace('%s',download_dir + file_name))
+#            devnull = open(os.devnull, 'wb')
             try:
-                Popen(['xdg-open', download_dir + file_name],
-                      stdout=devnull, stderr=devnull)
+                self.restore_screen()
+                call(prog)
+                self.get_screen_size()
+#                Popen([prog, download_dir + file_name], stdout=devnull, stderr=devnull)
             except OSError, err:
-                self.dialog_ok("xdg-open %s:\n%s" % (download_dir + file_name, err))
+                self.get_screen_size()
+                self.dialog_ok("%s:\n%s" % (" ".join(prog), err))
 
     def move_in_details(self, c):
         if self.selected_torrent > -1:
@@ -2845,10 +2853,12 @@ class Interface:
                 options.append(('Do_wnload Queue Size', "%s" % ('disabled',self.stats['download-queue-size'])[self.stats['download-queue-enabled']]))
                 options.append(('S_eed Queue Size', "%s" % ('disabled',self.stats['seed-queue-size'])[self.stats['seed-queue-enabled']]))
             options.append(('Title is Progress _Bar', ('no','yes')[self.torrentname_is_progressbar]))
+            options.append(('File _Viewer', "%s" % self.file_viewer))
 
 
             max_len = max([sum([len(re.sub('_', '', x)) for x in y[0]]) for y in options])
-            win = self.window(len(options)+2, max_len+15, '', "Global Options")
+            win_width = min(max(len(self.file_viewer)+5, 15), self.width+max_len)
+            win = self.window(len(options)+2, max_len+win_width, '', "Global Options")
 
             line_num = 1
             for option in options:
@@ -2948,6 +2958,12 @@ class Interface:
                         if not self.stats['seed-queue-enabled']:
                             server.set_option('seed-queue-enabled', True)
                         server.set_option('seed-queue-size', queue_size)
+
+            elif c == ord('v'):
+                viewer = self.dialog_input_text('File Viewer\nExample: xdg-viewer %s', self.file_viewer)
+                if viewer:
+                    config.set('Misc', 'file_viewer', viewer.replace('%s','%%s'))
+                    self.file_viewer=viewer
 
             self.draw_torrent_list()
 

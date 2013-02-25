@@ -1476,18 +1476,16 @@ class Interface:
             file_name = details['files'][file_server_index]['name']
             download_dir = details['downloadDir']
 
-            prog=[]
+            viewer_cmd=[]
             for argstr in self.file_viewer.split(" "):
-                prog.append(argstr.replace('%s',download_dir + file_name))
-#            devnull = open(os.devnull, 'wb')
+                viewer_cmd.append(argstr.replace('%s',download_dir + file_name))
             try:
                 self.restore_screen()
-                call(prog)
+                call(viewer_cmd)
                 self.get_screen_size()
-#                Popen([prog, download_dir + file_name], stdout=devnull, stderr=devnull)
             except OSError, err:
                 self.get_screen_size()
-                self.dialog_ok("%s:\n%s" % (" ".join(prog), err))
+                self.dialog_ok("%s:\n%s" % (" ".join(viewer_cmd), err))
 
     def move_in_details(self, c):
         if self.selected_torrent > -1:

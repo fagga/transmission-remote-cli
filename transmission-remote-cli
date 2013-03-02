@@ -1520,7 +1520,7 @@ class Interface:
         if self.focus > -1:
             location = homedir2tilde(self.torrents[self.focus]['downloadDir'])
             msg = 'Move "%s" from\n%s to' % (self.torrents[self.focus]['name'], location)
-            path = self.dialog_input_text(msg, location)
+            path = self.dialog_input_text(msg, location, tab_complete=True)
             if path:
                 server.move_torrent(self.torrents[self.focus]['id'], tilde2homedir(path))
 

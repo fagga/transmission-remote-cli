@@ -612,7 +612,16 @@ class Transmission:
 
 
     def add_torrent(self, location):
-        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-add', 1, {'filename': location})
+        args = {}
+        try:
+            with  open(location, 'rb') as fp:
+                args['metainfo'] = unicode(base64.b64encode(fp.read()))
+        # If the file doesnt exist or we cant open it, then it is either a url or needs to
+        # be open by the server
+        except IOError:
+            args['filename'] = location
+
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-add', 1, args)
         request.send_request()
         response = request.get_response()
         if response['result'] != 'success':

@@ -1151,9 +1151,9 @@ class Interface:
             self.file_pritority_or_switch_details(c)
 
     def add_torrent(self):
-        location = self.dialog_input_text("Add torrent from file or URL", os.getcwd(), tab_complete='all')
+        location = self.dialog_input_text("Add torrent from file or URL", homedir2tilde(os.getcwd()), tab_complete='all')
         if location:
-            error = server.add_torrent(location)
+            error = server.add_torrent(tilde2homedir(location))
             if error:
                 msg = wrap("Couldn't add torrent \"%s\":" % location)
                 msg.extend(wrap(error, self.width-4))
@@ -2703,13 +2703,14 @@ class Interface:
                 index += 1
                 if on_change: on_change(input)
             elif c == ord('\t') and tab_complete:
-                possible_choices = glob.glob(input+'*')
+                possible_choices = glob.glob(tilde2homedir(input)+'*')
                 if tab_complete == 'dirs':
                     possible_choices = [ d for d in possible_choices if os.path.isdir(d) ]
                 if(possible_choices):
                     input = os.path.commonprefix(possible_choices)
                     if os.path.isdir(input) and input.endswith(os.sep) == False:
                         input += os.sep
+                    input = homedir2tilde(input)
                     index = len(input)
             if on_change: win.redrawwin()
 

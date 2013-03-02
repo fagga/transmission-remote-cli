@@ -2708,7 +2708,7 @@ class Interface:
                     possible_choices = [ d for d in possible_choices if os.path.isdir(d) ]
                 if(possible_choices):
                     input = os.path.commonprefix(possible_choices)
-                    if os.path.isdir(input) and input.endswith(os.sep) == False:
+                    if len(possible_choices) == 1 and os.path.isdir(input) and input.endswith(os.sep) == False:
                         input += os.sep
                     input = homedir2tilde(input)
                     index = len(input)

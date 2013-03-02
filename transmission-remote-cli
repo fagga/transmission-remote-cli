@@ -1151,7 +1151,7 @@ class Interface:
             self.file_pritority_or_switch_details(c)
 
     def add_torrent(self):
-        location = self.dialog_input_text("Add torrent from file or URL", os.getcwd(), tab_complete=True)
+        location = self.dialog_input_text("Add torrent from file or URL", os.getcwd(), tab_complete='all')
         if location:
             error = server.add_torrent(location)
             if error:
@@ -1520,7 +1520,7 @@ class Interface:
         if self.focus > -1:
             location = homedir2tilde(self.torrents[self.focus]['downloadDir'])
             msg = 'Move "%s" from\n%s to' % (self.torrents[self.focus]['name'], location)
-            path = self.dialog_input_text(msg, location, tab_complete=True)
+            path = self.dialog_input_text(msg, location, tab_complete='dirs')
             if path:
                 server.move_torrent(self.torrents[self.focus]['id'], tilde2homedir(path))
 
@@ -2645,7 +2645,12 @@ class Interface:
             elif c == 27 or c == curses.KEY_BREAK:
                 return -1
 
-    def dialog_input_text(self, message, input='', on_change=None, on_enter=None, tab_complete=False):
+
+    # tab_complete values:
+    #               'all': complete with any files/directories
+    #              'dirs': complete only with directories
+    #     any false value: do not complete
+    def dialog_input_text(self, message, input='', on_change=None, on_enter=None, tab_complete=None):
         width  = self.width - 4
         textwidth = self.width - 8
         height = message.count("\n") + 4
@@ -2698,9 +2703,11 @@ class Interface:
                 index += 1
                 if on_change: on_change(input)
             elif c == ord('\t') and tab_complete:
-                possible_files = glob.glob(input+'*')
-                if(possible_files):
-                    input = os.path.commonprefix(possible_files)
+                possible_choices = glob.glob(input+'*')
+                if tab_complete == 'dirs':
+                    possible_choices = [ d for d in possible_choices if os.path.isdir(d) ]
+                if(possible_choices):
+                    input = os.path.commonprefix(possible_choices)
                     if os.path.isdir(input) and input.endswith(os.sep) == False:
                         input += os.sep
                     index = len(input)

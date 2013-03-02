@@ -2701,8 +2701,8 @@ class Interface:
                 possible_files = glob.glob(input+'*')
                 if(possible_files):
                     input = os.path.commonprefix(possible_files)
-                    if os.path.isdir(input) and (input.endswith('/') == False):
-                        input += '/'
+                    if os.path.isdir(input) and input.endswith(os.sep) == False:
+                        input += os.sep
                     index = len(input)
             if on_change: win.redrawwin()
 

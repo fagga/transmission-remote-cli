@@ -1150,7 +1150,7 @@ class Interface:
             self.file_pritority_or_switch_details(c)
 
     def add_torrent(self):
-        location = self.dialog_input_text("Add torrent from file or URL", os.getcwd())
+        location = self.dialog_input_text("Add torrent from file or URL", os.getcwd(), tab_complete=True)
         if location:
             error = server.add_torrent(location)
             if error:
@@ -2644,7 +2644,7 @@ class Interface:
             elif c == 27 or c == curses.KEY_BREAK:
                 return -1
 
-    def dialog_input_text(self, message, input='', on_change=None, on_enter=None):
+    def dialog_input_text(self, message, input='', on_change=None, on_enter=None, tab_complete=False):
         width  = self.width - 4
         textwidth = self.width - 8
         height = message.count("\n") + 4
@@ -2696,6 +2696,8 @@ class Interface:
                 input = input[:index] + chr(c) + (index < len(input) and input[index:] or '')
                 index += 1
                 if on_change: on_change(input)
+            elif c == ord('\t') and tab_complete:
+                pass # put here autocomplete code
             if on_change: win.redrawwin()
 
     def dialog_search_torrentlist(self, c):

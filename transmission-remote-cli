@@ -1151,7 +1151,7 @@ class Interface:
             self.file_pritority_or_switch_details(c)
 
     def add_torrent(self):
-        location = self.dialog_input_text("Add torrent from file or URL", homedir2tilde(os.getcwd()), tab_complete='all')
+        location = self.dialog_input_text("Add torrent from file or URL", homedir2tilde(os.getcwd()+os.sep), tab_complete='all')
         if location:
             error = server.add_torrent(tilde2homedir(location))
             if error:

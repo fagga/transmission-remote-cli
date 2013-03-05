@@ -2688,6 +2688,11 @@ class Interface:
             elif index < len(input) and c == curses.ascii.ctrl(ord('k')):
                 input = input[:index]
                 if on_change: on_change(input)
+            elif c == curses.ascii.ctrl(ord('u')):
+                # Delete from cursor until beginning of line
+                input = input[index:]
+                index = 0
+                if on_change: on_change(input)
             elif c == curses.KEY_HOME or c == curses.ascii.ctrl(ord('a')):
                 index = 0
             elif c == curses.KEY_END or c == curses.ascii.ctrl(ord('e')):

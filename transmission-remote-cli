@@ -466,6 +466,12 @@ class Transmission:
                     self.peer_progress_cache[peerid]['download_speed'] = avg_speed
                     self.peer_progress_cache[peerid]['time_left']      = time_left
 
+                # infrequent progress updates lead to increasingly inaccurate
+                # estimates, so we go back to <guessing>
+                elif time_diff > 30:
+                    self.peer_progress_cache[peerid]['download_speed'] = 0
+                    self.peer_progress_cache[peerid]['time_left']      = 0
+
                 self.peer_progress_cache[peerid]['last_progress'] = peer['progress']  # remember progress
             self.torrent_details_cache['peers'][index].update(self.peer_progress_cache[peerid])
 

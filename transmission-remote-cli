@@ -453,25 +453,22 @@ class Transmission:
                 progress_diff = peer['progress'] - self.peer_progress_cache[peerid]['last_progress']
                 if self.peer_progress_cache[peerid]['last_progress'] and progress_diff > 0 and time_diff > 5:
                     downloaded = self.torrent_details_cache['totalSize'] * progress_diff
-                    avg_speed  = downloaded / time_diff
-
-                    if self.peer_progress_cache[peerid]['download_speed'] > 0:  # make it less jumpy
-                        avg_speed = (self.peer_progress_cache[peerid]['download_speed'] + avg_speed) /2
-
+                    peer_rate = downloaded / time_diff
                     download_left = self.torrent_details_cache['totalSize'] - \
                         (self.torrent_details_cache['totalSize']*peer['progress'])
-                    time_left  = download_left / avg_speed
-
-                    self.peer_progress_cache[peerid]['last_update']    = this_time  # remember update time
-                    self.peer_progress_cache[peerid]['download_speed'] = avg_speed
-                    self.peer_progress_cache[peerid]['time_left']      = time_left
+                    time_left = download_left / peer_rate
+                    self.peer_progress_cache[peerid]['last_update']    = this_time
+                    self.peer_progress_cache[peerid]['time_left']      = \
+                        norm.add(peerid + ':time_left', time_left, 10)
+                    self.peer_progress_cache[peerid]['download_speed'] = \
+                        norm.add(peerid + ':download_speed', peer_rate, 10)
 
                 # infrequent progress updates lead to increasingly inaccurate
                 # estimates, so we go back to <guessing>
-                elif time_diff > 30:
+                elif time_diff > 60:
                     self.peer_progress_cache[peerid]['download_speed'] = 0
                     self.peer_progress_cache[peerid]['time_left']      = 0
-
+                    self.peer_progress_cache[peerid]['last_update']    = time.time()
                 self.peer_progress_cache[peerid]['last_progress'] = peer['progress']  # remember progress
             self.torrent_details_cache['peers'][index].update(self.peer_progress_cache[peerid])
 

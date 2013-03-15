@@ -1876,7 +1876,7 @@ class Interface:
             info[-1].append("no transmission in progress")
 
         info.append(['Ratio: ', '%.2f copies distributed' % copies_distributed])
-        norm_upload_rate = norm.add('%s:rateUpload' % t['id'], t['rateUpload'], 15)
+        norm_upload_rate = norm.add('%s:rateUpload' % t['id'], t['rateUpload'], 50)
         if norm_upload_rate > 0:
             target_ratio = self.get_target_ratio()
             bytes_left   = (max(t['downloadedEver'],t['sizeWhenDone']) * target_ratio) - t['uploadedEver']

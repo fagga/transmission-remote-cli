@@ -446,31 +446,32 @@ class Transmission:
                 self.peer_progress_cache[peerid] = {'last_progress':peer['progress'], 'last_update':time.time(),
                                                     'download_speed':0, 'time_left':0}
 
+            this_peer = self.peer_progress_cache[peerid]
+            this_torrent = self.torrent_details_cache
+
             # estimate how fast a peer is downloading
             if peer['progress'] < 1:
                 this_time = time.time()
-                time_diff = this_time - self.peer_progress_cache[peerid]['last_update']
-                progress_diff = peer['progress'] - self.peer_progress_cache[peerid]['last_progress']
-                if self.peer_progress_cache[peerid]['last_progress'] and progress_diff > 0 and time_diff > 5:
-                    downloaded = self.torrent_details_cache['totalSize'] * progress_diff
-                    peer_rate = downloaded / time_diff
-                    download_left = self.torrent_details_cache['totalSize'] - \
-                        (self.torrent_details_cache['totalSize']*peer['progress'])
-                    time_left = download_left / peer_rate
-                    self.peer_progress_cache[peerid]['last_update']    = this_time
-                    self.peer_progress_cache[peerid]['time_left']      = \
-                        norm.add(peerid + ':time_left', time_left, 10)
-                    self.peer_progress_cache[peerid]['download_speed'] = \
-                        norm.add(peerid + ':download_speed', peer_rate, 10)
+                time_diff = this_time - this_peer['last_update']
+                progress_diff = peer['progress'] - this_peer['last_progress']
+                if this_peer['last_progress'] and progress_diff > 0 and time_diff > 5:
+                    download_left = this_torrent['totalSize'] - \
+                        (this_torrent['totalSize']*peer['progress'])
+                    downloaded = this_torrent['totalSize'] * progress_diff
+
+                    this_peer['download_speed'] = \
+                        norm.add(peerid+':download_speed', downloaded/time_diff, 10)
+                    this_peer['time_left']   = download_left/this_peer['download_speed']
+                    this_peer['last_update'] = this_time
 
                 # infrequent progress updates lead to increasingly inaccurate
                 # estimates, so we go back to <guessing>
                 elif time_diff > 60:
-                    self.peer_progress_cache[peerid]['download_speed'] = 0
-                    self.peer_progress_cache[peerid]['time_left']      = 0
-                    self.peer_progress_cache[peerid]['last_update']    = time.time()
-                self.peer_progress_cache[peerid]['last_progress'] = peer['progress']  # remember progress
-            self.torrent_details_cache['peers'][index].update(self.peer_progress_cache[peerid])
+                    this_peer['download_speed'] = 0
+                    this_peer['time_left']      = 0
+                    this_peer['last_update']    = time.time()
+                this_peer['last_progress'] = peer['progress']  # remember progress
+            this_torrent['peers'][index].update(this_peer)
 
             # resolve and locate peer's ip
             if features['dns'] and not self.hosts_cache.has_key(ip):

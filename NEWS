@@ -1,3 +1,18 @@
+1.5.0  2013-03-21
+    BUGFIXES:
+        - Torrents should no longer become 'isolated' for seemingly no reason
+
+    - Support for Transmission version 2.80
+    - Open files with 'xdg-open' (or something else)
+    - Limited support for queues (increase/decrease, sort)
+    - Better performance when scrolling through many torrents
+    - Submit torrents to daemon via RPC request, not file path
+    - Tab completion for files and directories
+    - Ctrl+u deletes from cursor to beginning in dialogs
+    - Peer download rate estimates become invalid after 60 seconds without
+      update
+
+
 1.4.7  2013-01-10
     - Support for Transmission version 2.76
 

@@ -903,6 +903,7 @@ class Interface:
             curses.KEY_LEFT:        self.file_pritority_or_switch_details,
             ord(' '):               self.space_key,
             ord('a'):               self.a_key,
+            ord('A'):               self.A_key,
             ord('m'):               self.move_torrent,
             ord('n'):               self.reannounce_torrent,
             ord('/'):               self.dialog_search_torrentlist
@@ -1101,6 +1102,11 @@ class Interface:
         # Torrent list
         elif self.selected_torrent == -1:
             self.enter_key(c)
+
+    def A_key(self, c):
+        # File list
+        if self.selected_torrent > -1 and self.details_category_focus == 1:
+            self.select_unselect_file(c)
 
     def a_key(self, c):
         # File list
@@ -1476,6 +1482,26 @@ class Interface:
                 except ValueError:
                     self.selected_files.append(self.focus_detaillist)
                 curses.ungetch(curses.KEY_DOWN) # move down
+            # (un)select directory
+            elif c == ord('A'):
+                index = self.file_index_map[self.focus_detaillist]
+                focused_dir = os.path.dirname(self.torrent_details['files'][index]['name'])
+                if self.selected_files.count(index):
+                    for i in range(0, len(self.torrent_details['files'])):
+                        if self.torrent_details['files'][i]['name'].startswith(focused_dir):
+                            try:
+                                self.selected_files.remove(i)
+                            except ValueError:
+                                pass
+                else:
+                    for i in range(0, len(self.torrent_details['files'])):
+                        if self.torrent_details['files'][i]['name'].startswith(focused_dir):
+                            self.selected_files.append(i)
+                # Move on to next directory
+                while index < len(self.torrent_details['files'])-1 and \
+                        self.torrent_details['files'][index]['name'].startswith(focused_dir):
+                    self.movement_keys(curses.KEY_DOWN)
+                    index = self.file_index_map[self.focus_detaillist]
             # (un)select all files
             elif c == ord('a'):
                 if self.selected_files:
@@ -2550,6 +2576,7 @@ class Interface:
                     message += "        Up/Down  Select file\n" + \
                                "          Space  Select/Deselect focused file\n" + \
                                "              a  Select/Deselect all files\n" + \
+                               "              A  Select/Deselect directory\n" + \
                                "            Esc  Unfocus+Unselect or Back to torrent list\n" + \
                                "    q/Backspace  Back to torrent list"
                 else:

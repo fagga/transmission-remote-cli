@@ -61,6 +61,8 @@ from textwrap import wrap
 from subprocess import call, Popen
 import netrc
 import glob
+import operator
+import urlparse
 
 
 # optional features provided by non-standard modules
@@ -397,6 +399,17 @@ class Transmission:
 
 
     def parse_response(self, response):
+        def get_main_tracker_domain(torrent):
+            if torrent['trackerStats']:
+                trackers = sorted(torrent['trackerStats'],
+                                  key=operator.itemgetter('tier', 'id'))
+                hostname = urlparse.urlparse(trackers[0]['announce']).hostname
+                # Ignore subdomains; i.e. pick "site.com" from "tracker42.site.com"
+                return '.'.join( hostname.split('.', 2)[-2:] )
+            else:
+                # Trackerless torrents
+                return None
+
         # response is a reply to torrent-get
         if response['tag'] == self.TAG_TORRENT_LIST or response['tag'] == self.TAG_TORRENT_DETAILS:
             for t in response['arguments']['torrents']:
@@ -412,6 +425,7 @@ class Transmission:
                 except ValueError:
                     t['seeders']  = t['leechers'] = -1
                 t['isIsolated'] = not self.can_has_peers(t)
+                t['mainTrackerDomain'] = get_main_tracker_domain(t)
 
             if response['tag'] == self.TAG_TORRENT_LIST:
                 self.torrent_cache = response['arguments']['torrents']
@@ -491,14 +505,15 @@ class Transmission:
         return self.status_cache
 
     def get_torrent_list(self, sort_orders):
+        def sort_value(value):
+            try:
+                return value.lower()
+            except AttributeError:
+                return value
         try:
             for sort_order in sort_orders:
-                if isinstance(self.torrent_cache[0][sort_order['name']], (str, unicode)):
-                    self.torrent_cache.sort(key=lambda x: x[sort_order['name']].lower(),
-                                            reverse=sort_order['reverse'])
-                else:
-                    self.torrent_cache.sort(key=lambda x: x[sort_order['name']],
-                                            reverse=sort_order['reverse'])
+                self.torrent_cache.sort(key=lambda x: sort_value(x[sort_order['name']]),
+                                        reverse=sort_order['reverse'])
         except IndexError:
             return []
         return self.torrent_cache
@@ -915,7 +930,7 @@ class Interface:
             ('status','S_tatus'), ('uploadedEver','Up_loaded'),
             ('rateUpload','_Upload Speed'), ('rateDownload','_Download Speed'),
             ('uploadRatio','_Ratio'), ('peersConnected','P_eers'),
-            ('downloadDir', 'L_ocation') ]
+            ('downloadDir', 'L_ocation'), ('mainTrackerDomain', 'Trac_ker') ]
 
         # queue was implemmented in transmission 2.4
         if server.get_rpc_version() >= 14:

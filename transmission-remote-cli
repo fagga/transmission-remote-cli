@@ -403,9 +403,7 @@ class Transmission:
             if torrent['trackerStats']:
                 trackers = sorted(torrent['trackerStats'],
                                   key=operator.itemgetter('tier', 'id'))
-                hostname = urlparse.urlparse(trackers[0]['announce']).hostname
-                # Ignore subdomains; i.e. pick "site.com" from "tracker42.site.com"
-                return '.'.join( hostname.split('.', 2)[-2:] )
+                return urlparse.urlparse(trackers[0]['announce']).hostname
             else:
                 # Trackerless torrents
                 return None

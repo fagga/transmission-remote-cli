@@ -1497,24 +1497,28 @@ class Interface:
                 curses.ungetch(curses.KEY_DOWN) # move down
             # (un)select directory
             elif c == ord('A'):
-                index = self.file_index_map[self.focus_detaillist]
-                focused_dir = os.path.dirname(self.torrent_details['files'][index]['name'])
-                if self.selected_files.count(index):
-                    for i in range(0, len(self.torrent_details['files'])):
-                        if self.torrent_details['files'][i]['name'].startswith(focused_dir):
+                file_id = self.file_index_map[self.focus_detaillist]
+                focused_dir = os.path.dirname(self.torrent_details['files'][file_id]['name'])
+                if self.selected_files.count(self.focus_detaillist):
+                    for focus in range(0, len(self.torrent_details['files'])):
+                        file_id = self.file_index_map[focus]
+                        if self.torrent_details['files'][file_id]['name'].startswith(focused_dir):
                             try:
-                                self.selected_files.remove(i)
+                                while focus in self.selected_files:
+                                    self.selected_files.remove(focus)
                             except ValueError:
                                 pass
                 else:
-                    for i in range(0, len(self.torrent_details['files'])):
-                        if self.torrent_details['files'][i]['name'].startswith(focused_dir):
-                            self.selected_files.append(i)
+                    for focus in range(0, len(self.torrent_details['files'])):
+                        file_id = self.file_index_map[focus]
+                        if self.torrent_details['files'][file_id]['name'].startswith(focused_dir):
+                            self.selected_files.append(focus)
                 # Move on to next directory
-                while index < len(self.torrent_details['files'])-1 and \
-                        self.torrent_details['files'][index]['name'].startswith(focused_dir):
+                file_id = self.file_index_map[self.focus_detaillist]
+                while self.torrent_details['files'][file_id]['name'].startswith(focused_dir) \
+                        and self.focus_detaillist < len(self.torrent_details['files'])-1:
                     self.movement_keys(curses.KEY_DOWN)
-                    index = self.file_index_map[self.focus_detaillist]
+                    file_id = self.file_index_map[self.focus_detaillist]
             # (un)select all files
             elif c == ord('a'):
                 if self.selected_files:
@@ -2838,7 +2842,7 @@ class Interface:
 
             elif cursorkeys and c != -1:
                 try:
-                    if input == '': input = 0                        
+                    if input == '': input = 0
                     if floating_point: number = float(input)
                     else:              number = int(input)
                     if c == curses.KEY_LEFT or c == ord('h'):    number -= smallstep
@@ -3349,7 +3353,7 @@ def save_config(filepath, force=False):
 def parse_sort_str(sort_str):
     sort_orders = []
     for i in sort_str.split(','):
-        x = i.split(':') 
+        x = i.split(':')
         if len(x) > 1:
             sort_orders.append( { 'name':x[1], 'reverse':True } )
         else:

@@ -2159,15 +2159,17 @@ class Interface:
         # Find width of columns
         clientname_width = 0
         address_width = 0
+        port_width = 0
         for peer in peers:
             if len(peer['clientName']) > clientname_width: clientname_width = len(peer['clientName'])
             if len(peer['address']) > address_width: address_width = len(peer['address'])
+            if len(str(peer['port'])) > port_width: port_width = len(str(peer['port']))
 
         # Column names
         column_names = 'Flags %3d Down %3d Up Progress     ETA ' % \
             (self.torrent_details['peersSendingToUs'], self.torrent_details['peersGettingFromUs'])
         column_names += 'Client'.ljust(clientname_width + 1) \
-            + 'Address'.ljust(address_width)
+            + 'Address'.ljust(address_width+port_width+1)
         if features['geoip']: column_names += 'Country'
         if features['dns']: column_names += ' Host'
 
@@ -2218,8 +2220,9 @@ class Interface:
                     self.pad.addstr("             ")
             # Client
             self.pad.addstr(self.enc(peer['clientName'].ljust(clientname_width + 1)))
-            # Address
-            self.pad.addstr(peer['address'].ljust(address_width + 1))
+            # Address:Port
+            self.pad.addstr(peer['address'].rjust(address_width) + \
+                                ':' + str(peer['port']).ljust(port_width))
             # Country
             if features['geoip']: self.pad.addstr("  %2s   " % geo_ips[peer['address']])
             # Host

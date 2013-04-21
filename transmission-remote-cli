@@ -3115,7 +3115,16 @@ def timestamp(timestamp, format="%x %X"):
     if timestamp < 1:
         return 'never'
 
-    absolute = time.strftime(format, time.localtime(timestamp))
+    if timestamp > sys.maxint:
+        # Timedelta objects do not fail on timestamps
+        # resulting in a date later than 2038
+        date = (datetime.datetime.fromtimestamp(0) +
+                datetime.timedelta(seconds=timestamp))
+        timeobj = date.timetuple()
+    else:
+        timeobj = time.localtime(timestamp)
+
+    absolute = time.strftime(format, timeobj)
     if timestamp > time.time():
         relative = 'in ' + scale_time(int(timestamp - time.time()), 'long')
     else:

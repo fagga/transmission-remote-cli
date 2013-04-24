@@ -116,6 +116,7 @@ config.set('Filtering', 'filter', '')
 config.set('Filtering', 'invert', 'False')
 config.add_section('Misc')
 config.set('Misc', 'compact_list', 'False')
+config.set('Misc', 'blank_lines', 'True')
 config.set('Misc', 'torrentname_is_progressbar', 'True')
 config.set('Misc', 'file_viewer', 'xdg-open %%s')
 config.add_section('Colors')
@@ -834,6 +835,7 @@ class Interface:
         self.filter_inverse = config.getboolean('Filtering', 'invert')
         self.sort_orders    = parse_sort_str(config.get('Sorting', 'order'))
         self.compact_list   = config.getboolean('Misc', 'compact_list')
+        self.blank_lines    = config.getboolean('Misc', 'blank_lines')
         self.torrentname_is_progressbar = config.getboolean('Misc', 'torrentname_is_progressbar')
         self.file_viewer    = config.get('Misc', 'file_viewer')
 
@@ -1038,7 +1040,8 @@ class Interface:
         return new_width
 
     def recalculate_torrents_per_page(self):
-        self.tlist_item_height = 3 if not self.compact_list else 1
+        self.lines_per_entry   = 3 if self.blank_lines else 2
+        self.tlist_item_height = self.lines_per_entry if not self.compact_list else 1
         self.mainview_height = self.height - 2
         self.torrents_per_page = self.mainview_height / self.tlist_item_height
 
@@ -1069,6 +1072,7 @@ class Interface:
                 config.set('Filtering', 'filter', self.filter_list)
                 config.set('Filtering', 'invert', str(self.filter_inverse))
                 config.set('Misc', 'compact_list', str(self.compact_list))
+                config.set('Misc', 'blank_lines', str(self.blank_lines))
                 config.set('Misc', 'torrentname_is_progressbar', str(self.torrentname_is_progressbar))
                 save_config(cmd_args.configfile)
                 return
@@ -1692,7 +1696,7 @@ class Interface:
             self.draw_ratio(torrent, y)
             self.draw_torrentlist_status(torrent, focused, y)
 
-            return 3 # number of lines that were used for drawing the list item
+            return self.lines_per_entry # number of lines that were used for drawing the list item
         else:
             # Draw ratio in place of upload rate if upload rate = 0
             if not torrent['rateUpload']:
@@ -2120,10 +2124,14 @@ class Interface:
             same += 1
 
         # Reduce depth for each directory f has less than current_folder
-        for i in range(current_folder_len - same):
-            current_depth -= 1
-            filelist.append('  '*current_depth + ' '*31 + '/')
-            pos += 1
+        if self.blank_lines:
+            for i in range(current_folder_len - same):
+               current_depth -= 1
+               filelist.append('  '*current_depth + ' '*31 + '/')
+               pos += 1
+        else: # code duplication, but less calculation
+            for i in range(current_folder_len - same):
+               current_depth -= 1
 
         # Stepping out of a directory, but not into a new directory
         if f_len < current_folder_len and f_len == same:
@@ -2932,6 +2940,7 @@ class Interface:
                 options.append(('Do_wnload Queue Size', "%s" % ('disabled',self.stats['download-queue-size'])[self.stats['download-queue-enabled']]))
                 options.append(('S_eed Queue Size', "%s" % ('disabled',self.stats['seed-queue-size'])[self.stats['seed-queue-enabled']]))
             options.append(('Title is Progress _Bar', ('no','yes')[self.torrentname_is_progressbar]))
+            options.append(('Blan_k lines in non-compact', ('no','yes')[self.blank_lines]))
             options.append(('File _Viewer', "%s" % self.file_viewer))
 
 
@@ -3037,6 +3046,9 @@ class Interface:
                         if not self.stats['seed-queue-enabled']:
                             server.set_option('seed-queue-enabled', True)
                         server.set_option('seed-queue-size', queue_size)
+
+            elif c == ord('k'):
+		self.blank_lines = not self.blank_lines
 
             elif c == ord('v'):
                 viewer = self.dialog_input_text('File Viewer\nExample: xdg-viewer %s', self.file_viewer)

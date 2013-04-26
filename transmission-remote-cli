@@ -42,6 +42,7 @@ except ImportError:
         quit("Please install simplejson or Python 2.6 or higher.")
 
 import time
+import datetime
 import re
 import base64
 import httplib
@@ -3128,7 +3129,7 @@ def timestamp(timestamp, format="%x %X"):
     if timestamp < 1:
         return 'never'
 
-    if timestamp > sys.maxint:
+    if timestamp > 2**31:  # Max value of 32bit signed integer
         # Timedelta objects do not fail on timestamps
         # resulting in a date later than 2038
         date = (datetime.datetime.fromtimestamp(0) +

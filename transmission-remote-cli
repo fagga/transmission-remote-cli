@@ -63,6 +63,7 @@ import netrc
 import glob
 import operator
 import urlparse
+import datetime
 
 
 # optional features provided by non-standard modules

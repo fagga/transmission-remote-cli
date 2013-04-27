@@ -2231,7 +2231,7 @@ class Interface:
             self.pad.addstr(self.enc(peer['clientName'].ljust(clientname_width + 1)))
             # Address:Port
             self.pad.addstr(peer['address'].rjust(address_width) + \
-                                ':' + str(peer['port']).ljust(port_width))
+                                ':' + str(peer['port']).ljust(port_width) + ' ')
             # Country
             if features['geoip']: self.pad.addstr("  %2s   " % geo_ips[peer['address']])
             # Host

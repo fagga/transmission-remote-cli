@@ -862,7 +862,7 @@ class Interface:
         self.exit_now               = False
 
         locale.setlocale(locale.LC_ALL, '')
-        self.encoding = locale.getpreferredencoding()
+        self.encoding = locale.getpreferredencoding() or 'UTF-8'
 
         self.keybindings = {
             ord('?'):               self.call_list_key_bindings,

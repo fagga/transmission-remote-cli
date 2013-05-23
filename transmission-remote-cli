@@ -886,8 +886,8 @@ class Interface:
             ord('t'):               self.t_key,
             ord('+'):               self.bandwidth_priority,
             ord('-'):               self.bandwidth_priority,
-            ord('J'):               lambda c: self.move_queue('up'),
-            ord('K'):               lambda c: self.move_queue('down'),
+            ord('J'):               self.J_key,
+            ord('K'):               self.K_key,
             ord('p'):               self.pause_unpause_torrent,
             ord('P'):               self.pause_unpause_all_torrent,
             ord('v'):               self.verify_torrent,
@@ -1171,6 +1171,18 @@ class Interface:
         # Trackers
         elif self.selected_torrent > -1 and self.details_category_focus == 3:
             self.remove_tracker()
+
+    def J_key(self, c):
+        if self.selected_torrent > -1 and self.details_category_focus == 1:
+            self.move_to_next_directory_in_filelist()
+        else:
+            self.move_queue('down')
+
+    def K_key(self, c):
+        if self.selected_torrent > -1 and self.details_category_focus == 1:
+            self.move_to_previous_directory_in_filelist()
+        else:
+            self.move_queue('up')
 
     def right_key(self, c):
         if self.focus > -1 and self.selected_torrent == -1:
@@ -1518,18 +1530,33 @@ class Interface:
                         file_id = self.file_index_map[focus]
                         if self.torrent_details['files'][file_id]['name'].startswith(focused_dir):
                             self.selected_files.append(focus)
-                # Move on to next directory
-                file_id = self.file_index_map[self.focus_detaillist]
-                while self.torrent_details['files'][file_id]['name'].startswith(focused_dir) \
-                        and self.focus_detaillist < len(self.torrent_details['files'])-1:
-                    self.movement_keys(curses.KEY_DOWN)
-                    file_id = self.file_index_map[self.focus_detaillist]
+                self.move_to_next_directory_in_filelist()
             # (un)select all files
             elif c == ord('a'):
                 if self.selected_files:
                     self.selected_files = []
                 else:
                     self.selected_files = range(0, len(self.torrent_details['files']))
+
+    def move_to_next_directory_in_filelist(self):
+        if self.selected_torrent > -1 and self.details_category_focus == 1:
+            self.focus_detaillist = max(self.focus_detaillist, 0)
+            file_id = self.file_index_map[self.focus_detaillist]
+            focused_dir = os.path.dirname(self.torrent_details['files'][file_id]['name'])
+            while self.torrent_details['files'][file_id]['name'].startswith(focused_dir) \
+                    and self.focus_detaillist < len(self.torrent_details['files'])-1:
+                self.movement_keys(curses.KEY_DOWN)
+                file_id = self.file_index_map[self.focus_detaillist]
+
+    def move_to_previous_directory_in_filelist(self):
+        if self.selected_torrent > -1 and self.details_category_focus == 1:
+            self.focus_detaillist = max(self.focus_detaillist, 0)
+            file_id = self.file_index_map[self.focus_detaillist]
+            focused_dir = os.path.dirname(self.torrent_details['files'][file_id]['name'])
+            while self.torrent_details['files'][file_id]['name'].startswith(focused_dir) \
+                    and self.focus_detaillist > 0:
+                self.movement_keys(curses.KEY_UP)
+                file_id = self.file_index_map[self.focus_detaillist]
 
     def open_torrent_file(self, c):
         if self.focus_detaillist >= 0:
@@ -2562,8 +2589,10 @@ class Interface:
                   "    Shift+Del/R  Remove torrent and delete content\n"
 
         # Queue was implemented in Transmission v2.4
-        if server.get_rpc_version() >= 14:
-            message += "            K/J  Increase/decrease Queue Position for focused torrent\n"
+        if server.get_rpc_version() >= 14 and self.details_category_focus != 1:
+            message += "            J/K  Increase/decrease Queue Position for focused torrent\n"
+        else:
+            message += "            J/K  Jump to next/previous directory\n"
         # Torrent list
         if self.selected_torrent == -1:
             message += "              /  Search in torrent list\n" + \

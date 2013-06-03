@@ -615,15 +615,17 @@ class Transmission:
             request.send_request()
             self.wait_for_torrentlist_update()
 
-    def decrease_queue_position(self, torrent_id):
-        request = TransmissionRequest(self.host, self.port, self.path, 'queue-move-up', 1,
-                                          {'ids': [torrent_id]})
-        request.send_request()
-        self.wait_for_torrentlist_update()
-
-    def increase_queue_position(self, torrent_id):
-        request = TransmissionRequest(self.host, self.port, self.path, 'queue-move-down', 1,
-                                          {'ids': [torrent_id]})
+    def move_queue(self, torrent_id, direction):
+        if direction == 'up':
+            method_name = 'queue-move-up'
+        elif direction == 'down':
+            method_name = 'queue-move-down'
+        elif direction == 'top':
+            method_name = 'queue-move-top'
+        else: #direction == 'bottom'
+            method_name = 'queue-move-bottom'
+        request = TransmissionRequest(self.host, self.port, self.path, method_name, 1,
+                                      {'ids': [torrent_id]})
         request.send_request()
         self.wait_for_torrentlist_update()
 
@@ -922,7 +924,9 @@ class Interface:
             ord('A'):               self.A_key,
             ord('m'):               self.move_torrent,
             ord('n'):               self.reannounce_torrent,
-            ord('/'):               self.dialog_search_torrentlist
+            ord('/'):               self.dialog_search_torrentlist,
+            curses.KEY_SEND:        lambda c: self.move_queue('bottom'),
+            curses.KEY_SHOME:       lambda c: self.move_queue('top')
         }
 
         self.sort_options = [
@@ -1296,12 +1300,8 @@ class Interface:
 
     def move_queue(self, direction):
         # queue was implemmented in Transmission v2.4
-        if server.get_rpc_version() >= 14:
-            if direction == 'up' and self.focus > -1:
-                server.increase_queue_position(self.torrents[self.focus]['id'])
-            elif direction == 'down' and self.focus > -1:
-                server.decrease_queue_position(self.torrents[self.focus]['id'])
-
+        if server.get_rpc_version() >= 14 and self.focus > -1:
+            server.move_queue(self.torrents[self.focus]['id'], direction)
 
     def pause_unpause_torrent(self, c):
         if self.focus > -1:
@@ -2590,7 +2590,8 @@ class Interface:
 
         # Queue was implemented in Transmission v2.4
         if server.get_rpc_version() >= 14 and self.details_category_focus != 1:
-            message += "            J/K  Increase/decrease Queue Position for focused torrent\n"
+            message += "            J/K  Move focused torrent up or down in the queue\n" + \
+                       " Shift+HOME/END  Move focused torrent to top or bottom of the queue\n"
         else:
             message += "            J/K  Jump to next/previous directory\n"
         # Torrent list

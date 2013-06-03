@@ -615,17 +615,21 @@ class Transmission:
             request.send_request()
             self.wait_for_torrentlist_update()
 
-    def move_queue(self, torrent_id, direction):
-        if direction == 'up':
+    def move_queue(self, torrent_id, new_position):
+        args = {'ids': [ torrent_id ] }
+        if new_position == 'up':
             method_name = 'queue-move-up'
-        elif direction == 'down':
+        elif new_position == 'down':
             method_name = 'queue-move-down'
-        elif direction == 'top':
+        elif new_position == 'top':
             method_name = 'queue-move-top'
-        else: #direction == 'bottom'
+        elif new_position == 'bottom':
             method_name = 'queue-move-bottom'
-        request = TransmissionRequest(self.host, self.port, self.path, method_name, 1,
-                                      {'ids': [torrent_id]})
+        else:
+            method_name = 'torrent-set'
+            args['queuePosition'] = new_position
+
+        request = TransmissionRequest(self.host, self.port, self.path, method_name, 1, args)
         request.send_request()
         self.wait_for_torrentlist_update()
 
@@ -926,7 +930,9 @@ class Interface:
             ord('n'):               self.reannounce_torrent,
             ord('/'):               self.dialog_search_torrentlist,
             curses.KEY_SEND:        lambda c: self.move_queue('bottom'),
-            curses.KEY_SHOME:       lambda c: self.move_queue('top')
+            curses.KEY_SHOME:       lambda c: self.move_queue('top'),
+            curses.KEY_SLEFT:       lambda c: self.move_queue('ppage'),
+            curses.KEY_SRIGHT:      lambda c: self.move_queue('npage')
         }
 
         self.sort_options = [
@@ -1301,7 +1307,15 @@ class Interface:
     def move_queue(self, direction):
         # queue was implemmented in Transmission v2.4
         if server.get_rpc_version() >= 14 and self.focus > -1:
-            server.move_queue(self.torrents[self.focus]['id'], direction)
+            if direction in ('ppage', 'npage'):
+                new_position = self.torrents[self.focus]['queuePosition']
+                if direction == 'ppage':
+                    new_position -= max(self.torrents_per_page - 1, 1)
+                else:
+                    new_position += max(self.torrents_per_page - 1, 1)
+            else:
+                new_position = direction
+            server.move_queue(self.torrents[self.focus]['id'], new_position)
 
     def pause_unpause_torrent(self, c):
         if self.focus > -1:

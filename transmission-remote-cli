@@ -617,17 +617,13 @@ class Transmission:
 
     def move_queue(self, torrent_id, new_position):
         args = {'ids': [ torrent_id ] }
-        if new_position == 'up':
-            method_name = 'queue-move-up'
-        elif new_position == 'down':
-            method_name = 'queue-move-down'
-        elif new_position == 'top':
-            method_name = 'queue-move-top'
-        elif new_position == 'bottom':
-            method_name = 'queue-move-bottom'
-        else:
+        if new_position in ('up', 'down', 'top', 'bottom'):
+            method_name = 'queue-move-' + new_position
+        elif isinstance(new_position, int):
             method_name = 'torrent-set'
-            args['queuePosition'] = new_position
+            args['queuePosition'] = min(max(new_position, 0), len(self.torrent_cache)-1)
+        else:
+            raise ValueError("Is not up/down/top/bottom/<number>: %s" % new_position)
 
         request = TransmissionRequest(self.host, self.port, self.path, method_name, 1, args)
         request.send_request()

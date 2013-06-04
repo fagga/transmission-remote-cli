@@ -1306,9 +1306,9 @@ class Interface:
             if direction in ('ppage', 'npage'):
                 new_position = self.torrents[self.focus]['queuePosition']
                 if direction == 'ppage':
-                    new_position -= max(self.torrents_per_page - 1, 1)
+                    new_position -= 10
                 else:
-                    new_position += max(self.torrents_per_page - 1, 1)
+                    new_position += 10
             else:
                 new_position = direction
             server.move_queue(self.torrents[self.focus]['id'], new_position)
@@ -2585,8 +2585,8 @@ class Interface:
     def list_key_bindings(self):
         title = 'Help Menu'
         message = "           F1/?  Show this help\n" + \
-                  "            u/d  Adjust maximum global upload/download rate\n" + \
-                  "            U/D  Adjust maximum upload/download rate for focused torrent\n" + \
+                  "            u/d  Adjust maximum global up-/download rate\n" + \
+                  "            U/D  Adjust maximum up-/download rate for focused torrent\n" + \
                   "              L  Set seed ratio limit for focused torrent\n" + \
                   "            +/-  Adjust bandwidth priority for focused torrent\n" + \
                   "              p  Pause/Unpause torrent\n" + \
@@ -2600,8 +2600,9 @@ class Interface:
 
         # Queue was implemented in Transmission v2.4
         if server.get_rpc_version() >= 14 and self.details_category_focus != 1:
-            message += "            J/K  Move focused torrent up or down in the queue\n" + \
-                       " Shift+HOME/END  Move focused torrent to top or bottom of the queue\n"
+            message += "            J/K  Move focused torrent in queue up/down\n" + \
+                       " Shift+Lft/Rght  Move focused torrent in queue up/down by 10\n" + \
+                       " Shift+Home/End  Move focused torrent to top/bottom of queue\n"
         else:
             message += "            J/K  Jump to next/previous directory\n"
         # Torrent list

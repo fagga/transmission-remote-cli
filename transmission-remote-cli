@@ -120,6 +120,7 @@ config.set('Misc', 'compact_list', 'False')
 config.set('Misc', 'blank_lines', 'True')
 config.set('Misc', 'torrentname_is_progressbar', 'True')
 config.set('Misc', 'file_viewer', 'xdg-open %%s')
+config.set('Misc', 'file_open_in_terminal', 'True')
 config.add_section('Colors')
 config.set('Colors', 'title_seed',       'bg:green,fg:black')
 config.set('Colors', 'title_download',   'bg:blue,fg:black')
@@ -841,6 +842,7 @@ class Interface:
         self.blank_lines    = config.getboolean('Misc', 'blank_lines')
         self.torrentname_is_progressbar = config.getboolean('Misc', 'torrentname_is_progressbar')
         self.file_viewer    = config.get('Misc', 'file_viewer')
+        self.file_open_in_terminal = config.getboolean('Misc', 'file_open_in_terminal')
 
         self.torrents         = server.get_torrent_list(self.sort_orders)
         self.stats            = server.get_global_stats()
@@ -1579,9 +1581,14 @@ class Interface:
             for argstr in self.file_viewer.split(" "):
                 viewer_cmd.append(argstr.replace('%s',download_dir + file_name))
             try:
-                self.restore_screen()
-                call(viewer_cmd)
-                self.get_screen_size()
+                if self.file_open_in_terminal:
+                    self.restore_screen()
+                    call(viewer_cmd)
+                    self.get_screen_size()
+                else:
+                    devnull = open(os.devnull, 'wb')
+                    Popen(viewer_cmd, stdout=devnull, stderr=devnull)
+                    devnull.close()
             except OSError, err:
                 self.get_screen_size()
                 self.dialog_ok("%s:\n%s" % (" ".join(viewer_cmd), err))

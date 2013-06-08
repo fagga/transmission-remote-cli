@@ -1573,13 +1573,35 @@ class Interface:
     def open_torrent_file(self, c):
         if self.focus_detaillist >= 0:
             details = server.get_torrent_details()
+            stats = server.get_global_stats()
+
             file_server_index = self.file_index_map[self.focus_detaillist]
             file_name = details['files'][file_server_index]['name']
+
             download_dir = details['downloadDir']
+            incomplete_dir = stats['incomplete-dir'] + '/'
+        
+            file_path = None
+            possible_file_locations = [
+                    download_dir + file_name,
+                    download_dir + file_name + '.part',
+                    incomplete_dir + file_name,
+                    incomplete_dir + file_name + '.part'
+            ]
+
+            for f in possible_file_locations:
+                if (os.path.isfile(f)):
+                    file_path = f
+                    break
+
+            if file_path is None:
+                self.get_screen_size()
+                self.dialog_ok("Could not find file:\n%s" % (file_name))
+                return
 
             viewer_cmd=[]
             for argstr in self.file_viewer.split(" "):
-                viewer_cmd.append(argstr.replace('%s',download_dir + file_name))
+                viewer_cmd.append(argstr.replace('%s', file_path))
             try:
                 if self.file_open_in_terminal:
                     self.restore_screen()

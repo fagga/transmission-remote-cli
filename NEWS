@@ -1,3 +1,18 @@
+1.6.0  2013-06-28
+    BUGFIXES:
+        - Fix timestamps after year 2038 on 32-bit systems
+        - Fix host placement in peer list
+        - Fallback to UTF-8 on LookupError from getpreferredencoding()
+          (as seen when ssh'ing into Mac OS)
+
+    - Jump to and select directories in file list
+    - Sort torrents by tracker
+    - Make blank line between torrents optional
+    - Add preview for incomplete files
+    - Move queue position by 10 with S-Left/Right
+    - Show IP:PORT in peer list
+
+
 1.5.0  2013-03-21
     BUGFIXES:
         - Torrents should no longer become 'isolated' for seemingly no reason

@@ -61,7 +61,6 @@ import curses.ascii
 from textwrap import wrap
 from subprocess import call, Popen
 import netrc
-import glob
 import operator
 import urlparse
 
@@ -2838,11 +2837,16 @@ class Interface:
                 index += 1
                 if on_change: on_change(input)
             elif c == ord('\t') and tab_complete:
-                possible_choices = glob.glob(tilde2homedir(input)+'*')
+                (dirname, filename) = os.path.split(tilde2homedir(input))
+                if not dirname:
+                    dirname = unicode(os.getcwd())
+                possible_choices = [ choice for choice in os.listdir(dirname)
+                                     if choice.startswith(filename) ]
                 if tab_complete == 'dirs':
-                    possible_choices = [ d for d in possible_choices if os.path.isdir(d) ]
+                    possible_choices = [ d for d in possible_choices
+                                         if os.path.isdir(os.path.join(dirname, d)) ]
                 if(possible_choices):
-                    input = os.path.commonprefix(possible_choices)
+                    input = os.path.join(dirname, os.path.commonprefix(possible_choices))
                     if len(possible_choices) == 1 and os.path.isdir(input) and input.endswith(os.sep) == False:
                         input += os.sep
                     input = homedir2tilde(input)

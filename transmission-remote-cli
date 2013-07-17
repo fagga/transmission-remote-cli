@@ -64,6 +64,8 @@ import netrc
 import operator
 import urlparse
 
+locale.setlocale(locale.LC_ALL, '')
+ENCODING = locale.getpreferredencoding() or 'UTF-8'
 
 # optional features provided by non-standard modules
 features = {'dns':False, 'geoip':False, 'ipy':False}
@@ -864,9 +866,6 @@ class Interface:
         self.compact_torrentlist    = False # draw only one line for each torrent in compact mode
         self.exit_now               = False
 
-        locale.setlocale(locale.LC_ALL, '')
-        self.encoding = locale.getpreferredencoding() or 'UTF-8'
-
         self.keybindings = {
             ord('?'):               self.call_list_key_bindings,
             curses.KEY_F1:          self.call_list_key_bindings,
@@ -989,7 +988,7 @@ class Interface:
         curses.endwin()
 
     def enc(self, text):
-        return text.encode(self.encoding, 'replace')
+        return text.encode(ENCODING, 'replace')
 
     def get_screen_size(self):
         time.sleep(0.1) # prevents curses.error on rapid resizing
@@ -2787,6 +2786,8 @@ class Interface:
         win = self.window(height, width, message=message)
         win.keypad(True)
         show_cursor()
+        if input is not unicode:
+            input = unicode(input, ENCODING)
         index = len(input)
         while True:
             # Cut the text into pages, each as long as the text field
@@ -2797,7 +2798,7 @@ class Interface:
 
             color = (curses.color_pair(self.colors.id('dialog_important')) if self.highlight_dialog
                      else curses.color_pair(self.colors.id('dialog')))
-            win.addstr(height - 2, 2, displaytext.ljust(textwidth), color)
+            win.addstr(height - 2, 2, self.enc(displaytext.ljust(textwidth)), color)
             win.move(height - 2, displayindex + 2)
             c = win.getch()
             if c == 27 or c == curses.KEY_BREAK:
@@ -2833,7 +2834,7 @@ class Interface:
                     hide_cursor()
                     return input
             elif c >= 32 and c < 127:
-                input = input[:index] + chr(c) + (index < len(input) and input[index:] or '')
+                input = input[:index] + unicode(chr(c), ENCODING) + (index < len(input) and input[index:] or '')
                 index += 1
                 if on_change: on_change(input)
             elif c == ord('\t') and tab_complete:
@@ -3312,7 +3313,7 @@ def ljust_columns(text, max_width, padchar=' '):
 def len_columns(text):
     """ Returns the amount of columns that <text> would occupy. """
     if type(text) == type(str()):
-        text = unicode(text)
+        text = unicode(text, ENCODING)
     columns = 0
     for character in text:
         columns += 2 if unicodedata.east_asian_width(character) in ('W', 'F') else 1

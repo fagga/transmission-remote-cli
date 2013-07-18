@@ -2786,7 +2786,7 @@ class Interface:
         win = self.window(height, width, message=message)
         win.keypad(True)
         show_cursor()
-        if input is not unicode:
+        if not isinstance(input, unicode):
             input = unicode(input, ENCODING)
         index = len(input)
         while True:

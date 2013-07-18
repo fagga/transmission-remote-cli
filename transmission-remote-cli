@@ -2841,8 +2841,11 @@ class Interface:
                 (dirname, filename) = os.path.split(tilde2homedir(input))
                 if not dirname:
                     dirname = unicode(os.getcwd())
-                possible_choices = [ choice for choice in os.listdir(dirname)
-                                     if choice.startswith(filename) ]
+                try:
+                    possible_choices = [ choice for choice in os.listdir(dirname)
+                                         if choice.startswith(filename) ]
+                except OSError:
+                    continue;
                 if tab_complete == 'dirs':
                     possible_choices = [ d for d in possible_choices
                                          if os.path.isdir(os.path.join(dirname, d)) ]

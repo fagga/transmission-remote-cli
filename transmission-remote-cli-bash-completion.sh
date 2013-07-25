@@ -1,4 +1,4 @@
-#!/bin/bash
+# bash completion for transmission-remote-cli(1)           -*- shell-script -*-
 
 _transmission-remote-cli () {
   local cur prev opts
@@ -27,3 +27,5 @@ _transmission-remote-cli () {
 }
 
 complete -F _transmission-remote-cli transmission-remote-cli
+
+# ex: ts=4 sw=4 et filetype=sh

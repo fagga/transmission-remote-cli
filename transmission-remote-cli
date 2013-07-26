@@ -16,7 +16,7 @@
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
 
-VERSION = '1.6.0'
+VERSION = '1.6.1'
 
 TRNSM_VERSION_MIN = '1.90'
 TRNSM_VERSION_MAX = '2.81'

@@ -1,3 +1,9 @@
+1.6.1  2013-07-26
+    BUGFIXES:
+        - Tab-complete files with regex characters ([,],?,*,...)
+    - Support for Transmission version 2.81
+
+
 1.6.0  2013-06-28
     BUGFIXES:
         - Fix timestamps after year 2038 on 32-bit systems

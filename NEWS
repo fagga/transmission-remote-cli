@@ -1,3 +1,7 @@
+1.6.2  2013-08-09
+    - Support for Transmission version 2.82
+
+
 1.6.1  2013-07-26
     BUGFIXES:
         - Tab-complete files with regex characters ([,],?,*,...)

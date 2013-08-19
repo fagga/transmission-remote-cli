@@ -1060,13 +1060,18 @@ class Interface:
         while True:
             server.update(1)
 
-            # display torrentlist
-            if self.selected_torrent == -1:
-                self.draw_torrent_list()
-
-            # display some torrent's details
-            else:
-                self.draw_details()
+            # I'm catching all exceptions here because resizing the terminal
+            # can make a huge mess, e.g. we might be drawing to areas that
+            # don't exist anymore. The proper way would probably be to write a
+            # wrapper around self.pad.addstr() and anything else that uses
+            # coordinates, but it's not worth the effort as this part is
+            # called continuously.
+            try:
+                if self.selected_torrent == -1:
+                    self.draw_torrent_list()
+                else:
+                    self.draw_details()
+            except: pass
 
             self.stats = server.get_global_stats()
             self.draw_title_bar()  # show shortcuts and stuff
@@ -1644,16 +1649,15 @@ class Interface:
         c = self.screen.getch()
         if c == -1:
             return 0
-
         f = self.keybindings.get(c, None)
         if f:
             f(c)
-
-        # update view
-        if self.selected_torrent == -1:
-            self.draw_torrent_list()
-        else:
-            self.draw_details()
+        try:
+            if self.selected_torrent == -1:
+                self.draw_torrent_list()
+            else:
+                self.draw_details()
+        except: pass
 
     def filter_torrent_list(self):
         unfiltered = self.torrents
@@ -1834,13 +1838,19 @@ class Interface:
             tag_done += curses.A_BOLD
 
         if self.torrentname_is_progressbar:
-            # addstr() dies when you tell it to draw on the last column of the
-            # terminal, so we have to catch this exception.
-            try:
-                self.pad.addstr(ypos, 0, self.enc(title[0:bar_width]), tag_done)
-                self.pad.addstr(ypos, len_columns(title[0:bar_width]), self.enc(title[bar_width:]), tag)
-            except:
-                pass
+            # Estimate widths, which works for anything ASCII
+            bar_complete = title[:bar_width]
+            bar_incomplete = title[bar_width:]
+            # Adjust for East-Asian (wide) characters
+            while len_columns(bar_complete) != bar_width:
+                if len_columns(bar_complete) > bar_width:
+                    bar_incomplete = bar_complete[-1] + bar_incomplete
+                    bar_complete = bar_complete[:-1]
+                else:
+                    bar_complete += bar_incomplete[0]
+                    bar_incomplete = bar_incomplete[1:]
+            self.pad.addstr(ypos, 0, self.enc(bar_complete), tag_done)
+            self.pad.addstr(ypos, len_columns(bar_complete), self.enc(bar_incomplete), tag)
         else:
             self.pad.addstr(ypos, 0, self.enc(title), tag_done)
 
@@ -3315,7 +3325,7 @@ def ljust_columns(text, max_width, padchar=' '):
 
 def len_columns(text):
     """ Returns the amount of columns that <text> would occupy. """
-    if type(text) == type(str()):
+    if isinstance(text, str):
         text = unicode(text, ENCODING)
     columns = 0
     for character in text:
@@ -3338,8 +3348,8 @@ def num2str(num, format='%s'):
 def debug(data):
     if cmd_args.DEBUG:
         file = open("debug.log", 'a')
-        if type(data) == type(str()):
-            file.write(data)
+        if isinstance(data, str) or isinstance(data, unicode):
+            file.write(data.encode('UTF-8', 'replace'))
         else:
             import pprint
             pp = pprint.PrettyPrinter(indent=4)

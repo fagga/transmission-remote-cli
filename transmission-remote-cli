@@ -663,6 +663,11 @@ class Transmission:
         request.send_request()
         self.wait_for_torrentlist_update()
 
+    def start_now_torrent(self, id):
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-start-now', 1, {'ids': [id]})
+        request.send_request()
+        self.wait_for_torrentlist_update()
+
     def verify_torrent(self, id):
         request = TransmissionRequest(self.host, self.port, self.path, 'torrent-verify', 1, {'ids': [id]})
         request.send_request()
@@ -892,6 +897,7 @@ class Interface:
             ord('K'):               self.K_key,
             ord('p'):               self.pause_unpause_torrent,
             ord('P'):               self.pause_unpause_all_torrent,
+            ord('N'):               self.start_now_torrent,
             ord('v'):               self.verify_torrent,
             ord('y'):               self.verify_torrent,
             ord('r'):               self.r_key,
@@ -1328,6 +1334,14 @@ class Interface:
                 server.start_torrent(t['id'])
             else:
                 server.stop_torrent(t['id'])
+
+    def start_now_torrent(self, c):
+        if self.focus > -1:
+            if self.selected_torrent > -1:
+                t = self.torrent_details
+            else:
+                t = self.torrents[self.focus]
+            server.start_now_torrent(t['id'])
 
     def pause_unpause_all_torrent(self, c):
         if self.all_paused:
@@ -2628,6 +2642,7 @@ class Interface:
                   "            +/-  Adjust bandwidth priority for focused torrent\n" + \
                   "              p  Pause/Unpause torrent\n" + \
                   "              P  Pause/Unpause all torrents\n" + \
+                  "              N  Start torrent now\n" + \
                   "            v/y  Verify torrent\n" + \
                   "              m  Move torrent\n" + \
                   "              n  Reannounce torrent\n" + \

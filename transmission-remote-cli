@@ -1208,7 +1208,7 @@ class Interface:
             self.file_pritority_or_switch_details(c)
 
     def add_torrent(self):
-        location = self.dialog_input_text("Add torrent from file or URL", homedir2tilde(os.getcwd()+os.sep), tab_complete='all')
+        location = self.dialog_input_text("Add torrent from file or URL", homedir2tilde(os.getcwd()+os.sep), tab_complete='files')
         if location:
             error = server.add_torrent(tilde2homedir(location))
             if error:
@@ -2800,8 +2800,9 @@ class Interface:
 
 
     # tab_complete values:
-    #               'all': complete with any files/directories
+    #             'files': complete with any files/directories
     #              'dirs': complete only with directories
+    #      'torrent_list': complete with names from the torrent list
     #     any false value: do not complete
     def dialog_input_text(self, message, input='', on_change=None, on_enter=None, tab_complete=None):
         width  = self.width - 4
@@ -2863,29 +2864,37 @@ class Interface:
                 index += 1
                 if on_change: on_change(input)
             elif c == ord('\t') and tab_complete:
-                (dirname, filename) = os.path.split(tilde2homedir(input))
-                if not dirname:
-                    dirname = unicode(os.getcwd())
-                try:
-                    possible_choices = [ choice for choice in os.listdir(dirname)
-                                         if choice.startswith(filename) ]
-                except OSError:
-                    continue;
-                if tab_complete == 'dirs':
-                    possible_choices = [ d for d in possible_choices
-                                         if os.path.isdir(os.path.join(dirname, d)) ]
+                possible_choices = [];
+                if tab_complete in ('files', 'dirs'):
+                    (dirname, filename) = os.path.split(tilde2homedir(input))
+                    if not dirname:
+                        dirname = unicode(os.getcwd())
+                    try:
+                        possible_choices = [ os.path.join(dirname, choice) for choice in os.listdir(dirname)
+                                             if choice.startswith(filename) ]
+                    except OSError:
+                        continue;
+                    if tab_complete == 'dirs':
+                        possible_choices = [ d for d in possible_choices
+                                             if os.path.isdir(d) ]
+                elif tab_complete == 'torrent_list':
+                    possible_choices = [ t['name'] for t in self.torrents
+                                         if t['name'].startswith(input) ]
                 if(possible_choices):
-                    input = os.path.join(dirname, os.path.commonprefix(possible_choices))
-                    if len(possible_choices) == 1 and os.path.isdir(input) and input.endswith(os.sep) == False:
-                        input += os.sep
-                    input = homedir2tilde(input)
+                    input = os.path.commonprefix(possible_choices)
+                    if tab_complete in ('files', 'dirs'):
+                        if len(possible_choices) == 1 and os.path.isdir(input) and input.endswith(os.sep) == False:
+                            input += os.sep
+                        input = homedir2tilde(input)
                     index = len(input)
+                    if on_change: on_change(input);
             if on_change: win.redrawwin()
 
     def dialog_search_torrentlist(self, c):
         self.dialog_input_text('Search torrent by title:',
                                on_change=self.draw_torrent_list,
-                               on_enter=self.increment_search)
+                               on_enter=self.increment_search,
+                               tab_complete = 'torrent_list')
 
     def increment_search(self, input):
         self.search_focus += 1

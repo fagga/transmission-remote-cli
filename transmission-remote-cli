@@ -294,7 +294,7 @@ class Transmission:
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
-                      'totalSize', 'leftUntilDone', 'comment',
+                      'totalSize', 'leftUntilDone', 'comment', 'creator',
                       'hashString', 'pieceCount', 'pieceSize', 'pieces',
                       'downloadedEver', 'corruptEver', 'peersFrom' ] + LIST_FIELDS
 
@@ -2067,6 +2067,9 @@ class Interface:
             info[-1].append('Public torrent')
 
         info.append(['Location: ',"%s" % homedir2tilde(t['downloadDir'])])
+
+        if t['creator']:
+            info.append(['Creator: ',"%s" % t['creator']])
 
         ypos = self.draw_details_list(ypos, info)
 

@@ -317,6 +317,7 @@ class Transmission:
         response = request.get_response()
 
         self.rpc_version = response['arguments']['rpc-version']
+        self.version = response['arguments']['version'].split()[0]
 
         # rpc version too old?
         version_error = "Unsupported Transmission version: " + str(response['arguments']['version']) + \
@@ -347,7 +348,7 @@ class Transmission:
         if self.rpc_version >= 14:
             self.LIST_FIELDS.append('queuePosition');
             self.DETAIL_FIELDS.append('queuePosition');
- 
+
         # set up request list
         self.requests = {'torrent-list':
                              TransmissionRequest(host, port, path, 'torrent-get', self.TAG_TORRENT_LIST, {'fields': self.LIST_FIELDS}),
@@ -2606,7 +2607,7 @@ class Interface:
         self.draw_connection_status()
         self.draw_quick_help()
     def draw_connection_status(self):
-        status = "Transmission @ %s:%s" % (server.host, server.port)
+        status = "Transmission %s @ %s:%s" % (server.version, server.host, server.port)
         if cmd_args.DEBUG:
             status = "%d x %d " % (self.width, self.height) + status
         self.screen.addstr(0, 0, self.enc(status), curses.A_REVERSE)

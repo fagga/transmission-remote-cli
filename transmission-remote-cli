@@ -654,13 +654,13 @@ class Transmission:
         else:
             return ''
 
-    def stop_torrent(self, id):
-        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-stop', 1, {'ids': [id]})
+    def stop_torrents(self, ids):
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-stop', 1, {'ids': ids})
         request.send_request()
         self.wait_for_torrentlist_update()
 
-    def start_torrent(self, id):
-        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-start', 1, {'ids': [id]})
+    def start_torrents(self, ids):
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-start', 1, {'ids': ids})
         request.send_request()
         self.wait_for_torrentlist_update()
 
@@ -855,7 +855,6 @@ class Interface:
         self.stats            = server.get_global_stats()
         self.torrent_details  = []
         self.selected_torrent = -1  # changes to >-1 when focus >-1 & user hits return
-        self.all_paused       = False
         self.highlight_dialog = False
         self.search_focus = 0   # like self.focus but for searches in torrent list
         self.focused_id   = -1  # the id (provided by Transmission) of self.torrents[self.focus]
@@ -1332,9 +1331,9 @@ class Interface:
             else:
                 t = self.torrents[self.focus]
             if t['status'] == Transmission.STATUS_STOPPED:
-                server.start_torrent(t['id'])
+                server.start_torrents([t['id']])
             else:
-                server.stop_torrent(t['id'])
+                server.stop_torrents([t['id']])
 
     def start_now_torrent(self, c):
         if self.focus > -1:
@@ -1345,14 +1344,11 @@ class Interface:
             server.start_now_torrent(t['id'])
 
     def pause_unpause_all_torrent(self, c):
-        if self.all_paused:
-            for t in self.torrents:
-                server.start_torrent(t['id'])
-            self.all_paused = False
+        focused_torrent = self.torrents[ max(0,self.focus) ]
+        if focused_torrent['status'] == Transmission.STATUS_STOPPED:
+            server.start_torrents([t['id'] for t in self.torrents])
         else:
-            for t in self.torrents:
-                server.stop_torrent(t['id'])
-            self.all_paused = True
+            server.stop_torrents([t['id'] for t in self.torrents])
 
     def verify_torrent(self, c):
         if self.focus > -1:

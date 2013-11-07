@@ -1,3 +1,12 @@
+1.6.3  2013-11-07
+    BUGFIXES:
+        - Properly handle East-Asian wide characters in progress bar/torrent title
+    - New keybinding 'N': Start queued torrent
+    - Tab completion in torrent search dialog
+    - Faster (un)pausing of all torrents
+    - Display Transmission version in top bar
+
+
 1.6.2  2013-08-09
     - Support for Transmission version 2.82
 

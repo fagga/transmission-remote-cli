@@ -28,7 +28,6 @@ CONNECTION_ERROR = 1
 JSON_ERROR       = 2
 CONFIGFILE_ERROR = 3
 
-
 # use simplejson if available because it seems to be faster
 try:
     import simplejson as json
@@ -199,6 +198,7 @@ class Normalizer:
 
 authhandler = None
 session_id = 0
+vmode_id = -1
 
 # Handle communication with Transmission server.
 class TransmissionRequest:
@@ -900,6 +900,7 @@ class Interface:
             ord('N'):               self.start_now_torrent,
             ord('v'):               self.verify_torrent,
             ord('y'):               self.verify_torrent,
+            ord('V'):               self.V_key,
             ord('r'):               self.r_key,
             curses.KEY_DC:          self.r_key,
             ord('R'):               self.remove_torrent_local_data,
@@ -1156,6 +1157,11 @@ class Interface:
             pass
         else:
             self.add_torrent()
+
+    def V_key(self, c):
+        # File list
+        if self.selected_torrent > -1 and self.details_category_focus == 1:
+            self.select_unselect_file(c)
 
     def o_key(self, c):
         if self.selected_torrent == -1:
@@ -1460,6 +1466,13 @@ class Interface:
                 elif c == curses.KEY_END or c == ord('G'):
                     self.focus_detaillist, self.scrollpos_detaillist = \
                         self.move_to_end(1, self.detaillistitems_per_page, len(self.torrent_details['files']))
+                # visual mode
+                global vmode_id
+                if vmode_id > -1:
+                    if vmode_id < self.focus_detaillist:
+                        self.selected_files = range(vmode_id, self.focus_detaillist + 1)
+                    else:
+                        self.selected_files = range(self.focus_detaillist, vmode_id + 1)
             list_len = 0
 
             # peer list movement
@@ -1563,6 +1576,18 @@ class Interface:
                     self.selected_files = []
                 else:
                     self.selected_files = range(0, len(self.torrent_details['files']))
+            elif c == ord('V'):
+                global vmode_id
+                if self.selected_files:
+                    self.selected_files = []
+                if vmode_id != -1:
+                    vmode_id = -1
+                else:
+                    try:
+                        self.selected_files.pop(self.selected_files.index(self.focus_detaillist))
+                    except ValueError:
+                        self.selected_files.append(self.focus_detaillist)
+                    vmode_id = self.focus_detaillist
 
     def move_to_next_directory_in_filelist(self):
         if self.selected_torrent > -1 and self.details_category_focus == 1:
@@ -2527,6 +2552,8 @@ class Interface:
                                    "Incoming:%d " % self.torrent_details['peersFrom']['fromIncoming'] + \
                                    "Cache:%d)" % self.torrent_details['peersFrom']['fromCache'],
                                curses.A_REVERSE)
+        elif vmode_id > -1:
+            self.screen.addstr((self.height-1), 0, "-- VISUAL --", curses.A_REVERSE)
         else:
             self.screen.addstr((self.height-1), 0, "Torrent%s:" % ('s','')[len(self.torrents) == 1],
                                    curses.A_REVERSE)
@@ -2621,6 +2648,7 @@ class Interface:
             if self.details_category_focus == 1 and self.focus_detaillist > -1:
                 help = [('enter', 'Open File'),
                         ('space','(De)Select File'),
+                        ('V','Visually Select Files'),
                         ('left/right','De-/Increase Priority'),
                         ('escape','Unfocus/-select')] + help
             elif self.details_category_focus == 2:
@@ -2699,6 +2727,7 @@ class Interface:
                                "          Space  Select/Deselect focused file\n" + \
                                "              a  Select/Deselect all files\n" + \
                                "              A  Select/Deselect directory\n" + \
+                               "              V  Visually select files\n" + \
                                "            Esc  Unfocus+Unselect or Back to torrent list\n" + \
                                "    q/Backspace  Back to torrent list"
                 else:

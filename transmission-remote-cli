@@ -3190,7 +3190,7 @@ class Interface:
                         server.set_option('seed-queue-size', queue_size)
 
             elif c == ord('k'):
-		self.blank_lines = not self.blank_lines
+                self.blank_lines = not self.blank_lines
 
             elif c == ord('v'):
                 viewer = self.dialog_input_text('File Viewer\nExample: xdg-viewer %s', self.file_viewer)

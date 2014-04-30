@@ -1144,6 +1144,11 @@ class Interface:
         # File list
         if self.selected_torrent > -1 and self.details_category_focus == 1:
             self.select_unselect_file(c)
+        # Do nothing in other detail tabs
+        elif self.selected_torrent > -1:
+            pass
+        else:
+            self.add_torrent_by_hash()
 
     def a_key(self, c):
         # File list
@@ -1220,6 +1225,15 @@ class Interface:
             error = server.add_torrent(tilde2homedir(location))
             if error:
                 msg = wrap("Couldn't add torrent \"%s\":" % location)
+                msg.extend(wrap(error, self.width-4))
+                self.dialog_ok("\n".join(msg))
+
+    def add_torrent_by_hash(self):
+        hash = self.dialog_input_text("Add torrent by hash")
+        if hash:
+            error = server.add_torrent('magnet:?xt=urn:btih:{}'.format(hash))
+            if error:
+                msg = wrap("Couldn't add torrent \"%s\":" % hash)
                 msg.extend(wrap(error, self.width-4))
                 self.dialog_ok("\n".join(msg))
 
@@ -2676,6 +2690,7 @@ class Interface:
                   "              m  Move torrent\n" + \
                   "              n  Reannounce torrent\n" + \
                   "              a  Add torrent\n" + \
+                  "              A  Add torrent by hash\n" + \
                   "          Del/r  Remove torrent and keep content\n" + \
                   "    Shift+Del/R  Remove torrent and delete content\n"
 

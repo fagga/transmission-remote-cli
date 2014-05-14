@@ -1,3 +1,10 @@
+1.7.0  2014-05-14
+    BUGFIXES:
+        - Check if 'transmission-remote' exists before executing it
+    - File list: Visual mode for operating on multiple files
+    - Add torrent by hash with shift-a
+
+
 1.6.3  2013-11-07
     BUGFIXES:
         - Properly handle East-Asian wide characters in progress bar/torrent title

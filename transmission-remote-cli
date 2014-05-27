@@ -547,6 +547,20 @@ class Transmission:
         return self.geo_ips_cache
 
 
+    def get_free_space(self):
+        request = TransmissionRequest(self.host, self.port, self.path, 'session-get', self.TAG_SESSION_GET)
+        request.send_request()
+        response = request.get_response()
+        dir = response['arguments']['download-dir']
+
+        request = TransmissionRequest(self.host, self.port, self.path, 'free-space', 1, {'path':dir})
+        request.send_request()
+        response = request.get_response()
+        free = response['arguments']['size-bytes']
+
+        return free # free space in bytes
+
+
     def set_option(self, option_name, option_value):
         request = TransmissionRequest(self.host, self.port, self.path, 'session-set', 1, {option_name: option_value})
         request.send_request()
@@ -1220,7 +1234,15 @@ class Interface:
             self.file_pritority_or_switch_details(c)
 
     def add_torrent(self):
-        location = self.dialog_input_text("Add torrent from file or URL", homedir2tilde(os.getcwd()+os.sep), tab_complete='files')
+        free_space = None
+        if server.get_rpc_version() >= 15:
+		# 10^9 instead of 2^30 to be consistent with web interface
+                free_space = float(server.get_free_space())/(10**9) # Bytes > GB
+
+        location = self.dialog_input_text("Add torrent from file or URL"
+                                + (" - HDD (free): %.3f GB" % free_space if free_space else ""),
+                                        homedir2tilde(os.getcwd()+os.sep), tab_complete='files')
+
         if location:
             error = server.add_torrent(tilde2homedir(location))
             if error:

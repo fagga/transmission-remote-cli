@@ -847,9 +847,9 @@ class Transmission:
             return '?'
 
     def get_stats(self):
-        request = TransmissionRequest(self.host, self.port, self.path, 'session-stats', 1)
-        request.send_request()
-        response = request.get_response()
+	request = TransmissionRequest(self.host, self.port, self.path, 'session-stats', 1)
+	request.send_request()
+	response = request.get_response()
 	return response['arguments']
 
 # End of Class Transmission
@@ -1305,29 +1305,29 @@ class Interface:
 	session_time = stats['current-stats']['secondsActive']
 
 	message = ("CURRENT SESSION\n"
-		  "  Uploaded:   {s_ul}\n"
-		  "  Downloaded: {s_dl}\n"
-		  "  Ratio:      {s_ratio}\n"
-		  "  Duration:   {s_duration}\n\n"
-		  "TOTAL\n"
-		  "  Uploaded:   {t_ul}\n"
-		  "  Downloaded: {t_dl}\n"
-		  "  Ratio:      {t_ratio}\n"
-		  "  Duration:   {t_duration}\n").format(s_ul=scale_bytes(session_ul),
-							s_dl=scale_bytes(session_dl),
-							s_ratio=session_ratio,
-							s_duration=scale_time(session_time, 'long'),
-							t_ul=scale_bytes(total_ul),
-							t_dl=scale_bytes(total_dl),
-							t_ratio=total_ratio,
-							t_duration=scale_time(total_time, 'long'))
+		   "  Uploaded:   {s_ul}\n"
+		   "  Downloaded: {s_dl}\n"
+		   "  Ratio:      {s_ratio}\n"
+		   "  Duration:   {s_duration}\n\n"
+		   "TOTAL\n"
+		   "  Uploaded:   {t_ul}\n"
+		   "  Downloaded: {t_dl}\n"
+		   "  Ratio:      {t_ratio}\n"
+		   "  Duration:   {t_duration}\n").format(s_ul=scale_bytes(session_ul),
+							  s_dl=scale_bytes(session_dl),
+							  s_ratio=session_ratio,
+							  s_duration=scale_time(session_time, 'long'),
+							  t_ul=scale_bytes(total_ul),
+							  t_dl=scale_bytes(total_dl),
+							  t_ratio=total_ratio,
+							  t_duration=scale_time(total_time, 'long'))
 
-        width  = max(map(lambda x: len(x), message.split("\n"))) + 4
-        width  = min(self.width, width)
-        height = min(self.height, message.count("\n")+3)
-        win = self.window(height, width, message=message, title=title)
-        while True:
-            if win.getch() >= 0: return
+	width  = max(map(lambda x: len(x), message.split("\n"))) + 4
+	width  = min(self.width, width)
+	height = min(self.height, message.count("\n")+3)
+	win = self.window(height, width, message=message, title=title)
+	while True:
+	    if win.getch() >= 0: return
 
     def show_state_filter_menu(self, c):
         if self.selected_torrent == -1:

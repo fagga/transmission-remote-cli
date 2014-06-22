@@ -967,6 +967,8 @@ class Interface:
 
         self.sort_options.append(('reverse','Re_verse'))
 
+	self.file_index_map_id_cached = None
+	self.sorted_files = None
 
         try:
             self.init_screen()
@@ -2223,11 +2225,14 @@ class Interface:
                 break
 
     def create_filelist(self):
+	# Build new mapping between sorted local files and transmission-daemon's unsorted files.
+	if self.file_index_map_id_cached != self.torrent_details['id']:
+	    self.file_index_map = {}
+	    self.sorted_files = sorted(self.torrent_details['files'], cmp=lambda x,y: cmp(x['name'], y['name']))
+	    for index,file in enumerate(self.sorted_files):
+		self.file_index_map[index] = self.torrent_details['files'].index(file)
+	    self.file_index_map_id_cached = self.torrent_details['id']
         files = sorted(self.torrent_details['files'], cmp=lambda x,y: cmp(x['name'], y['name']))
-        # Build new mapping between sorted local files and transmission-daemon's unsorted files
-        self.file_index_map = {}
-        for index,file in enumerate(files):
-            self.file_index_map[index] = self.torrent_details['files'].index(file)
 
         filelist = []
         current_folder = []
@@ -2235,7 +2240,7 @@ class Interface:
         pos = 0
         pos_before_focus = 0
         index = 0
-        for file in files:
+        for file in self.sorted_files:
             f = file['name'].split('/')
             f_len = len(f) - 1
             if f[:f_len] != current_folder:

@@ -847,10 +847,10 @@ class Transmission:
             return '?'
 
     def get_stats(self):
-	request = TransmissionRequest(self.host, self.port, self.path, 'session-stats', 1)
-	request.send_request()
-	response = request.get_response()
-	return response['arguments']
+        request = TransmissionRequest(self.host, self.port, self.path, 'session-stats', 1)
+        request.send_request()
+        response = request.get_response()
+        return response['arguments']
 
 # End of Class Transmission
 
@@ -905,7 +905,7 @@ class Interface:
             curses.KEY_RIGHT:       self.right_key,
             ord('l'):               self.l_key,
             ord('s'):               self.show_sort_order_menu,
-	    ord('S'):		    self.show_stats,
+            ord('S'):               self.show_stats,
             ord('f'):               self.f_key,
             ord('u'):               self.global_upload,
             ord('d'):               self.global_download,
@@ -1243,8 +1243,8 @@ class Interface:
     def add_torrent(self):
         free_space = None
         if server.get_rpc_version() >= 15:
-		# 10^9 instead of 2^30 to be consistent with web interface
-                free_space = float(server.get_free_space())/(10**9) # Bytes > GB
+            # 10^9 instead of 2^30 to be consistent with web interface
+            free_space = float(server.get_free_space())/(10**9) # Bytes > GB
 
         location = self.dialog_input_text("Add torrent from file or URL"
                                 + (" - HDD (free): %.3f GB" % free_space if free_space else ""),
@@ -1291,43 +1291,43 @@ class Interface:
                        self.sort_orders.pop(0)
 
     def show_stats(self, c):
-	title = "Global statistics"
-	stats = server.get_stats()
+        title = "Global statistics"
+        stats = server.get_stats()
 
-	total_ul = stats['cumulative-stats']['uploadedBytes']
-	total_dl = stats['cumulative-stats']['downloadedBytes']
-	total_ratio = 'Inf' if not total_dl else round(float(total_ul) / float(total_dl), 2)
-	total_time = stats['cumulative-stats']['secondsActive']
+        total_ul = stats['cumulative-stats']['uploadedBytes']
+        total_dl = stats['cumulative-stats']['downloadedBytes']
+        total_ratio = 'Inf' if not total_dl else round(float(total_ul) / float(total_dl), 2)
+        total_time = stats['cumulative-stats']['secondsActive']
 
-	session_ul = stats['current-stats']['uploadedBytes']
-	session_dl = stats['current-stats']['downloadedBytes']
-	session_ratio = 'Inf' if not session_dl else round(float(session_ul) / float(session_dl), 2)
-	session_time = stats['current-stats']['secondsActive']
+        session_ul = stats['current-stats']['uploadedBytes']
+        session_dl = stats['current-stats']['downloadedBytes']
+        session_ratio = 'Inf' if not session_dl else round(float(session_ul) / float(session_dl), 2)
+        session_time = stats['current-stats']['secondsActive']
 
-	message = ("CURRENT SESSION\n"
-		   "  Uploaded:   {s_ul}\n"
-		   "  Downloaded: {s_dl}\n"
-		   "  Ratio:      {s_ratio}\n"
-		   "  Duration:   {s_duration}\n\n"
-		   "TOTAL\n"
-		   "  Uploaded:   {t_ul}\n"
-		   "  Downloaded: {t_dl}\n"
-		   "  Ratio:      {t_ratio}\n"
-		   "  Duration:   {t_duration}\n").format(s_ul=scale_bytes(session_ul),
-							  s_dl=scale_bytes(session_dl),
-							  s_ratio=session_ratio,
-							  s_duration=scale_time(session_time, 'long'),
-							  t_ul=scale_bytes(total_ul),
-							  t_dl=scale_bytes(total_dl),
-							  t_ratio=total_ratio,
-							  t_duration=scale_time(total_time, 'long'))
+        message = ("CURRENT SESSION\n"
+                   "  Uploaded:   {s_ul}\n"
+                   "  Downloaded: {s_dl}\n"
+                   "  Ratio:      {s_ratio}\n"
+                   "  Duration:   {s_duration}\n\n"
+                   "TOTAL\n"
+                   "  Uploaded:   {t_ul}\n"
+                   "  Downloaded: {t_dl}\n"
+                   "  Ratio:      {t_ratio}\n"
+                   "  Duration:   {t_duration}\n").format(s_ul=scale_bytes(session_ul),
+                                                          s_dl=scale_bytes(session_dl),
+                                                          s_ratio=session_ratio,
+                                                          s_duration=scale_time(session_time, 'long'),
+                                                          t_ul=scale_bytes(total_ul),
+                                                          t_dl=scale_bytes(total_dl),
+                                                          t_ratio=total_ratio,
+                                                          t_duration=scale_time(total_time, 'long'))
 
-	width  = max(map(lambda x: len(x), message.split("\n"))) + 4
-	width  = min(self.width, width)
-	height = min(self.height, message.count("\n")+3)
-	win = self.window(height, width, message=message, title=title)
-	while True:
-	    if win.getch() >= 0: return
+        width  = max(map(lambda x: len(x), message.split("\n"))) + 4
+        width  = min(self.width, width)
+        height = min(self.height, message.count("\n")+3)
+        win = self.window(height, width, message=message, title=title)
+        while True:
+            if win.getch() >= 0: return
 
     def show_state_filter_menu(self, c):
         if self.selected_torrent == -1:
@@ -1350,14 +1350,14 @@ class Interface:
        current_limit = (-1,self.stats['speed-limit-up'])[self.stats['speed-limit-up-enabled']]
        limit = self.dialog_input_number("Global upload limit in kilobytes per second", current_limit)
        if limit == -128:
-           return 
+           return
        server.set_rate_limit('up', limit)
 
     def global_download(self, c):
        current_limit = (-1,self.stats['speed-limit-down'])[self.stats['speed-limit-down-enabled']]
        limit = self.dialog_input_number("Global download limit in kilobytes per second", current_limit)
        if limit == -128:
-           return 
+           return
        server.set_rate_limit('down', limit)
 
     def torrent_upload(self, c):
@@ -1366,7 +1366,7 @@ class Interface:
             limit = self.dialog_input_number("Upload limit in kilobytes per second for\n%s" % \
                                                  self.torrents[self.focus]['name'], current_limit)
             if limit == -128:
-                return 
+                return
             server.set_rate_limit('up', limit, self.torrents[self.focus]['id'])
 
     def torrent_download(self, c):
@@ -1375,7 +1375,7 @@ class Interface:
             limit = self.dialog_input_number("Download limit in Kilobytes per second for\n%s" % \
                                                  self.torrents[self.focus]['name'], current_limit)
             if limit == -128:
-                return 
+                return
             server.set_rate_limit('down', limit, self.torrents[self.focus]['id'])
 
     def seed_ratio(self, c):
@@ -1702,7 +1702,7 @@ class Interface:
 
             download_dir = details['downloadDir']
             incomplete_dir = stats['incomplete-dir'] + '/'
-        
+
             file_path = None
             possible_file_locations = [
                     download_dir + file_name,
@@ -2759,7 +2759,7 @@ class Interface:
                   "              n  Reannounce torrent\n" + \
                   "              a  Add torrent\n" + \
                   "              A  Add torrent by hash\n" + \
-		  "		 S  Show upload/download stats\n" + \
+                  "              S  Show upload/download stats\n" + \
                   "          Del/r  Remove torrent and keep content\n" + \
                   "    Shift+Del/R  Remove torrent and delete content\n"
 

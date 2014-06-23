@@ -974,8 +974,8 @@ class Interface:
 
         self.sort_options.append(('reverse','Re_verse'))
 
-	self.file_index_map_id_cached = None
-	self.sorted_files = None
+        self.file_index_map_id_cached = None
+        self.sorted_files = None
 
         try:
             self.init_screen()
@@ -2271,13 +2271,13 @@ class Interface:
                 break
 
     def create_filelist(self):
-	# Build new mapping between sorted local files and transmission-daemon's unsorted files.
-	if self.file_index_map_id_cached != self.torrent_details['id']:
-	    self.file_index_map = {}
-	    self.sorted_files = sorted(self.torrent_details['files'], cmp=lambda x,y: cmp(x['name'], y['name']))
-	    for index,file in enumerate(self.sorted_files):
-		self.file_index_map[index] = self.torrent_details['files'].index(file)
-	    self.file_index_map_id_cached = self.torrent_details['id']
+        # Build new mapping between sorted local files and transmission-daemon's unsorted files.
+        if self.file_index_map_id_cached != self.torrent_details['id']:
+            self.file_index_map = {}
+            self.sorted_files = sorted(self.torrent_details['files'], cmp=lambda x,y: cmp(x['name'], y['name']))
+            for index,file in enumerate(self.sorted_files):
+                self.file_index_map[index] = self.torrent_details['files'].index(file)
+            self.file_index_map_id_cached = self.torrent_details['id']
         files = sorted(self.torrent_details['files'], cmp=lambda x,y: cmp(x['name'], y['name']))
 
         filelist = []

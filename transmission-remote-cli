@@ -120,6 +120,7 @@ config.add_section('Misc')
 config.set('Misc', 'compact_list', 'False')
 config.set('Misc', 'blank_lines', 'True')
 config.set('Misc', 'torrentname_is_progressbar', 'True')
+config.set('Misc', 'reuse_progressbar_seed', 'False')
 config.set('Misc', 'file_viewer', 'xdg-open %%s')
 config.set('Misc', 'file_open_in_terminal', 'True')
 config.add_section('Colors')
@@ -863,6 +864,7 @@ class Interface:
         self.compact_list   = config.getboolean('Misc', 'compact_list')
         self.blank_lines    = config.getboolean('Misc', 'blank_lines')
         self.torrentname_is_progressbar = config.getboolean('Misc', 'torrentname_is_progressbar')
+        self.reuse_progressbar_seed = config.getboolean('Misc', 'reuse_progressbar_seed')
         self.file_viewer    = config.get('Misc', 'file_viewer')
         self.file_open_in_terminal = config.getboolean('Misc', 'file_open_in_terminal')
 
@@ -1108,6 +1110,7 @@ class Interface:
                 config.set('Misc', 'compact_list', str(self.compact_list))
                 config.set('Misc', 'blank_lines', str(self.blank_lines))
                 config.set('Misc', 'torrentname_is_progressbar', str(self.torrentname_is_progressbar))
+                config.set('Misc', 'reuse_progressbar_seed', str(self.reuse_progressbar_seed))
                 save_config(cmd_args.configfile)
                 return
 
@@ -1872,7 +1875,9 @@ class Interface:
 
 
     def draw_torrentlist_title(self, torrent, focused, width, ypos):
-        if torrent['status'] == Transmission.STATUS_CHECK:
+        if torrent['status'] == Transmission.STATUS_SEED and self.reuse_progressbar_seed:
+            percentDone =  (torrent['uploadRatio'] * 100) / torrent['seedRatioLimit']
+        elif torrent['status'] == Transmission.STATUS_CHECK:
             percentDone = float(torrent['recheckProgress']) * 100
         else:
             percentDone = torrent['percentDone']
@@ -3120,6 +3125,7 @@ class Interface:
                 options.append(('Do_wnload Queue Size', "%s" % ('disabled',self.stats['download-queue-size'])[self.stats['download-queue-enabled']]))
                 options.append(('S_eed Queue Size', "%s" % ('disabled',self.stats['seed-queue-size'])[self.stats['seed-queue-enabled']]))
             options.append(('Title is Progress _Bar', ('no','yes')[self.torrentname_is_progressbar]))
+            options.append(('Reuse progressbar for seed_ing', ('no','yes')[self.reuse_progressbar_seed]))
             options.append(('Blan_k lines in non-compact', ('no','yes')[self.blank_lines]))
             options.append(('File _Viewer', "%s" % self.file_viewer))
 
@@ -3202,6 +3208,8 @@ class Interface:
                     server.set_option('alt-speed-down', limit)
             elif c == ord('b'):
                 self.torrentname_is_progressbar = not self.torrentname_is_progressbar
+            elif c == ord('i'):
+                self.reuse_progressbar_seed = not self.reuse_progressbar_seed
             # Queue was implemmented in Transmission v2.4
             elif c == ord('w') and server.get_rpc_version() >= 14:
                 queue_size = self.dialog_input_number('Download Queue size',

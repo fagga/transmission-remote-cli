@@ -1920,8 +1920,10 @@ class Interface:
 
 
     def draw_torrentlist_title(self, torrent, focused, width, ypos):
-        if (torrent['status'] == Transmission.STATUS_SEED and self.stats['seedRatioLimited']):
-            limit = torrent['seedRatioLimit'] if torrent['seedRatioMode'] == 1 else self.stats['seedRatioLimit']
+        limit = torrent['seedRatioLimit'] if torrent['seedRatioMode'] == 1 else self.stats['seedRatioLimit']
+        if (torrent['status'] == Transmission.STATUS_SEED
+                and (self.stats['seedRatioLimited'] or torrent['seedRatioMode'] == 1)
+                    and limit > 0):
             percentDone = (torrent['uploadRatio'] * 100) / limit
         elif torrent['status'] == Transmission.STATUS_CHECK:
             percentDone = float(torrent['recheckProgress']) * 100

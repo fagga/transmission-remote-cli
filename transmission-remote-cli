@@ -1928,8 +1928,6 @@ class Interface:
         else:
             percentDone = torrent['percentDone']
 
-        bar_width = int(float(width) * (float(percentDone)/100))
-
         size = "%6s" % scale_bytes(torrent['sizeWhenDone'])
         if torrent['percentDone'] < 100:
             if torrent['seeders'] <= 0 and torrent['status'] != Transmission.STATUS_CHECK:
@@ -1962,11 +1960,12 @@ class Interface:
             tag_done += curses.A_BOLD
 
         if self.torrentname_is_progressbar:
+            bar_width = int(float(width) * (float(percentDone)/100))
             # Estimate widths, which works for anything ASCII
             bar_complete = title[:bar_width]
             bar_incomplete = title[bar_width:]
             # Adjust for East-Asian (wide) characters
-            while len_columns(bar_complete) != bar_width:
+            while not bar_width-1 <= len_columns(bar_complete) <= bar_width+1:
                 if len_columns(bar_complete) > bar_width:
                     bar_incomplete = bar_complete[-1] + bar_incomplete
                     bar_complete = bar_complete[:-1]

@@ -1969,7 +1969,7 @@ class Interface:
             bar_complete = title[:bar_width]
             bar_incomplete = title[bar_width:]
             # Adjust for East-Asian (wide) characters
-            while not bar_width-1 <= len_columns(bar_complete) <= bar_width+1:
+            while not bar_width-1 <= len_columns(bar_complete) <= bar_width:
                 if len_columns(bar_complete) > bar_width:
                     bar_incomplete = bar_complete[-1] + bar_incomplete
                     bar_complete = bar_complete[:-1]

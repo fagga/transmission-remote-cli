@@ -22,6 +22,7 @@ packaged in any Linux distribution. The Debian/Ubuntu package is called
 
 - GeoIP: Guess which country peers come from.
 - adns: Resolve IPs to host names.
+- [xerox](https://pypi.python.org/pypi/xerox): Copy magnet links to the system clipboard.
 
 Debian/Ubuntu package names are `python-adns` and `python-geoip`.
 

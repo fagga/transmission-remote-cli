@@ -68,7 +68,7 @@ locale.setlocale(locale.LC_ALL, '')
 ENCODING = locale.getpreferredencoding() or 'UTF-8'
 
 # optional features provided by non-standard modules
-features = {'dns':False, 'geoip':False, 'ipy':False}
+features = {'dns':False, 'geoip':False, 'ipy':False, 'clipboard':False}
 try:   import adns; features['dns'] = True     # resolve IP to host name
 except ImportError: features['dns'] = False
 
@@ -77,6 +77,9 @@ except ImportError:  features['geoip'] = False
 
 try:   import IPy;  features['ipy'] = True  # extract ipv4 from ipv6 addresses
 except ImportError: features['ipy'] = False
+
+try:   import xerox;  features['clipboard'] = True
+except ImportError:   features['clipboard'] = False
 
 
 if features['ipy']:
@@ -291,7 +294,7 @@ class Transmission:
                     'peersConnected', 'uploadLimit', 'downloadLimit',
                     'uploadLimited', 'downloadLimited', 'bandwidthPriority',
                     'peersSendingToUs', 'peersGettingFromUs',
-                    'seedRatioLimit', 'seedRatioMode', 'isPrivate' ]
+                    'seedRatioLimit', 'seedRatioMode', 'isPrivate', 'magnetLink']
 
     DETAIL_FIELDS = [ 'files', 'priorities', 'wanted', 'peers', 'trackers',
                       'activityDate', 'dateCreated', 'startDate', 'doneDate',
@@ -952,6 +955,7 @@ class Interface:
             ord('a'):               self.a_key,
             ord('A'):               self.A_key,
             ord('m'):               self.move_torrent,
+            ord('M'):               self.copy_magnet_link,
             ord('n'):               self.reannounce_torrent,
             ord('/'):               self.dialog_search_torrentlist,
             curses.KEY_SEND:        lambda c: self.move_queue('bottom'),
@@ -1401,6 +1405,12 @@ class Interface:
             server.decrease_bandwidth_priority(self.torrents[self.focus]['id'])
         elif c == ord('+') and self.focus > -1:
             server.increase_bandwidth_priority(self.torrents[self.focus]['id'])
+
+    def copy_magnet_link(self, c):
+        if self.focus > -1 and features['clipboard']:
+            magnet = self.torrents[self.focus]['magnetLink']
+            xerox.copy(magnet)
+            self.dialog_ok('Magnet link copied to clipboard:\n'+magnet)
 
     def move_queue(self, direction):
         # queue was implemmented in Transmission v2.4
@@ -2773,6 +2783,9 @@ class Interface:
                   "              S  Show upload/download stats\n" + \
                   "          Del/r  Remove torrent and keep content\n" + \
                   "    Shift+Del/R  Remove torrent and delete content\n"
+
+        if features['clipboard']:
+            message += "              M  Copy Magnet Link to the System Clipboard\n"
 
         # Queue was implemented in Transmission v2.4
         if server.get_rpc_version() >= 14 and self.details_category_focus != 1:

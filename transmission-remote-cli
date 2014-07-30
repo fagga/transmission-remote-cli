@@ -1409,8 +1409,10 @@ class Interface:
     def copy_magnet_link(self, c):
         if self.focus > -1 and features['clipboard']:
             magnet = self.torrents[self.focus]['magnetLink']
-            xerox.copy(magnet)
-            self.dialog_ok('Magnet link copied to clipboard:\n'+magnet)
+            try:
+                xerox.copy(magnet)
+            except xerox.ToolNotFound:
+                self.dialog_ok('Could not copy to the clipboard')
 
     def move_queue(self, direction):
         # queue was implemmented in Transmission v2.4

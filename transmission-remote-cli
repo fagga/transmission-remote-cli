@@ -1412,7 +1412,11 @@ class Interface:
             try:
                 xerox.copy(magnet)
             except xerox.ToolNotFound:
-                self.dialog_ok('Could not copy to the clipboard')
+                message  = 'Could not copy to the clipboard\n'
+                message += 'You probably do not have an appropriate\n'
+                message += 'tool to handle the clipboard on your system.\n'
+                message += 'Refer to the xerox documentation.'
+                self.dialog_ok(message)
 
     def move_queue(self, direction):
         # queue was implemmented in Transmission v2.4

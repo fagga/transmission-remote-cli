@@ -714,12 +714,11 @@ class Transmission:
         self.wait_for_torrentlist_update()
 
     def rename_torrent_file(self, id, path, newname):
-        debug("path %s\nname %s\n" % (path, newname))
-        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-rename-path', 1, {'ids': [id], 'path': path, 'name': newname})
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-rename-path', 1,
+                                      {'ids': [id], 'path': path, 'name': newname})
         request.send_request()
         response = request.get_response()
-        debug(response)
-        return response['result'] if response['result'] != 'success' else ''
+        return response['result']
 
     def add_torrent_tracker(self, id, tracker):
         data = { 'ids' : [id],
@@ -1660,9 +1659,12 @@ class Interface:
             msg = 'Rename "%s"\n to' % (file_path)
             newname = self.dialog_input_text(msg, file_name, tab_complete='dirs')
             if newname:
-                if server.rename_torrent_file(self.torrents[self.focus]['id'], file_path, newname) == 'success':
-                    self.torrent_details['files'][file_id]['name'] = os.path.join(os.path.dirnamename(file_path), newname)
+                result = server.rename_torrent_file(self.torrents[self.focus]['id'], file_path, newname)
+                if result == 'success':
+#                    self.torrent_details['files'][file_id]['name'] = os.path.join(os.path.dirname(file_path), newname)
                     self.file_index_map_id_cached = None # force read
+                else:
+                    self.dialog_ok('Couldn\'t rename\n"%s"\nto\n"%s":\n%s' % (file_path, newname, result))
 
     def select_unselect_file(self, c):
         if self.selected_torrent > -1 and self.details_category_focus == 1 and self.focus_detaillist >= 0:

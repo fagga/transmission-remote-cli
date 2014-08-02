@@ -719,7 +719,7 @@ class Transmission:
         request.send_request()
         response = request.get_response()
         debug(response)
-        self.wait_for_torrentlist_update()
+        return response['result'] if response['result'] != 'success' else ''
 
     def add_torrent_tracker(self, id, tracker):
         data = { 'ids' : [id],
@@ -1660,7 +1660,9 @@ class Interface:
             msg = 'Rename "%s"\n to' % (file_path)
             newname = self.dialog_input_text(msg, file_name, tab_complete='dirs')
             if newname:
-                server.rename_torrent_file(self.torrents[self.focus]['id'], file_path, newname)
+                if server.rename_torrent_file(self.torrents[self.focus]['id'], file_path, newname) == 'success':
+                    self.torrent_details['files'][file_id]['name'] = os.path.join(os.path.dirnamename(file_path), newname)
+                    self.file_index_map_id_cached = None # force read
 
     def select_unselect_file(self, c):
         if self.selected_torrent > -1 and self.details_category_focus == 1 and self.focus_detaillist >= 0:

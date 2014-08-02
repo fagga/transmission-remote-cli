@@ -713,6 +713,14 @@ class Transmission:
         request.send_request()
         self.wait_for_torrentlist_update()
 
+    def rename_torrent_file(self, id, path, newname):
+        debug("path %s\nname %s\n" % (path, newname))
+        request = TransmissionRequest(self.host, self.port, self.path, 'torrent-rename-path', 1, {'ids': [id], 'path': path, 'name': newname})
+        request.send_request()
+        response = request.get_response()
+        debug(response)
+        self.wait_for_torrentlist_update()
+
     def add_torrent_tracker(self, id, tracker):
         data = { 'ids' : [id],
                  'trackerAdd' : [tracker] }
@@ -910,6 +918,7 @@ class Interface:
             ord('s'):               self.show_sort_order_menu,
             ord('S'):               self.show_stats,
             ord('f'):               self.f_key,
+            ord('F'):               self.rename_torrent_selected_file,
             ord('u'):               self.global_upload,
             ord('d'):               self.global_download,
             ord('U'):               self.torrent_upload,
@@ -1642,6 +1651,16 @@ class Interface:
                 else:
                     self.scrollpos_detaillist = 0
                     self.prev_details()
+
+    def rename_torrent_selected_file(self, c):
+        if self.selected_torrent > -1 and self.details_category_focus == 1 and self.focus_detaillist >= 0:
+            file_id = self.file_index_map[self.focus_detaillist]
+            file_path = self.torrent_details['files'][file_id]['name']
+            file_name = os.path.basename(file_path)
+            msg = 'Rename "%s"\n to' % (file_path)
+            newname = self.dialog_input_text(msg, file_name, tab_complete='dirs')
+            if newname:
+                server.rename_torrent_file(self.torrents[self.focus]['id'], file_path, newname)
 
     def select_unselect_file(self, c):
         if self.selected_torrent > -1 and self.details_category_focus == 1 and self.focus_detaillist >= 0:
@@ -2838,6 +2857,7 @@ class Interface:
                 if self.details_category_focus == 1:  # files
                     if self.focus_detaillist > -1:
                         message += "     Left/Right  Decrease/Increase file priority\n"
+                        message += "              F  Rename file\n"
                     message += "        Up/Down  Select file\n" + \
                                "          Space  Select/Deselect focused file\n" + \
                                "              a  Select/Deselect all files\n" + \

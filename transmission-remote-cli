@@ -1656,15 +1656,18 @@ class Interface:
             file_id = self.file_index_map[self.focus_detaillist]
             file_path = self.torrent_details['files'][file_id]['name']
             file_name = os.path.basename(file_path)
-            msg = 'Rename "%s"\n to' % (file_path)
+            msg = 'Rename "%s"\n in "%s"\n to:' % (file_name, os.path.dirname(file_path))
             newname = self.dialog_input_text(msg, file_name, tab_complete='dirs')
             if newname:
-                result = server.rename_torrent_file(self.torrents[self.focus]['id'], file_path, newname)
-                if result == 'success':
-#                    self.torrent_details['files'][file_id]['name'] = os.path.join(os.path.dirname(file_path), newname)
-                    self.file_index_map_id_cached = None # force read
+                if len(newname.split(os.sep)) > 1:
+                    self.dialog_ok('Renaming files doesn\'t allow changing directories.')
                 else:
-                    self.dialog_ok('Couldn\'t rename\n"%s"\nto\n"%s":\n%s' % (file_path, newname, result))
+                    result = server.rename_torrent_file(self.torrents[self.focus]['id'], file_path, newname)
+                    if result == 'success':
+#                    self.torrent_details['files'][file_id]['name'] = os.path.join(os.path.dirname(file_path), newname)
+                        self.file_index_map_id_cached = None # force read
+                    else:
+                        self.dialog_ok('Couldn\'t rename\n"%s"\nto\n"%s":\n%s' % (file_path, newname, result))
 
     def select_unselect_file(self, c):
         if self.selected_torrent > -1 and self.details_category_focus == 1 and self.focus_detaillist >= 0:

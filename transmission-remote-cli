@@ -1664,7 +1664,7 @@ class Interface:
                 else:
                     result = server.rename_torrent_file(self.torrents[self.focus]['id'], file_path, newname)
                     if result == 'success':
-#                    self.torrent_details['files'][file_id]['name'] = os.path.join(os.path.dirname(file_path), newname)
+                        self.torrent_details['files'][file_id]['name'] = os.path.join(os.path.dirname(file_path), newname)
                         self.file_index_map_id_cached = None # force read
                     else:
                         self.dialog_ok('Couldn\'t rename\n"%s"\nto\n"%s":\n%s' % (file_path, newname, result))

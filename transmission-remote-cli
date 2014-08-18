@@ -2093,17 +2093,20 @@ class Interface:
             self.pad.addstr(title[1][1:], tags)
             xpos += len(item)+1
 
-        # which details to display
-        if self.details_category_focus == 0:
-            self.draw_details_overview(5)
-        elif self.details_category_focus == 1:
-            self.draw_filelist(5)
-        elif self.details_category_focus == 2:
-            self.draw_peerlist(5)
-        elif self.details_category_focus == 3:
-            self.draw_trackerlist(5)
-        elif self.details_category_focus == 4:
-            self.draw_pieces_map(5)
+        try:
+            # which details to display
+            if self.details_category_focus == 0:
+                self.draw_details_overview(5)
+            elif self.details_category_focus == 1:
+                self.draw_filelist(5)
+            elif self.details_category_focus == 2:
+                self.draw_peerlist(5)
+            elif self.details_category_focus == 3:
+                self.draw_trackerlist(5)
+            elif self.details_category_focus == 4:
+                self.draw_pieces_map(5)
+        except Exception as e:
+            self.draw_details_list(5, ["Exception: %s,%s" % (type(e),e)]);
 
         self.pad.refresh(0,0, 1,0, self.height-2,self.width)
         self.screen.refresh()

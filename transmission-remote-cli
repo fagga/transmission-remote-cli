@@ -3417,6 +3417,11 @@ def timestamp(timestamp, format="%x %X"):
     if timestamp > 2147483647:  # Max value of 32bit signed integer (2^31-1)
         # Timedelta objects do not fail on timestamps
         # resulting in a date later than 2038
+        try:
+            date = (datetime.datetime.fromtimestamp(0) +
+                    datetime.timedelta(seconds=timestamp))
+        except OverflowError:
+            return 'some day in the distant future'
         date = (datetime.datetime.fromtimestamp(0) +
                 datetime.timedelta(seconds=timestamp))
         timeobj = date.timetuple()

@@ -992,7 +992,7 @@ class Interface:
         try:
             self.init_screen()
             self.run()
-        except:
+        except curses.error:
             self.restore_screen()
             (exc_type, exc_value, exc_traceback) = sys.exc_info()
             raise exc_type, exc_value, exc_traceback
@@ -1014,14 +1014,14 @@ class Interface:
         try:
             del os.environ['LINES']
             del os.environ['COLUMNS']
-        except:
+        except KeyError:
             pass
 
         # http://bugs.python.org/issue2675
         try:
             del os.environ['LINES']
             del os.environ['COLUMNS']
-        except:
+        except KeyError:
             pass
 
         signal.signal(signal.SIGWINCH, lambda y,frame: self.get_screen_size())
@@ -1103,18 +1103,10 @@ class Interface:
         while True:
             server.update(1)
 
-            # I'm catching all exceptions here because resizing the terminal
-            # can make a huge mess, e.g. we might be drawing to areas that
-            # don't exist anymore. The proper way would probably be to write a
-            # wrapper around self.pad.addstr() and anything else that uses
-            # coordinates, but it's not worth the effort as this part is
-            # called continuously.
-            try:
-                if self.selected_torrent == -1:
-                    self.draw_torrent_list()
-                else:
-                    self.draw_details()
-            except: pass
+            if self.selected_torrent == -1:
+                self.draw_torrent_list()
+            else:
+                self.draw_details()
 
             self.stats = server.get_global_stats()
             self.draw_title_bar()  # show shortcuts and stuff
@@ -1820,7 +1812,9 @@ class Interface:
                 self.draw_torrent_list()
             else:
                 self.draw_details()
-        except: pass
+        except Exception as e:
+            debug('caught %s in handle_user_input(): %s\n' % (type(e), str(e)))
+            pass
 
     def filter_torrent_list(self):
         unfiltered = self.torrents
@@ -2093,20 +2087,17 @@ class Interface:
             self.pad.addstr(title[1][1:], tags)
             xpos += len(item)+1
 
-        try:
-            # which details to display
-            if self.details_category_focus == 0:
-                self.draw_details_overview(5)
-            elif self.details_category_focus == 1:
-                self.draw_filelist(5)
-            elif self.details_category_focus == 2:
-                self.draw_peerlist(5)
-            elif self.details_category_focus == 3:
-                self.draw_trackerlist(5)
-            elif self.details_category_focus == 4:
-                self.draw_pieces_map(5)
-        except Exception as e:
-            self.draw_details_list(5, ["Exception: %s,%s" % (type(e),e)]);
+        # which details to display
+        if self.details_category_focus == 0:
+            self.draw_details_overview(5)
+        elif self.details_category_focus == 1:
+            self.draw_filelist(5)
+        elif self.details_category_focus == 2:
+            self.draw_peerlist(5)
+        elif self.details_category_focus == 3:
+            self.draw_trackerlist(5)
+        elif self.details_category_focus == 4:
+            self.draw_pieces_map(5)
 
         self.pad.refresh(0,0, 1,0, self.height-2,self.width)
         self.screen.refresh()
@@ -2296,7 +2287,9 @@ class Interface:
                     line = line[2:]
                 try:
                     self.pad.addstr(ypos, 0, ' '*self.width, curses_tags)
-                except: pass
+                except Exception as e:
+                    debug('caught %s in draw_filelist(): %s\n' % (type(e), str(e)))
+                    pass
 
             # colored priority (only in the first 30 chars, the rest is filename)
             xpos = 0

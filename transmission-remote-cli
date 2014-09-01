@@ -1960,7 +1960,7 @@ class Interface:
                 and (self.stats['seedRatioLimited'] or torrent['seedRatioMode'] == 1)):
             limit = torrent['seedRatioLimit'] if torrent['seedRatioMode'] == 1 else self.stats['seedRatioLimit']
             if limit > 0:
-                percentDone = (torrent['uploadRatio'] * 100) / limit
+                percentDone = min((torrent['uploadRatio'] * 100) / limit, 100)
             else:
                 percentDone = 0
         elif torrent['status'] == Transmission.STATUS_CHECK:

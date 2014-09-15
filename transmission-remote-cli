@@ -1451,11 +1451,12 @@ class Interface:
             server.start_now_torrent(t['id'])
 
     def pause_unpause_all_torrent(self, c):
-        focused_torrent = self.torrents[ max(0,self.focus) ]
-        if focused_torrent['status'] == Transmission.STATUS_STOPPED:
-            server.start_torrents([t['id'] for t in self.torrents])
-        else:
-            server.stop_torrents([t['id'] for t in self.torrents])
+        if len(self.torrents) > 0:
+            focused_torrent = self.torrents[ max(0,self.focus) ]
+            if focused_torrent['status'] == Transmission.STATUS_STOPPED:
+                server.start_torrents([t['id'] for t in self.torrents])
+            else:
+                server.stop_torrents([t['id'] for t in self.torrents])
 
     def verify_torrent(self, c):
         if self.focus > -1:

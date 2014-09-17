@@ -2769,11 +2769,11 @@ class Interface:
         self.screen.addstr(0, 0, self.enc(status), curses.A_REVERSE)
 
     def draw_quick_help(self):
-        help = [('?','Show Keybindings')]
+        help = [('?','Help')]
 
         if self.selected_torrent == -1:
             if self.focus >= 0:
-                help = [('enter','View Details'), ('p','Pause/Unpause'), ('r','Remove'), ('v','Verify')]
+                help = [('enter','View'), ('p','Pause/Unpause'), ('r','Remove'), ('v','Verify')]
             else:
                 help = [('/','Search'), ('f','Filter'), ('s','Sort')] + help + [('o','Options'), ('q','Quit')]
         else:
@@ -2789,7 +2789,7 @@ class Interface:
             elif self.details_category_focus == 3:
                 help = [('a','Add Tracker'),('r','Remove Tracker')] + help
 
-        line = ' | '.join(map(lambda x: "%s %s" % (x[0], x[1]), help))
+        line = '  '.join(map(lambda x: "%s:%s" % (x[0], x[1]), help))
         line = line[0:self.width]
         self.screen.insstr(0, self.width-len(line), line, curses.A_REVERSE)
 

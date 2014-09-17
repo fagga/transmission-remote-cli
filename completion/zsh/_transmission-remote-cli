@@ -1,0 +1,11 @@
+#compdef transmission-remote-cli
+
+_arguments \
+  {-v,--version}'[Show version number and exit]' \
+  {-h,--help}'[Show usage information and a list of options]' \
+  {-c,--connect}'[Point to the server]: :_hosts' \
+  {-s,--ssl}'[Use SSL to connect to the server]' \
+  '--create-config[Create default configuration file]' \
+  {-f,--config}'[Set path to configuration file]: :_files' \
+  {-n,--netrc}'[Get authentication info from ~/.netrc.]' \
+  '*::torrent:_files -g "*.torrent"'

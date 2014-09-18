@@ -1004,10 +1004,8 @@ class Interface:
         os.environ['ESCDELAY'] = '0' # make escape usable
         self.screen = curses.initscr()
         curses.noecho() ; curses.cbreak() ; self.screen.keypad(1)
-        curses.halfdelay(10) # STDIN timeout
-
+        curses.halfdelay(1) # STDIN timeout
         hide_cursor()
-
         self.colors = ColorManager(dict(config.items('Colors')))
 
         # http://bugs.python.org/issue2675
@@ -1333,7 +1331,9 @@ class Interface:
         height = min(self.height, message.count("\n")+3)
         win = self.window(height, width, message=message, title=title)
         while True:
-            if win.getch() >= 0: return
+            if win.getch() >= 0:
+                self.clear_userinput(win)
+                return
 
     def show_state_filter_menu(self, c):
         if self.selected_torrent == -1:
@@ -2877,8 +2877,9 @@ class Interface:
         height = min(self.height, message.count("\n")+3)
         win = self.window(height, width, message=message, title=title)
         while True:
-            if win.getch() >= 0: return
-
+            if win.getch() >= 0:
+                self.clear_userinput(win)
+                return
 
     def window(self, height, width, message='', title=''):
         height = min(self.height, height)
@@ -2913,13 +2914,19 @@ class Interface:
                 break
         return win
 
+    def clear_userinput(self, win):
+        "Make sure there is no user input left"
+        while win.getch() != -1:
+            pass
 
     def dialog_ok(self, message):
         height = 3 + message.count("\n")
         width  = max(max(map(lambda x: len_columns(x), message.split("\n"))), 40) + 4
         win = self.window(height, width, message=message)
         while True:
-            if win.getch() >= 0: return
+            if win.getch() >= 0:
+                self.clear_userinput(win)
+                return
 
     def dialog_yesno(self, message, important=False):
         height = 5 + message.count("\n")

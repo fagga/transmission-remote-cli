@@ -1004,7 +1004,7 @@ class Interface:
         os.environ['ESCDELAY'] = '0' # make escape usable
         self.screen = curses.initscr()
         curses.noecho() ; curses.cbreak() ; self.screen.keypad(1)
-        curses.halfdelay(1) # STDIN timeout
+        curses.halfdelay(10) # STDIN timeout
         hide_cursor()
         self.colors = ColorManager(dict(config.items('Colors')))
 
@@ -2916,8 +2916,10 @@ class Interface:
 
     def clear_userinput(self, win):
         "Make sure there is no user input left"
+        curses.halfdelay(1)
         while win.getch() != -1:
             pass
+        curses.halfdelay(10)
 
     def dialog_ok(self, message):
         height = 3 + message.count("\n")

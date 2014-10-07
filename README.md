@@ -1,3 +1,16 @@
+**Please don't request or submit new features that would add more than a
+  handful (literally!) of lines of code.**
+
+Given the messy implementation, adding functionality either causes new bugs
+that nobody wants to fix or it adds cruft that I won't be able to understand
+two weeks later because there's already so much cruft that mostly works but
+without any regards to the bigger picture. (Also, there is not much of a
+bigger picture, it's hacks all the way down (and maybe even up). Imagine a
+house that is hold together by the corpses in the drywall.)
+
+**This doesn't mean the project is dead.**  
+I'll always accept any bugfixes. (Unless they cause new bugs.)
+
 ## About
 
 A console client for the BitTorrent client [Transmission](http://www.transmissionbt.com/ "Transmission Homepage").

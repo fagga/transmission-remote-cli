@@ -1645,22 +1645,33 @@ class Interface:
                     self.prev_details()
 
     def rename_torrent_selected_file(self, c):
-        if self.selected_torrent > -1 and self.details_category_focus == 1 and self.focus_detaillist >= 0:
-            file_id = self.file_index_map[self.focus_detaillist]
-            file_path = self.torrent_details['files'][file_id]['name']
-            file_name = os.path.basename(file_path)
-            msg = 'Rename "%s"\n in "%s"\n to:' % (file_name, os.path.dirname(file_path))
-            newname = self.dialog_input_text(msg, file_name, tab_complete='dirs')
+        def rename_dialog(oldname):
+            filename = os.path.basename(oldname)
+            msg = 'Rename "%s"\nto:' % oldname
+            newname = self.dialog_input_text(msg, filename, tab_complete='dirs')
             if newname:
                 if len(newname.split(os.sep)) > 1:
-                    self.dialog_ok('Renaming files doesn\'t allow changing directories.')
+                    self.dialog_ok("Moving is not supported.")
                 else:
-                    result = server.rename_torrent_file(self.torrents[self.focus]['id'], file_path, newname)
+                    result = server.rename_torrent_file(self.torrents[self.focus]['id'], oldname, newname)
                     if result == 'success':
-                        self.torrent_details['files'][file_id]['name'] = os.path.join(os.path.dirname(file_path), newname)
-                        self.file_index_map_id_cached = None # force read
+                        return os.path.join(os.path.dirname(oldname), newname)
                     else:
-                        self.dialog_ok('Couldn\'t rename\n"%s"\nto\n"%s":\n%s' % (file_path, newname, result))
+                        dir = self.torrents[self.focus]['downloadDir']
+                        self.dialog_ok('Couldn\'t rename\n"%s"\nto\n"%s":\n%s' %
+                                       (oldname, newname, result))
+                        return False
+
+        if self.selected_torrent > -1 and self.details_category_focus == 1 and self.focus_detaillist >= 0:
+            # rename files in torrent
+            file_id = self.file_index_map[self.focus_detaillist]
+            newpath = rename_dialog(self.torrent_details['files'][file_id]['name'])
+            if newpath:
+                self.torrent_details['files'][file_id]['name'] = newpath
+                self.file_index_map_id_cached = None # force read
+        elif self.focus > -1:
+            # rename torrent folder
+            rename_dialog(self.torrents[self.focus]['name'])
 
     def select_unselect_file(self, c):
         if self.selected_torrent > -1 and self.details_category_focus == 1 and self.focus_detaillist >= 0:
@@ -2806,6 +2817,7 @@ class Interface:
                   "              N  Start torrent now\n" + \
                   "            v/y  Verify torrent\n" + \
                   "              m  Move torrent\n" + \
+                  "              F  Rename torrent/file\n" + \
                   "              n  Reannounce torrent\n" + \
                   "              a  Add torrent\n" + \
                   "              A  Add torrent by hash\n" + \
@@ -2861,7 +2873,6 @@ class Interface:
                 if self.details_category_focus == 1:  # files
                     if self.focus_detaillist > -1:
                         message += "     Left/Right  Decrease/Increase file priority\n"
-                        message += "              F  Rename file\n"
                     message += "        Up/Down  Select file\n" + \
                                "          Space  Select/Deselect focused file\n" + \
                                "              a  Select/Deselect all files\n" + \

@@ -15,6 +15,7 @@
 # GNU General Public License for more details:                         #
 # http://www.gnu.org/licenses/gpl-3.0.txt                              #
 ########################################################################
+from __future__ import print_function
 
 VERSION = '1.7.0'
 
@@ -997,8 +998,7 @@ class Interface(object):
             self.run()
         except curses.error:
             self.restore_screen()
-            (exc_type, exc_value, exc_traceback) = sys.exc_info()
-            raise exc_type, exc_value, exc_traceback
+            raise
         else:
             self.restore_screen()
 
@@ -1024,7 +1024,7 @@ class Interface(object):
         except KeyError:
             pass
 
-        signal.signal(signal.SIGWINCH, lambda y,frame: self.get_screen_size())
+        signal.signal(signal.SIGWINCH, lambda y, frame: self.get_screen_size())
         self.get_screen_size()
 
     def restore_screen(self):
@@ -3583,7 +3583,7 @@ def quit(msg='', exitcode=0):
     if not msg and not exitcode:
         save_config(cmd_args.configfile)
     else:
-        print >> sys.stderr, msg,
+        print(msg, file=sys.stderr)
     os._exit(exitcode)
 
 
@@ -3632,9 +3632,9 @@ def read_netrc(file=os.environ['HOME'] + '/.netrc', hostname=None):
             netrc.netrc(file).hosts[hostname]
         except KeyError:
             if hostname != 'localhost':
-                print "Unknown machine in %s: %s" % (file, hostname)
+                print("Unknown machine in %s: %s" % (file, hostname))
                 if login and password:
-                    print "Using default login: %s" % login
+                    print("Using default login: %s" % login)
                 else:
                     exit(CONFIGFILE_ERROR)
     except netrc.NetrcParseError as e:
@@ -3662,13 +3662,13 @@ def create_config(option, opt_str, value, parser):
         try:
             os.makedirs(dir)
         except OSError as msg:
-            print msg
+            print(msg)
             exit(CONFIGFILE_ERROR)
 
     # write file
     if not save_config(configfile, force=True):
         exit(CONFIGFILE_ERROR)
-    print "Wrote config file: %s" % configfile
+    print("Wrote config file: %s" % configfile)
     exit(0)
 
 
@@ -3676,10 +3676,11 @@ def save_config(filepath, force=False):
     if force or os.path.isfile(filepath):
         try:
             config.write(open(filepath, 'w'))
-            os.chmod(filepath, 0600)  # config may contain password
+            os.chmod(filepath, 0o600)  # config may contain password
             return 1
         except IOError as msg:
-            print >> sys.stderr, "Cannot write config file %s:\n%s" % (filepath, msg)
+            print("Cannot write config file %s:\n%s" % (filepath, msg),
+                  file=sys.stderr)
             return 0
     return -1
 
@@ -3755,10 +3756,10 @@ if __name__ == '__main__':
         if config.get('Connection', 'username') and config.get('Connection', 'password'):
             cmd_print = cmd
             cmd_print.extend(['--auth', '%s:PASSWORD' % config.get('Connection', 'username')])
-            print "EXECUTING:\n%s\nRESPONSE:" % ' '.join(cmd_print)
+            print("EXECUTING:\n%s\nRESPONSE:" % ' '.join(cmd_print))
             cmd.extend(['--auth', '%s:%s' % (config.get('Connection', 'username'), config.get('Connection', 'password'))])
         else:
-            print "EXECUTING:\n%s\nRESPONSE:" % ' '.join(cmd)
+            print("EXECUTING:\n%s\nRESPONSE:" % ' '.join(cmd))
 
         try:
             retcode = call(cmd)

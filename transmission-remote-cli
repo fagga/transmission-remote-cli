@@ -45,11 +45,8 @@ import time
 import datetime
 import re
 import base64
-import httplib
-import urllib2
 import socket
 socket.setdefaulttimeout(None)
-import ConfigParser
 from optparse import OptionParser, SUPPRESS_HELP
 import sys
 import os
@@ -62,8 +59,28 @@ from textwrap import wrap
 from subprocess import call, Popen
 import netrc
 import operator
-import urlparse
 from distutils.spawn import find_executable
+
+try:
+    import httplib
+except ImportError:
+    import http.client
+
+try:
+    import urllib2
+except ImportError:
+    import urllib.request as urllib2
+
+try:
+    import ConfigParser
+except ImportError:
+    import configparser as ConfigParser
+
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as urlparse
+
 
 locale.setlocale(locale.LC_ALL, '')
 ENCODING = locale.getpreferredencoding() or 'UTF-8'

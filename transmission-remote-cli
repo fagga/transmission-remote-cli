@@ -233,7 +233,7 @@ class TransmissionRequest(object):
             pass
 
         # authentication
-        except urllib2.HTTPError, e:
+        except urllib2.HTTPError as e:
             try:
                 msg = html2text(str(e.read()))
             except:
@@ -247,7 +247,7 @@ class TransmissionRequest(object):
             except AttributeError:
                 quit(str(msg) + "\n", CONNECTION_ERROR)
 
-        except urllib2.URLError, msg:
+        except urllib2.URLError as msg:
             try:
                 reason = msg.reason[1]
             except IndexError:
@@ -1782,7 +1782,7 @@ class Interface(object):
                     devnull = open(os.devnull, 'wb')
                     Popen(viewer_cmd, stdout=devnull, stderr=devnull)
                     devnull.close()
-            except OSError, err:
+            except OSError as err:
                 self.get_screen_size()
                 self.dialog_ok("%s:\n%s" % (" ".join(viewer_cmd), err))
 
@@ -2456,7 +2456,7 @@ class Interface(object):
                         host_name = "<not resolvable>"
                 except adns.NotReady:
                     host_name = "<resolving>"
-                except adns.Error, msg:
+                except adns.Error as msg:
                     host_name = msg
 
             upload_tag = download_tag = line_tag = 0
@@ -3046,7 +3046,7 @@ class Interface(object):
                 index += 1
                 if on_change: on_change(input)
             elif c == ord('\t') and tab_complete:
-                possible_choices = [];
+                possible_choices = []
                 if tab_complete in ('files', 'dirs'):
                     (dirname, filename) = os.path.split(tilde2homedir(input))
                     if not dirname:
@@ -3055,7 +3055,7 @@ class Interface(object):
                         possible_choices = [ os.path.join(dirname, choice) for choice in os.listdir(dirname)
                                              if choice.startswith(filename) ]
                     except OSError:
-                        continue;
+                        continue
                     if tab_complete == 'dirs':
                         possible_choices = [ d for d in possible_choices
                                              if os.path.isdir(d) ]
@@ -3069,7 +3069,7 @@ class Interface(object):
                             input += os.sep
                         input = homedir2tilde(input)
                     index = len(input)
-                    if on_change: on_change(input);
+                    if on_change: on_change(input)
             if on_change: win.redrawwin()
 
     def dialog_search_torrentlist(self, c):
@@ -3637,9 +3637,9 @@ def read_netrc(file=os.environ['HOME'] + '/.netrc', hostname=None):
                     print "Using default login: %s" % login
                 else:
                     exit(CONFIGFILE_ERROR)
-    except netrc.NetrcParseError, e:
+    except netrc.NetrcParseError as e:
         quit("Error in %s at line %s: %s\n" % (e.filename, e.lineno, e.msg))
-    except IOError, msg:
+    except IOError as msg:
         quit("Cannot read %s: %s\n" % (file, msg))
     return login, password
 
@@ -3661,7 +3661,7 @@ def create_config(option, opt_str, value, parser):
     if dir != '' and not os.path.isdir(dir):
         try:
             os.makedirs(dir)
-        except OSError, msg:
+        except OSError as msg:
             print msg
             exit(CONFIGFILE_ERROR)
 
@@ -3678,7 +3678,7 @@ def save_config(filepath, force=False):
             config.write(open(filepath, 'w'))
             os.chmod(filepath, 0600)  # config may contain password
             return 1
-        except IOError, msg:
+        except IOError as msg:
             print >> sys.stderr, "Cannot write config file %s:\n%s" % (filepath, msg)
             return 0
     return -1
@@ -3762,7 +3762,7 @@ if __name__ == '__main__':
 
         try:
             retcode = call(cmd)
-        except OSError, msg:
+        except OSError as msg:
             quit("Could not execute the above command: %s\n" % msg.strerror, 128)
         quit('', retcode)
 

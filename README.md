@@ -20,7 +20,7 @@ A console client for the BitTorrent client [Transmission](http://www.transmissio
 
 - [Arch Linux](https://www.archlinux.org/packages/community/any/transmission-remote-cli/)
 - [Debian](http://packages.debian.org/search?keywords=transmission-remote-cli)
-- [Fedora](https://admin.fedoraproject.org/pkgdb/acls/list/?searchwords=transmission-remote-cli)
+- [Fedora](https://admin.fedoraproject.org/pkgdb/package/transmission-remote-cli/)
 - [OpenSUSE](http://software.opensuse.org/package/transmission-remote-cli?search_term=transmission-remote-cli)
 - [Ubuntu](http://packages.ubuntu.com/search?keywords=transmission-remote-cli)
 

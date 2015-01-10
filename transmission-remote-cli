@@ -1034,13 +1034,6 @@ class Interface(object):
         except KeyError:
             pass
 
-        # http://bugs.python.org/issue2675
-        try:
-            del os.environ['LINES']
-            del os.environ['COLUMNS']
-        except KeyError:
-            pass
-
         signal.signal(signal.SIGWINCH, lambda y, frame: self.get_screen_size())
         self.get_screen_size()
 

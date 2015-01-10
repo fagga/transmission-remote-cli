@@ -101,7 +101,7 @@ torrent files with transmission-remote-cli.
 
 ## Copyright
 
-Released under the GPLv3 license, see [COPYING](transmission-remote-cli/blob/master/COPYING) for details.
+Released under the GPLv3 license, see [COPYING](COPYING) for details.
 
 
 ## Contact

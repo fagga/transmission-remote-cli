@@ -1260,7 +1260,7 @@ class Interface(object):
             # 10^9 instead of 2^30 to be consistent with web interface
             free_space = float(server.get_free_space())/(10**9) # Bytes > GB
 
-        location = self.dialog_input_text("Add torrent from file or URL"
+        location = self.dialog_input_text("Add torrent from file, URL or pure hash"
                                 + (" - HDD (free): %.3f GB" % free_space if free_space else ""),
                                         homedir2tilde(os.getcwd()+os.sep), tab_complete='files')
 
@@ -2816,7 +2816,6 @@ class Interface(object):
                   "              F  Rename torrent/file\n" + \
                   "              n  Reannounce torrent\n" + \
                   "              a  Add torrent\n" + \
-                  "              A  Add torrent by hash\n" + \
                   "              S  Show upload/download stats\n" + \
                   "          Del/r  Remove torrent and keep content\n" + \
                   "    Shift+Del/R  Remove torrent and delete content\n"

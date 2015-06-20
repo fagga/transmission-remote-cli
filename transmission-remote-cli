@@ -1007,7 +1007,7 @@ class Interface(object):
 
         self.sort_options.append(('reverse', 'Re_verse'))
 
-        self.file_index_map_id_cached = None
+        self.filelist_needs_refresh = False
         self.sorted_files = None
 
         try:
@@ -1671,7 +1671,7 @@ class Interface(object):
             newpath = rename_dialog(self.torrent_details['files'][file_id]['name'])
             if newpath:
                 self.torrent_details['files'][file_id]['name'] = newpath
-                self.file_index_map_id_cached = None # force read
+                self.filelist_needs_refresh = True # force read
         elif self.focus > -1:
             # rename torrent folder
             rename_dialog(self.torrents[self.focus]['name'])
@@ -2331,12 +2331,12 @@ class Interface(object):
 
     def create_filelist(self):
         # Build new mapping between sorted local files and transmission-daemon's unsorted files.
-        if self.file_index_map_id_cached != self.torrent_details['id']:
+        if self.filelist_needs_refresh:
+            self.filelist_needs_refresh = False
             self.file_index_map = {}
             self.sorted_files = sorted(self.torrent_details['files'], cmp=lambda x,y: cmp(x['name'], y['name']))
             for index, file in enumerate(self.sorted_files):
                 self.file_index_map[index] = self.torrent_details['files'].index(file)
-            self.file_index_map_id_cached = self.torrent_details['id']
         files = sorted(self.torrent_details['files'], cmp=lambda x,y: cmp(x['name'], y['name']))
 
         filelist = []
@@ -2628,6 +2628,8 @@ class Interface(object):
             self.details_category_focus = 0
         else:
             self.details_category_focus += 1
+        if self.details_category_focus == 1: # We moved to file list
+            self.filelist_needs_refresh = True
         self.focus_detaillist     = -1
         self.scrollpos_detaillist = 0
         self.pad.erase()
@@ -2637,6 +2639,8 @@ class Interface(object):
             self.details_category_focus = 4
         else:
             self.details_category_focus -= 1
+        if self.details_category_focus == 1: # We moved to file list
+            self.filelist_needs_refresh = True
         self.pad.erase()
 
     def move_up(self, focus, scrollpos, step_size):

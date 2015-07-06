@@ -1226,6 +1226,7 @@ class Interface(object):
         if self.selected_torrent == -1:
             self.show_state_filter_menu(c)
         elif self.selected_torrent > -1:
+            self.filelist_needs_refresh = True
             self.details_category_focus = 1
 
     def r_key(self, c):

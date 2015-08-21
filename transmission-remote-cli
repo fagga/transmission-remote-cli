@@ -29,18 +29,7 @@ CONNECTION_ERROR = 1
 JSON_ERROR       = 2
 CONFIGFILE_ERROR = 3
 
-# use simplejson if available because it seems to be faster
-try:
-    import simplejson as json
-except ImportError:
-    try:
-        # Python 2.6 comes with a json module ...
-        import json
-        # ...but there is also an old json module that doesn't support .loads/.dumps.
-        json.dumps ; json.dumps
-    except (ImportError, AttributeError):
-        quit("Please install simplejson or Python 2.6 or higher.")
-
+import json
 import time
 import datetime
 import re
@@ -218,7 +207,6 @@ class Normalizer(object):
         return sum(self.values[id]) / len(self.values[id])
 
 
-authhandler = None
 session_id = 0
 vmode_id = -1
 
@@ -278,9 +266,6 @@ class TransmissionRequest(object):
         if self.open_request is None:
             return {'result': 'no open request'}
         response = self.open_request.read()
-        # work around regression in Python 2.6.5, caused by http://bugs.python.org/issue8797
-        if authhandler:
-            authhandler.retried = 0
         try:
             data = json.loads(unicode(response))
         except ValueError:
@@ -330,7 +315,6 @@ class Transmission(object):
         if username and password:
             password_mgr = urllib2.HTTPPasswordMgrWithDefaultRealm()
             password_mgr.add_password(None, create_url(host, port, path), username, password)
-            global authhandler
             authhandler = urllib2.HTTPBasicAuthHandler(password_mgr)
             opener = urllib2.build_opener(authhandler)
             urllib2.install_opener(opener)

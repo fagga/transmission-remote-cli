@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 ########################################################################
 # This is transmission-remote-cli, whereas 'cli' stands for 'Curses    #
 # Luminous Interface', a client for the daemon of the BitTorrent       #

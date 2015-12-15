@@ -2031,9 +2031,9 @@ class Interface(object):
                 parts[0] = self.enc([te for te in tracker_errors if te][0])
         else:
             if torrent['status'] == Transmission.STATUS_CHECK:
-                parts[0] += " (%d%%)" % int(float(torrent['recheckProgress']) * 100)
+                parts[0] += " (%.2f%%)" % float(torrent['recheckProgress']) * 100
             elif torrent['status'] == Transmission.STATUS_DOWNLOAD:
-                parts[0] += " (%d%%)" % torrent['percentDone']
+                parts[0] += " (%.2f%%)" % torrent['percentDone']
             parts[0] = parts[0].ljust(20)
 
             # seeds and leeches will be appended right justified later
@@ -2136,9 +2136,9 @@ class Interface(object):
 
         info.append(['Download: '])
         info[-1].append("%s" % scale_bytes(t['downloadedEver'], 'long') + \
-                        " (%d%%) received;  " % int(percent(t['sizeWhenDone'], t['downloadedEver'])))
+                        " (%.2f%%) received;  " % percent(t['sizeWhenDone'], t['downloadedEver']))
         info[-1].append("%s" % scale_bytes(t['haveValid'], 'long') + \
-                        " (%d%%) verified;  " % int(percent(t['sizeWhenDone'], t['haveValid'])))
+                        " (%.2f%%) verified;  " % percent(t['sizeWhenDone'], t['haveValid']))
         info[-1].append("%s corrupt"  % scale_bytes(t['corruptEver'], 'long'))
         if t['percentDone'] < 100:
             info[-1][-1] += ';  '
@@ -2153,7 +2153,7 @@ class Interface(object):
             copies_distributed = (float(t['uploadedEver']) / float(t['sizeWhenDone']))
         except ZeroDivisionError:
             copies_distributed = 0
-        info.append(['Upload: ', "%s (%d%%) transmitted; " %
+        info.append(['Upload: ', "%s (%.2f%%) transmitted; " %
                      (scale_bytes(t['uploadedEver'], 'long'), t['uploadRatio']*100)])
         if t['rateUpload']:
             info[-1].append("sending %s per second" % scale_bytes(t['rateUpload'], 'long'))
@@ -2392,7 +2392,7 @@ class Interface(object):
         return [current_depth, pos]
 
     def create_filelist_line(self, name, index, percent, length, current_depth):
-        line = "%s  %6.1f%%" % (str(index+1).rjust(3), percent) + \
+        line = "%s  %6.2f%%" % (str(index+1).rjust(3), percent) + \
             '  '+scale_bytes(length).rjust(5) + \
             '  '+server.get_file_priority(self.torrent_details['id'], self.file_index_map[index]).center(8) + \
             " %s| %s" % ('  '*current_depth, name[0:self.width-31-current_depth])
@@ -2420,7 +2420,7 @@ class Interface(object):
             if len(str(peer['port'])) > port_width: port_width = len(str(peer['port']))
 
         # Column names
-        column_names = 'Flags %3d Down %3d Up Progress     ETA ' % \
+        column_names = 'Flags %3d Down %3d Up Progress         ETA ' % \
             (self.torrent_details['peersSendingToUs'], self.torrent_details['peersGettingFromUs'])
         column_names += 'Client'.ljust(clientname_width + 1) \
             + 'Address'.ljust(address_width+port_width+1)
@@ -2459,8 +2459,8 @@ class Interface(object):
             self.pad.addstr("%5s " % scale_bytes(peer['rateToPeer']), upload_tag)
 
             # Progress
-            if peer['progress'] < 1: self.pad.addstr("%3d%%" % (float(peer['progress'])*100))
-            else: self.pad.addstr("%3d%%" % (float(peer['progress'])*100), curses.A_BOLD)
+            if peer['progress'] < 1: self.pad.addstr("%7.2f%%" % (float(peer['progress'])*100))
+            else: self.pad.addstr("%7.2f%%" % (float(peer['progress'])*100), curses.A_BOLD)
 
             # ETA
             if peer['progress'] < 1 and peer['download_speed'] > 1024:

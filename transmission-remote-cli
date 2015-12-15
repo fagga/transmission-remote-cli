@@ -1944,7 +1944,7 @@ class Interface(object):
                         curses.color_pair(self.colors.id('upload_rate')) + curses.A_BOLD + curses.A_REVERSE)
 
     def draw_ratio(self, torrent, ypos):
-        self.pad.addch(ypos+1, self.width-self.rateUpload_width-1, curses.ACS_DIAMOND,
+        self.pad.addch(ypos+1, self.width-self.rateUpload_width-1, curses.ACS_BULLET,
                        (0, curses.A_BOLD)[torrent['uploadRatio'] < 1 and torrent['uploadRatio'] >= 0])
         self.pad.addstr(ypos+1, self.width-self.rateUpload_width,
                         num2str(torrent['uploadRatio'], '%.02f').rjust(self.rateUpload_width),

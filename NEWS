@@ -1,3 +1,7 @@
+1.7.1  2015-12-17
+    - Various bugfixes, hacks and adjustments I don't remember at all
+
+
 1.7.0  2014-05-14
     BUGFIXES:
         - Check if 'transmission-remote' exists before executing it

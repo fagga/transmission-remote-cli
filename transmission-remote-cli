@@ -17,7 +17,7 @@
 ########################################################################
 from __future__ import print_function
 
-VERSION = '1.7.0'
+VERSION = '1.7.1'
 
 TRNSM_VERSION_MIN = '1.90'
 TRNSM_VERSION_MAX = '2.84'

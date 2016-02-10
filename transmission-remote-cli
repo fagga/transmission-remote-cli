@@ -265,7 +265,12 @@ class TransmissionRequest(object):
 
         if self.open_request is None:
             return {'result': 'no open request'}
-        response = self.open_request.read()
+        response = b''
+        while True:
+            chunk = self.open_request.read()
+            if not chunk:
+                break
+            response += chunk
         try:
             data = json.loads(unicode(response))
         except ValueError:
